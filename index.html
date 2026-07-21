@@ -650,6 +650,30 @@
       .closing-modal-panel{width:calc(100vw - 18px);}
     }
 
+  
+    .event-workspace { margin-top:18px; overflow:hidden; }
+    .event-workspace-head { display:flex; align-items:flex-end; justify-content:space-between; gap:16px; padding:18px 20px; border-bottom:1px solid var(--border); background:linear-gradient(135deg,#fff7ed,#ffffff); }
+    .event-workspace-head h3 { margin:0 0 4px; }
+    .event-workspace-head p { margin:0; color:var(--muted); font-size:12px; }
+    .event-selector-wrap { min-width:280px; }
+    .event-selector-wrap label { display:block; margin-bottom:6px; color:var(--muted); font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; }
+    .event-tabs { display:flex; gap:8px; padding:12px 20px; border-bottom:1px solid var(--border); background:#f8fafc; overflow-x:auto; }
+    .event-tab-btn { border:1px solid var(--border); background:#fff; color:#475569; border-radius:10px; padding:9px 13px; font:inherit; font-size:12px; font-weight:800; cursor:pointer; white-space:nowrap; }
+    .event-tab-btn.active { background:#111827; border-color:#111827; color:#fff; }
+    .event-panel { padding:18px 20px 22px; }
+    .event-panel[hidden] { display:none !important; }
+    .event-panel .toolbar { margin-bottom:14px; }
+    .event-scope-note { margin:0 0 14px; padding:11px 13px; border:1px solid #fed7aa; border-radius:10px; background:#fff7ed; color:#9a3412; font-size:12px; line-height:1.5; }
+    .event-panel .daily-recap-summary { margin-top:14px; }
+    .event-panel .table-card { margin-top:14px; }
+    .scope-hidden { display:none !important; }
+    @media (max-width:780px){
+      .event-workspace-head { align-items:stretch; flex-direction:column; }
+      .event-selector-wrap { min-width:0; width:100%; }
+      .event-panel { padding:14px; }
+      .event-tabs { padding:10px 14px; }
+    }
+
   </style>
 </head>
 <body>
@@ -738,7 +762,7 @@
         <button data-full-view data-view="transactions"><span class="icon">⇄</span> Pemasukan & Pengeluaran</button>
         <button data-view="inventory"><span class="icon">▤</span> Rekapan Bahan</button>
         <button data-full-view data-view="materials"><span class="icon">＋</span> Daftar Bahan</button>
-        <button data-full-view data-view="events"><span class="icon">★</span> Rekapan Event</button>
+        <button data-full-view data-view="events"><span class="icon">★</span> Event</button>
         <button data-full-view data-view="settings"><span class="icon">⚙</span> Data & Pengaturan</button>
       </nav>
 
@@ -784,7 +808,7 @@
             <article class="card stat-card income"><div class="stat-label">Pemasukan Bulan Ini</div><div class="stat-value" id="statIncome">Rp0</div><div class="stat-sub" id="statIncomeCount">0 transaksi pemasukan</div></article>
             <article class="card stat-card expense"><div class="stat-label">Pengeluaran Bulan Ini</div><div class="stat-value" id="statExpense">Rp0</div><div class="stat-sub" id="statExpenseCount">0 transaksi pengeluaran</div></article>
             <article class="card stat-card profit"><div class="stat-label">Saldo Bersih Bulan Ini</div><div class="stat-value" id="statProfit">Rp0</div><div class="stat-sub">Pemasukan dikurangi pengeluaran</div></article>
-            <article class="card stat-card stock-alert"><div class="stat-label">Bahan Perlu Restok</div><div class="stat-value" id="statLowStock">0</div><div class="stat-sub">Termasuk bahan toko dan event</div></article>
+            <article class="card stat-card stock-alert"><div class="stat-label">Bahan Perlu Restok</div><div class="stat-value" id="statLowStock">0</div><div class="stat-sub">Khusus bahan operasional toko</div></article>
           </div>
 
           <div class="grid two-col" style="margin-top:18px">
@@ -793,18 +817,18 @@
           </div>
 
           <article class="card table-card" style="margin-top:18px">
-            <div class="card-head"><div><h3>Transaksi Terbaru</h3><p>10 catatan terakhir, termasuk transaksi event</p></div><button class="btn btn-light btn-sm" data-go="transactions">Lihat Semua</button></div>
+            <div class="card-head"><div><h3>Transaksi Terbaru</h3><p>10 transaksi operasional toko terakhir</p></div><button class="btn btn-light btn-sm" data-go="transactions">Lihat Semua</button></div>
             <div class="table-wrap" id="recentTransactions"></div>
           </article>
         </section>
 
         <section class="view" data-full-view id="view-transactions">
-          <div class="toolbar"><div><h3>Pemasukan & Pengeluaran</h3><p id="transactionAccessText">Catat transaksi reguler maupun transaksi kegiatan event.</p></div><div class="toolbar-actions"><button class="btn btn-light" id="exportTransactionsBtn">⇩ Ekspor CSV</button><button class="btn btn-primary" id="addTransactionBtn" data-admin-write>＋ Tambah Transaksi</button></div></div>
+          <div class="toolbar"><div><h3>Pemasukan & Pengeluaran Toko</h3><p id="transactionAccessText">Catat transaksi operasional toko. Seluruh transaksi event dikelola terpisah melalui menu Event.</p></div><div class="toolbar-actions"><button class="btn btn-light" id="exportTransactionsBtn">⇩ Ekspor CSV</button><button class="btn btn-primary" id="addTransactionBtn" data-admin-write>＋ Tambah Transaksi Toko</button></div></div>
           <div class="card filters">
-            <input class="input" id="transactionSearch" placeholder="Cari kategori, event, atau keterangan..." />
+            <input class="input" id="transactionSearch" placeholder="Cari kategori atau keterangan..." />
             <select class="select" id="transactionTypeFilter"><option value="all">Semua Jenis</option><option value="income">Pemasukan</option><option value="expense">Pengeluaran</option></select>
             <input class="input" type="month" id="transactionMonthFilter" />
-            <select class="select" id="transactionEventFilter"></select>
+            <select class="select" id="transactionEventFilter" hidden aria-hidden="true" tabindex="-1"><option value="none">Non-Event</option></select>
           </div>
           <article class="card table-card"><div class="table-wrap" id="transactionsTable"></div></article>
         </section>
@@ -812,7 +836,7 @@
         <section class="view" id="view-inventory">
           <div class="toolbar">
             <div>
-              <h3>Closing Bahan Harian</h3>
+              <h3>Closing Bahan Toko Harian</h3>
               <p id="inventoryAccessText">Daftar bahan tampil pada setiap tanggal. Admin dan Karyawan dapat membuka serta melakukan closing untuk hari ini maupun hari sebelumnya.</p>
             </div>
             <div class="toolbar-actions">
@@ -862,7 +886,7 @@
         <section class="view" id="view-materials" data-full-view>
           <div class="toolbar">
             <div>
-              <h3>Daftar Bahan</h3>
+              <h3>Daftar Bahan Toko</h3>
               <p id="materialsAccessText">Pilih toko melalui slicer di header, lalu tambahkan nama bahan dan tentukan stok minimum. Status bahan diperbarui otomatis dari hasil closing terakhir.</p>
             </div>
             <div class="toolbar-actions">
@@ -879,18 +903,18 @@
           </div>
           <article class="card table-card">
             <div class="card-head">
-              <div><h3>Nama Bahan Aktif</h3><p>Daftar bahan, stok terakhir, batas minimum, dan status ketersediaan setiap cabang.</p></div>
+              <div><h3>Nama Bahan Toko Aktif</h3><p>Daftar bahan, stok terakhir, batas minimum, dan status ketersediaan setiap cabang.</p></div>
             </div>
             <div class="table-wrap" id="materialsTable"></div>
           </article>
         </section>
 
         <section class="view" data-full-view id="view-events">
-          <div class="toolbar"><div><h3>Rekapan Kegiatan Event</h3><p id="eventAccessText">Kelola event dan lihat pemasukan, pengeluaran, saldo, serta bahan yang terhubung.</p></div><div class="toolbar-actions"><button class="btn btn-light" id="exportEventsBtn">⇩ Ekspor CSV</button><button class="btn btn-primary" id="addEventBtn" data-admin-write>＋ Tambah Event</button></div></div>
+          <div class="toolbar"><div><h3>Event</h3><p id="eventAccessText">Event berdiri sendiri dan tidak digabungkan dengan transaksi maupun bahan operasional toko.</p></div><div class="toolbar-actions"><button class="btn btn-light" id="exportEventsBtn">⇩ Ekspor Daftar Event</button><button class="btn btn-primary" id="addEventBtn" data-admin-write>＋ Tambah Event</button></div></div>
           <div class="grid stats">
             <article class="card stat-card"><div class="stat-label">Total Event</div><div class="stat-value" id="statEventCount">0</div><div class="stat-sub">Seluruh kegiatan tercatat</div></article>
             <article class="card stat-card income"><div class="stat-label">Event Aktif/Mendatang</div><div class="stat-value" id="statEventActive">0</div><div class="stat-sub">Belum selesai</div></article>
-            <article class="card stat-card income"><div class="stat-label">Pemasukan Event</div><div class="stat-value" id="statEventIncome">Rp0</div><div class="stat-sub">Akumulasi seluruh event</div></article>
+            <article class="card stat-card income"><div class="stat-label">Pemasukan Event</div><div class="stat-value" id="statEventIncome">Rp0</div><div class="stat-sub">Tidak masuk ke rekapan toko</div></article>
             <article class="card stat-card profit"><div class="stat-label">Saldo Bersih Event</div><div class="stat-value" id="statEventProfit">Rp0</div><div class="stat-sub">Pemasukan dikurangi pengeluaran</div></article>
           </div>
           <div class="card filters" style="margin-top:18px">
@@ -898,6 +922,71 @@
             <select class="select" id="eventStatusFilter"><option value="all">Semua Status</option><option value="upcoming">Akan Datang</option><option value="ongoing">Berlangsung</option><option value="completed">Selesai</option></select>
           </div>
           <article class="card table-card"><div class="table-wrap" id="eventsTable"></div></article>
+
+          <article class="card event-workspace" id="eventWorkspace">
+            <div class="event-workspace-head">
+              <div><h3>Operasional Event</h3><p id="eventWorkspaceSubtitle">Pilih event untuk membuka data operasional khusus event.</p></div>
+              <div class="event-selector-wrap">
+                <label for="eventWorkspaceSelect">Event yang Dibuka</label>
+                <select class="select" id="eventWorkspaceSelect"></select>
+              </div>
+            </div>
+            <div class="event-tabs" id="eventTabs">
+              <button class="event-tab-btn active" type="button" data-event-tab="transactions">Pemasukan & Pengeluaran</button>
+              <button class="event-tab-btn" type="button" data-event-tab="inventory">Rekapan Bahan</button>
+              <button class="event-tab-btn" type="button" data-event-tab="materials">Daftar Bahan</button>
+            </div>
+
+            <section class="event-panel" id="eventPanelTransactions" data-event-panel="transactions">
+              <p class="event-scope-note">Transaksi di bagian ini hanya menjadi milik event yang dipilih dan tidak dihitung sebagai pemasukan atau pengeluaran toko.</p>
+              <div class="toolbar"><div><h3>Pemasukan & Pengeluaran Event</h3><p>Catat penjualan, sewa lokasi, transportasi, dan biaya event lainnya.</p></div><div class="toolbar-actions"><button class="btn btn-light" id="exportEventTransactionsBtn">⇩ Ekspor CSV</button><button class="btn btn-primary" id="addEventTransactionBtn" data-admin-write>＋ Tambah Transaksi Event</button></div></div>
+              <div class="card filters">
+                <input class="input" id="eventTransactionSearch" placeholder="Cari kategori atau keterangan..." />
+                <select class="select" id="eventTransactionTypeFilter"><option value="all">Semua Jenis</option><option value="income">Pemasukan</option><option value="expense">Pengeluaran</option></select>
+                <input class="input" type="month" id="eventTransactionMonthFilter" />
+              </div>
+              <article class="card table-card"><div class="table-wrap" id="eventTransactionsTable"></div></article>
+            </section>
+
+            <section class="event-panel" id="eventPanelInventory" data-event-panel="inventory" hidden>
+              <p class="event-scope-note">Closing bahan event terpisah dari closing bahan toko. Stok event tidak akan muncul pada cabang mana pun.</p>
+              <div class="toolbar"><div><h3>Rekapan Bahan Event</h3><p>Closing harian bahan khusus event yang dipilih.</p></div><div class="toolbar-actions"><button class="btn btn-light" id="exportEventInventoryBtn">⇩ Ekspor CSV</button><button class="btn btn-dark" id="closeEventDailyRecapBtn" data-admin-write>✓ Closing Tanggal Ini</button></div></div>
+              <div class="card filters">
+                <div class="date-slicer" aria-label="Pilih tanggal rekapan event">
+                  <button class="btn btn-light date-nav-btn" id="eventInventoryPrevDateBtn" type="button" title="Hari sebelumnya">‹</button>
+                  <input class="input" type="date" id="eventInventoryDateFilter" aria-label="Tanggal rekapan bahan event" />
+                  <button class="btn btn-light date-nav-btn" id="eventInventoryNextDateBtn" type="button" title="Hari berikutnya">›</button>
+                </div>
+                <input class="input" id="eventInventorySearch" placeholder="Cari nama bahan..." />
+                <select class="select" id="eventInventoryStatusFilter">
+                  <option value="all">Semua Status</option>
+                  <option value="open">Belum Closing</option>
+                  <option value="closed">Sudah Closing</option>
+                  <option value="used">Ada Pemakaian</option>
+                </select>
+                <button class="btn btn-light" id="eventInventoryTodayBtn" type="button">Hari Ini</button>
+              </div>
+              <div class="daily-recap-summary" id="eventDailyRecapSummary"></div>
+              <article class="card table-card">
+                <div class="card-head"><div><h3 id="eventDailyTableTitle">Daftar Bahan Event Harian</h3><p id="eventDailyTableSubtitle">Pilih event dan tanggal.</p></div></div>
+                <div class="table-wrap" id="eventInventoryTable"></div>
+              </article>
+              <article class="card table-card closing-card">
+                <div class="card-head"><div><h3>Detail Bahan Event Terpakai</h3><p>Ringkasan bahan yang terpakai pada event dan tanggal pilihan.</p></div></div>
+                <div class="table-wrap" id="eventInventoryClosingDetails"></div>
+              </article>
+            </section>
+
+            <section class="event-panel" id="eventPanelMaterials" data-event-panel="materials" hidden>
+              <p class="event-scope-note">Daftar ini hanya digunakan oleh event yang dipilih dan tidak akan masuk ke Daftar Bahan toko.</p>
+              <div class="toolbar"><div><h3>Daftar Bahan Event</h3><p>Kelola nama bahan dan stok minimum khusus event.</p></div><div class="toolbar-actions"><button class="btn btn-primary" id="addEventInventoryBtn" data-admin-write>＋ Tambah Bahan Event</button></div></div>
+              <div class="card filters"><input class="input" id="eventMaterialsSearch" placeholder="Cari nama bahan event..." /></div>
+              <article class="card table-card">
+                <div class="card-head"><div><h3>Nama Bahan Event Aktif</h3><p>Stok terakhir, stok minimum, dan status bahan khusus event.</p></div></div>
+                <div class="table-wrap" id="eventMaterialsTable"></div>
+              </article>
+            </section>
+          </article>
         </section>
 
         <section class="view" data-full-view id="view-settings">
@@ -923,7 +1012,7 @@
     <div class="modal-panel transaction-modal-panel"><div class="modal-head"><h3 id="transactionModalTitle">Tambah Transaksi</h3><button class="close-btn" data-close="transactionModal">✕</button></div>
       <form id="transactionForm">
         <div class="modal-body">
-          <input type="hidden" id="transactionId" />
+          <input type="hidden" id="transactionId" /><input type="hidden" id="transactionContext" value="store" />
           <div class="transaction-list-head">
             <div><strong>Detail transaksi</strong><small>Isi data utama satu kali. Baris tambahan hanya membutuhkan keterangan dan nominal.</small></div>
           </div>
@@ -932,8 +1021,8 @@
               <div class="transaction-entry-head"><strong class="transaction-entry-title">Transaksi 1</strong><button type="button" class="transaction-remove-btn" data-remove-transaction-row hidden>Hapus</button></div>
               <div class="form-grid">
                 <div class="field"><label for="transactionDate">Tanggal</label><input class="input transaction-row-date" type="date" id="transactionDate" required /></div>
-                <div class="field"><label for="transactionStore">Toko/Brand Penanggung Jawab</label><select class="select transaction-row-store" id="transactionStore" required></select></div>
-                <div class="field"><label for="transactionEvent">Kegiatan Event</label><select class="select transaction-row-event" id="transactionEvent"></select></div>
+                <div class="field" id="transactionStoreField"><label for="transactionStore">Toko/Brand</label><select class="select transaction-row-store" id="transactionStore" required></select></div>
+                <div class="field" id="transactionEventField"><label for="transactionEvent">Event</label><select class="select transaction-row-event" id="transactionEvent"></select></div>
                 <div class="field"><label for="transactionType">Jenis Transaksi</label><select class="select transaction-row-type" id="transactionType" required><option value="income">Pemasukan</option><option value="expense">Pengeluaran</option></select></div>
                 <div class="field full"><label for="transactionCategory">Kategori</label><input class="input transaction-row-category" id="transactionCategory" list="categoryList" placeholder="Contoh: Penjualan Harian" required /></div>
                 <div class="field full"><label for="transactionNote">Keterangan</label><textarea class="textarea transaction-row-note" id="transactionNote" placeholder="Contoh: Penjualan menu reguler"></textarea></div>
@@ -943,7 +1032,7 @@
             </div>
           </div>
           <datalist id="categoryList"><option value="Penjualan Harian"></option><option value="Penjualan Event"></option><option value="Sewa Booth Event"></option><option value="Transportasi Event"></option><option value="Belanja Bahan"></option><option value="Gaji Karyawan"></option><option value="Sewa Tempat"></option><option value="Listrik dan Air"></option><option value="Lain-lain"></option></datalist>
-          <p class="transaction-batch-note" id="transactionBatchNote">Setiap baris tambahan memakai tanggal, toko, event, jenis, dan kategori yang sama dengan transaksi utama.</p>
+          <p class="transaction-batch-note" id="transactionBatchNote">Setiap baris tambahan memakai tanggal, ruang data, jenis, dan kategori yang sama dengan transaksi utama.</p>
           <div class="transaction-total-box" id="transactionTotalBox"><span id="transactionTotalLabel">Total nominal 1 baris</span><strong id="transactionTotalAmount">Rp0</strong></div>
         </div>
         <div class="modal-foot"><button type="button" class="btn btn-light" data-close="transactionModal">Batal</button><button type="submit" class="btn btn-primary" id="transactionSubmitBtn">Simpan Semua Transaksi</button></div>
@@ -954,13 +1043,13 @@
   <div class="modal" id="inventoryModal" role="dialog" aria-modal="true">
     <div class="modal-panel"><div class="modal-head"><h3 id="inventoryModalTitle">Tambah Nama Bahan</h3><button class="close-btn" data-close="inventoryModal">✕</button></div>
       <form id="inventoryForm"><div class="modal-body">
-        <input type="hidden" id="inventoryId" />
+        <input type="hidden" id="inventoryId" /><input type="hidden" id="inventoryContext" value="store" />
         <select id="inventoryStore" hidden></select>
         <select id="inventoryEvent" hidden><option value="none">Non-Event</option></select>
         <input type="hidden" id="inventoryUnit" value="unit" />
         <input type="hidden" id="inventoryStock" value="0" />
         <textarea id="inventoryNote" hidden></textarea>
-        <div class="material-store-summary"><span>Bahan akan digunakan untuk cabang</span><strong id="inventoryModalStoreText">-</strong></div>
+        <div class="material-store-summary"><span id="inventoryModalScopeLabel">Bahan akan digunakan untuk cabang</span><strong id="inventoryModalStoreText">-</strong></div>
         <div class="form-grid">
           <div class="field full"><label for="inventoryName">Nama Bahan</label><input class="input" id="inventoryName" placeholder="Contoh: Ayam fillet, gula, cup 16 oz" required /></div>
           <div class="field full"><label for="inventoryMin">Stok Minimum</label><input class="input" type="number" id="inventoryMin" min="0" step="0.01" value="0" placeholder="Contoh: 10" required /><small class="field-help">Status menjadi Perlu Restok saat stok terakhir mencapai atau berada di bawah angka ini.</small></div>
@@ -977,6 +1066,8 @@
         <div class="modal-body">
           <input type="hidden" id="dailyClosingStore" />
           <input type="hidden" id="dailyClosingDate" />
+          <input type="hidden" id="dailyClosingContext" value="store" />
+          <input type="hidden" id="dailyClosingEventId" />
           <p class="closing-help"><strong>Stok awal</strong> otomatis mengikuti closing terakhir dan dapat dikoreksi bila diperlukan. Isi <strong>stok masuk</strong> bila ada bahan datang, lalu masukkan <strong>stok akhir</strong> hasil hitung fisik. Pemakaian dihitung otomatis: stok awal + stok masuk − stok akhir.</p>
           <div class="table-wrap" id="dailyClosingRows"></div>
         </div>
@@ -1012,6 +1103,7 @@
       const BALANCE_VISIBILITY_KEY = 'rekapTokoBalanceHidden_v1';
       const ALLOW_PUBLIC_SIGNUP = false;
       const STORES = ['Chickumbar Blok M','Susu Sore','Hi Fruit','Ngayamin','Chickumbar Barito'];
+      const EVENT_STORE = 'EVENT';
 
       const DATABASE_SQL = String.raw`-- Jalankan seluruh SQL ini di Supabase SQL Editor.
 -- Admin: akses penuh dan dapat mengubah data.
@@ -1066,7 +1158,7 @@ CREATE TABLE IF NOT EXISTS public.events (
 CREATE TABLE IF NOT EXISTS public.transactions (
   id text PRIMARY KEY,
   transaction_date date NOT NULL,
-  store text NOT NULL CHECK (store IN ('Chickumbar Blok M','Susu Sore','Hi Fruit','Ngayamin','Chickumbar Barito')),
+  store text NOT NULL CHECK (store IN ('Chickumbar Blok M','Susu Sore','Hi Fruit','Ngayamin','Chickumbar Barito','EVENT')),
   type text NOT NULL CHECK (type IN ('income','expense')),
   category text NOT NULL,
   amount numeric(15,2) NOT NULL DEFAULT 0 CHECK (amount >= 0),
@@ -1076,7 +1168,7 @@ CREATE TABLE IF NOT EXISTS public.transactions (
 
 CREATE TABLE IF NOT EXISTS public.inventory (
   id text PRIMARY KEY,
-  store text NOT NULL CHECK (store IN ('Chickumbar Blok M','Susu Sore','Hi Fruit','Ngayamin','Chickumbar Barito')),
+  store text NOT NULL CHECK (store IN ('Chickumbar Blok M','Susu Sore','Hi Fruit','Ngayamin','Chickumbar Barito','EVENT')),
   name text NOT NULL,
   unit text NOT NULL,
   stock numeric(15,2) NOT NULL DEFAULT 0 CHECK (stock >= 0),
@@ -1090,7 +1182,7 @@ CREATE TABLE IF NOT EXISTS public.inventory (
 CREATE TABLE IF NOT EXISTS public.inventory_daily (
   id text PRIMARY KEY,
   inventory_id text REFERENCES public.inventory(id) ON DELETE SET NULL,
-  store text NOT NULL CHECK (store IN ('Chickumbar Blok M','Susu Sore','Hi Fruit','Ngayamin','Chickumbar Barito')),
+  store text NOT NULL CHECK (store IN ('Chickumbar Blok M','Susu Sore','Hi Fruit','Ngayamin','Chickumbar Barito','EVENT')),
   event_id text REFERENCES public.events(id) ON DELETE SET NULL,
   record_date date NOT NULL,
   name text NOT NULL,
@@ -1114,6 +1206,35 @@ CREATE INDEX IF NOT EXISTS inventory_daily_store_date_idx
 
 ALTER TABLE public.transactions ADD COLUMN IF NOT EXISTS event_id text REFERENCES public.events(id) ON DELETE SET NULL;
 ALTER TABLE public.inventory ADD COLUMN IF NOT EXISTS event_id text REFERENCES public.events(id) ON DELETE SET NULL;
+
+-- Event adalah ruang data mandiri, bukan bagian dari cabang toko.
+ALTER TABLE public.transactions DROP CONSTRAINT IF EXISTS transactions_store_check;
+ALTER TABLE public.transactions ADD CONSTRAINT transactions_store_check
+  CHECK (store IN ('Chickumbar Blok M','Susu Sore','Hi Fruit','Ngayamin','Chickumbar Barito','EVENT'));
+ALTER TABLE public.inventory DROP CONSTRAINT IF EXISTS inventory_store_check;
+ALTER TABLE public.inventory ADD CONSTRAINT inventory_store_check
+  CHECK (store IN ('Chickumbar Blok M','Susu Sore','Hi Fruit','Ngayamin','Chickumbar Barito','EVENT'));
+ALTER TABLE public.inventory_daily DROP CONSTRAINT IF EXISTS inventory_daily_store_check;
+ALTER TABLE public.inventory_daily ADD CONSTRAINT inventory_daily_store_check
+  CHECK (store IN ('Chickumbar Blok M','Susu Sore','Hi Fruit','Ngayamin','Chickumbar Barito','EVENT'));
+
+UPDATE public.transactions SET store = 'EVENT' WHERE event_id IS NOT NULL;
+UPDATE public.inventory SET store = 'EVENT' WHERE event_id IS NOT NULL;
+UPDATE public.inventory_daily SET store = 'EVENT' WHERE event_id IS NOT NULL;
+
+ALTER TABLE public.transactions DROP CONSTRAINT IF EXISTS transactions_event_id_fkey;
+ALTER TABLE public.transactions ADD CONSTRAINT transactions_event_id_fkey
+  FOREIGN KEY (event_id) REFERENCES public.events(id) ON DELETE CASCADE;
+ALTER TABLE public.inventory DROP CONSTRAINT IF EXISTS inventory_event_id_fkey;
+ALTER TABLE public.inventory ADD CONSTRAINT inventory_event_id_fkey
+  FOREIGN KEY (event_id) REFERENCES public.events(id) ON DELETE CASCADE;
+ALTER TABLE public.inventory_daily DROP CONSTRAINT IF EXISTS inventory_daily_event_id_fkey;
+ALTER TABLE public.inventory_daily ADD CONSTRAINT inventory_daily_event_id_fkey
+  FOREIGN KEY (event_id) REFERENCES public.events(id) ON DELETE CASCADE;
+
+CREATE INDEX IF NOT EXISTS transactions_event_id_idx ON public.transactions(event_id);
+CREATE INDEX IF NOT EXISTS inventory_event_id_idx ON public.inventory(event_id);
+CREATE INDEX IF NOT EXISTS inventory_daily_event_date_idx ON public.inventory_daily(event_id, record_date);
 
 CREATE OR REPLACE FUNCTION public.is_admin()
 RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
@@ -1325,8 +1446,8 @@ USING (public.can_manage_inventory(store));
 DROP POLICY IF EXISTS "Authenticated users read events" ON public.events;
 DROP POLICY IF EXISTS "Admin manages events" ON public.events;
 DROP POLICY IF EXISTS "Admin and owner read events" ON public.events;
-CREATE POLICY "Authenticated users read events"
-ON public.events FOR SELECT TO authenticated USING (true);
+CREATE POLICY "Admin and owner read events"
+ON public.events FOR SELECT TO authenticated USING (public.can_view_all());
 CREATE POLICY "Admin manages events"
 ON public.events FOR ALL TO authenticated
 USING (public.is_admin()) WITH CHECK (public.is_admin());
@@ -1342,6 +1463,7 @@ NOTIFY pgrst, 'reload schema';`
 
       const state = { transactions: [], inventory: [], inventoryDaily: [], events: [], profiles: [], profile: null, updatedAt: null };
       let activeView = 'dashboard';
+      let activeEventTab = 'transactions';
       let selectedGlobalStore = 'all';
       let balanceHidden = localStorage.getItem(BALANCE_VISIBILITY_KEY) === '1';
       let db = null;
@@ -1383,7 +1505,9 @@ NOTIFY pgrst, 'reload schema';`
         [el('globalStore'),el('inventoryStoreFilter')].forEach(s=>populateStoreSelect(s,true));
         [el('transactionStore'),el('inventoryStore')].forEach(s=>populateStoreSelect(s,false));
         el('transactionMonthFilter').value=currentMonth();
+        el('eventTransactionMonthFilter').value=currentMonth();
         el('inventoryDateFilter').value=todayISO();
+        el('eventInventoryDateFilter').value=todayISO();
         el('transactionDate').value=todayISO();
         el('eventDate').value=todayISO();
         el('eventEndDate').value=todayISO();
@@ -1456,9 +1580,9 @@ NOTIFY pgrst, 'reload schema';`
         el('roleBadge').className=`role-badge ${admin?'role-admin':owner?'role-owner':'role-employee'}`;
         el('settingsUserRole').textContent=roleLabel;
         el('settingsUserBranch').textContent=accessLabel;
-        el('sidebarUserAccess').textContent=admin?'Admin · Semua cabang':owner?'Owner · Semua cabang · Hanya lihat':branch?`Karyawan · ${branch}`:'Karyawan · Cabang belum ditetapkan';
-        el('transactionAccessText').textContent=owner?'Mode hanya lihat untuk seluruh transaksi semua cabang.':'Catat transaksi reguler maupun transaksi kegiatan event.';
-        el('eventAccessText').textContent=owner?'Mode hanya lihat untuk seluruh rekapan kegiatan event.':'Kelola event dan lihat pemasukan, pengeluaran, saldo, serta bahan yang terhubung.';
+        el('sidebarUserAccess').textContent=admin?'Admin · Semua cabang dan event':owner?'Owner · Semua cabang dan event · Hanya lihat':branch?`Karyawan · ${branch}`:'Karyawan · Cabang belum ditetapkan';
+        el('transactionAccessText').textContent=owner?'Mode hanya lihat untuk transaksi operasional seluruh toko. Data event berada di menu Event.':'Catat transaksi operasional toko. Seluruh transaksi event dikelola terpisah melalui menu Event.';
+        el('eventAccessText').textContent=owner?'Mode hanya lihat untuk seluruh event beserta transaksi dan bahan khusus event.':'Event berdiri sendiri dengan pemasukan, pengeluaran, rekapan bahan, dan daftar bahan yang terpisah dari toko.';
         if(el('settingsAccessText'))el('settingsAccessText').textContent=owner?'Mode Owner: seluruh informasi, cadangan, dan daftar akun dapat dilihat tanpa mengubah data atau pengaturan.':'Kelola koneksi, akun, cadangan, dan data online aplikasi.';
         if(el('profilesAccessNote'))el('profilesAccessNote').textContent=owner?'Mode hanya lihat: daftar akun, peran, dan cabang dapat diperiksa, tetapi tidak dapat diubah.':'Buat akun baru melalui Supabase Dashboard → Authentication → Users. Admin dapat mengubah peran dan cabang. Pembatasan baca/tulis berlaku pada tampilan web dan Supabase Row Level Security.';
         applyStoreAccessUI();
@@ -1466,12 +1590,14 @@ NOTIFY pgrst, 'reload schema';`
         if(isEmployee()){
           if(activeView!=='inventory')activeView='inventory';
           switchView('inventory');
-        }else if(!fullView&&(activeView==='materials'||activeView==='settings')){
+        }else if(!fullView&&(activeView==='materials'||activeView==='settings'||activeView==='events')){
           activeView='inventory';
           switchView('inventory');
         }else if(!['dashboard','transactions','inventory','materials','events','settings'].includes(activeView)){
           activeView='dashboard';
           switchView('dashboard');
+        }else{
+          el('globalStore').hidden=!fullView||activeView==='events'||activeView==='settings';
         }
       }
 
@@ -1546,7 +1672,16 @@ NOTIFY pgrst, 'reload schema';`
         if([...select.options].some(option=>option.value===old))select.value=old;
       }
       function populateEventSelect(select,{includeAll=false,includeNone=true}={}){const old=select.value;select.innerHTML=`${includeAll?'<option value="all">Semua Event</option>':''}${includeNone?'<option value="none">Non-Event</option>':''}`+state.events.slice().sort((a,b)=>b.eventDate.localeCompare(a.eventDate)).map(item=>`<option value="${item.id}">${escapeHtml(item.name)} — ${formatDate(item.eventDate)}</option>`).join('');if([...select.options].some(o=>o.value===old))select.value=old;}
-      function refreshEventSelects(){populateEventSelect(el('transactionEventFilter'),{includeAll:true,includeNone:true});populateEventSelect(el('inventoryEventFilter'),{includeAll:true,includeNone:true});document.querySelectorAll('#transactionRows .transaction-row-event').forEach(select=>populateEventSelect(select,{includeNone:true}));populateEventSelect(el('inventoryEvent'),{includeNone:true});}
+      function refreshEventSelects(){
+        populateEventSelect(el('transactionEventFilter'),{includeAll:false,includeNone:true});
+        document.querySelectorAll('#transactionRows .transaction-row-event').forEach(select=>populateEventSelect(select,{includeNone:true}));
+        populateEventSelect(el('inventoryEvent'),{includeNone:true});
+        const workspace=el('eventWorkspaceSelect');
+        const previous=workspace.value;
+        populateEventSelect(workspace,{includeNone:false});
+        if(previous&&[...workspace.options].some(option=>option.value===previous))workspace.value=previous;
+        else if(state.events.length)workspace.value=state.events[0].id;
+      }
 
       function bindEvents(){
         el('setupForm').addEventListener('submit',handleSetupSubmit);el('copySqlBtn').addEventListener('click',copyDatabaseSql);el('loginForm').addEventListener('submit',handleLogin);el('signupBtn').addEventListener('click',handleSignup);el('authChangeConfigBtn').addEventListener('click',()=>showSetup());
@@ -1555,19 +1690,33 @@ NOTIFY pgrst, 'reload schema';`
         document.addEventListener('click',event=>{const go=event.target.closest('[data-go]');if(go)switchView(go.dataset.go);const close=event.target.closest('[data-close]');if(close)closeModal(close.dataset.close);});
         el('menuBtn').addEventListener('click',toggleSidebar);el('overlay').addEventListener('click',toggleSidebar);
         el('globalStore').addEventListener('change',event=>{selectedGlobalStore=event.target.value;const inventoryStore=el('inventoryStoreFilter');const materialsStore=el('materialsStoreFilter');if(inventoryStore&&[...inventoryStore.options].some(option=>option.value===event.target.value))inventoryStore.value=event.target.value;if(materialsStore&&[...materialsStore.options].some(option=>option.value===event.target.value))materialsStore.value=event.target.value;renderDashboard();renderTransactions();renderInventory();renderMaterials();});
-        el('addTransactionBtn').addEventListener('click',()=>openTransactionModal());el('addInventoryBtn').addEventListener('click',()=>openInventoryModal());el('closeDailyRecapBtn').addEventListener('click',openDailyClosingModal);el('fillNoUsageBtn').addEventListener('click',fillClosingWithAvailableStock);el('addEventBtn').addEventListener('click',()=>openEventModal());
+        el('addTransactionBtn').addEventListener('click',()=>openTransactionModal(null,'store'));el('addInventoryBtn').addEventListener('click',()=>openInventoryModal(null,'store'));el('closeDailyRecapBtn').addEventListener('click',()=>openDailyClosingModal('store'));el('fillNoUsageBtn').addEventListener('click',fillClosingWithAvailableStock);el('addEventBtn').addEventListener('click',()=>openEventModal());
+        el('addEventTransactionBtn').addEventListener('click',()=>openTransactionModal(null,'event',selectedEventWorkspaceId()));
+        el('addEventInventoryBtn').addEventListener('click',()=>openInventoryModal(null,'event',selectedEventWorkspaceId()));
+        el('closeEventDailyRecapBtn').addEventListener('click',()=>openDailyClosingModal('event'));
         el('transactionForm').addEventListener('submit',saveTransaction);el('transactionRows').addEventListener('click',handleTransactionRowClick);el('transactionRows').addEventListener('input',updateTransactionTotal);el('inventoryForm').addEventListener('submit',saveInventory);el('dailyClosingForm').addEventListener('submit',saveDailyClosing);el('dailyClosingRows').addEventListener('input',updateClosingUsagePreview);el('eventForm').addEventListener('submit',saveEvent);
-        ['transactionSearch','transactionTypeFilter','transactionMonthFilter','transactionEventFilter'].forEach(id=>el(id).addEventListener('input',renderTransactions));
-        ['inventorySearch','inventoryStatusFilter','inventoryStoreFilter','inventoryEventFilter'].forEach(id=>el(id).addEventListener('input',renderInventory));
+        ['transactionSearch','transactionTypeFilter','transactionMonthFilter'].forEach(id=>el(id).addEventListener('input',renderTransactions));
+        ['inventorySearch','inventoryStatusFilter','inventoryStoreFilter'].forEach(id=>el(id).addEventListener('input',renderInventory));
         el('materialsSearch').addEventListener('input',renderMaterials);
-        el('inventoryDateFilter').addEventListener('change',()=>loadCloudData(true));
+        el('inventoryDateFilter').addEventListener('change',renderInventory);
         el('inventoryTodayBtn').addEventListener('click',()=>changeInventoryDate(todayISO()));
         el('inventoryPrevDateBtn').addEventListener('click',()=>shiftInventoryDate(-1));
         el('inventoryNextDateBtn').addEventListener('click',()=>shiftInventoryDate(1));
         el('inventoryStoreFilter').addEventListener('change',renderInventory);
         ['eventSearch','eventStatusFilter'].forEach(id=>el(id).addEventListener('input',renderEvents));
-        el('transactionsTable').addEventListener('click',handleTransactionTableClick);el('materialsTable').addEventListener('click',handleInventoryTableClick);el('eventsTable').addEventListener('click',handleEventsTableClick);el('profilesTable').addEventListener('change',handleProfileAccessDraftChange);el('profilesTable').addEventListener('click',handleProfileAccessSave);
-                el('exportTransactionsBtn').addEventListener('click',exportTransactionsCSV);el('exportInventoryBtn').addEventListener('click',exportInventoryCSV);el('exportEventsBtn').addEventListener('click',exportEventsCSV);
+        el('eventWorkspaceSelect').addEventListener('change',renderEventWorkspace);
+        el('eventTabs').addEventListener('click',event=>{const button=event.target.closest('[data-event-tab]');if(button)switchEventTab(button.dataset.eventTab);});
+        ['eventTransactionSearch','eventTransactionTypeFilter','eventTransactionMonthFilter'].forEach(id=>el(id).addEventListener('input',renderEventTransactions));
+        ['eventInventorySearch','eventInventoryStatusFilter'].forEach(id=>el(id).addEventListener('input',renderEventInventory));
+        el('eventMaterialsSearch').addEventListener('input',renderEventMaterials);
+        el('eventInventoryDateFilter').addEventListener('change',renderEventInventory);
+        el('eventInventoryTodayBtn').addEventListener('click',()=>changeEventInventoryDate(todayISO()));
+        el('eventInventoryPrevDateBtn').addEventListener('click',()=>shiftEventInventoryDate(-1));
+        el('eventInventoryNextDateBtn').addEventListener('click',()=>shiftEventInventoryDate(1));
+        el('transactionsTable').addEventListener('click',handleTransactionTableClick);el('eventTransactionsTable').addEventListener('click',handleTransactionTableClick);
+        el('materialsTable').addEventListener('click',handleInventoryTableClick);el('eventMaterialsTable').addEventListener('click',handleInventoryTableClick);
+        el('eventsTable').addEventListener('click',handleEventsTableClick);el('profilesTable').addEventListener('change',handleProfileAccessDraftChange);el('profilesTable').addEventListener('click',handleProfileAccessSave);
+        el('exportTransactionsBtn').addEventListener('click',exportTransactionsCSV);el('exportInventoryBtn').addEventListener('click',exportInventoryCSV);el('exportEventsBtn').addEventListener('click',exportEventsCSV);el('exportEventTransactionsBtn').addEventListener('click',exportEventTransactionsCSV);el('exportEventInventoryBtn').addEventListener('click',exportEventInventoryCSV);
         el('backupBtn').addEventListener('click',backupJSON);el('restoreBtn').addEventListener('click',()=>el('restoreInput').click());el('restoreInput').addEventListener('change',restoreJSON);el('demoBtn').addEventListener('click',loadDemoData);el('clearBtn').addEventListener('click',clearAllData);
         window.addEventListener('resize',renderChart);window.addEventListener('online',()=>loadCloudData(true));window.addEventListener('offline',()=>setCloudStatus('error','Offline'));
         document.querySelectorAll('.modal').forEach(modal=>modal.addEventListener('click',event=>{if(event.target===modal)closeModal(modal.id);}));
@@ -1575,7 +1724,23 @@ NOTIFY pgrst, 'reload schema';`
 
       async function logout(){if(db)await db.auth.signOut();}
       async function changeConnection(){if(!confirm('Ubah koneksi Supabase? Anda akan keluar dari sesi saat ini.'))return;forceSetupScreen=true;stopCloudRefresh();if(db)await db.auth.signOut();else showSetup();}
-      function switchView(view){if(isEmployee())view='inventory';if(!canViewAll()&&(view==='materials'||view==='settings'))view='inventory';activeView=view;document.querySelectorAll('.view').forEach(v=>v.classList.toggle('active',v.id===`view-${view}`));document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('active',b.dataset.view===view));const headings={dashboard:'Dashboard',transactions:'Pemasukan & Pengeluaran',inventory:'Rekapan Bahan',materials:'Daftar Bahan',events:'Rekapan Event',settings:'Cloud & Pengaturan'};el('pageHeading').textContent=headings[view];if(window.innerWidth<=780)closeSidebar();if(view==='dashboard')renderDashboard();if(view==='transactions')renderTransactions();if(view==='inventory')renderInventory();if(view==='materials')renderMaterials();if(view==='events')renderEvents();if(view==='settings')renderProfiles();}
+      function switchView(view){
+        if(isEmployee())view='inventory';
+        if(!canViewAll()&&(view==='materials'||view==='settings'||view==='events'))view='inventory';
+        activeView=view;
+        document.querySelectorAll('.view').forEach(v=>v.classList.toggle('active',v.id===`view-${view}`));
+        document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('active',b.dataset.view===view));
+        const headings={dashboard:'Dashboard',transactions:'Pemasukan & Pengeluaran Toko',inventory:'Rekapan Bahan Toko',materials:'Daftar Bahan Toko',events:'Event',settings:'Cloud & Pengaturan'};
+        el('pageHeading').textContent=headings[view];
+        el('globalStore').hidden=!canViewAll()||view==='events'||view==='settings';
+        if(window.innerWidth<=780)closeSidebar();
+        if(view==='dashboard')renderDashboard();
+        if(view==='transactions')renderTransactions();
+        if(view==='inventory')renderInventory();
+        if(view==='materials')renderMaterials();
+        if(view==='events')renderEvents();
+        if(view==='settings')renderProfiles();
+      }
       function toggleSidebar(){el('sidebar').classList.toggle('open');el('overlay').classList.toggle('open');}
       function closeSidebar(){el('sidebar').classList.remove('open');el('overlay').classList.remove('open');}
       function openModal(id){el(id).classList.add('open');}
@@ -1587,14 +1752,89 @@ NOTIFY pgrst, 'reload schema';`
       function refreshTransactionEntryControls(){const entries=transactionEntries();const editing=!!el('transactionId').value;entries.forEach((entry,index)=>{entry.querySelector('.transaction-entry-title').textContent=editing?'Detail Transaksi':index===0?'Transaksi Utama':`Baris Tambahan ${index+1}`;const remove=entry.querySelector('[data-remove-transaction-row]');if(remove)remove.hidden=editing||index===0;const add=entry.querySelector('[data-add-transaction-row]');if(add)add.hidden=editing;});el('transactionBatchNote').hidden=editing;updateTransactionTotal();}
       function addTransactionRow(afterEntry=null){if(el('transactionId').value)return;const entry=document.createElement('div');entry.className='transaction-entry transaction-extra-entry';entry.dataset.transactionEntry='';entry.innerHTML=`<div class="transaction-entry-head"><strong class="transaction-entry-title"></strong><button type="button" class="transaction-remove-btn" data-remove-transaction-row>Hapus</button></div><div class="form-grid"><div class="field full"><label>Keterangan</label><textarea class="textarea transaction-row-note" placeholder="Contoh: Penjualan menu tambahan"></textarea></div><div class="field full"><label>Nominal (Rp)</label><input class="input transaction-row-amount" type="number" min="0" step="1" placeholder="0" required /></div></div><div class="transaction-add-wrap"><button type="button" class="btn btn-light transaction-add-small" data-add-transaction-row>＋ Tambah Baris</button></div>`;if(afterEntry&&afterEntry.parentElement===el('transactionRows'))afterEntry.insertAdjacentElement('afterend',entry);else el('transactionRows').appendChild(entry);refreshTransactionEntryControls();setTimeout(()=>entry.querySelector('.transaction-row-note').focus(),60);}
       function handleTransactionRowClick(event){const add=event.target.closest('[data-add-transaction-row]');if(add){addTransactionRow(add.closest('[data-transaction-entry]'));return;}const remove=event.target.closest('[data-remove-transaction-row]');if(!remove)return;const entry=remove.closest('[data-transaction-entry]');if(entry&&!entry.hasAttribute('data-main-transaction-entry')){entry.remove();refreshTransactionEntryControls();}}
-      function openTransactionModal(id=null){if(!isAdmin())return toast('Fitur transaksi hanya untuk Admin.');el('transactionForm').reset();transactionEntries().slice(1).forEach(entry=>entry.remove());el('transactionId').value='';el('transactionDate').value=todayISO();el('transactionType').value='income';el('transactionStore').value=selectedGlobalStore==='all'?STORES[0]:selectedGlobalStore;el('transactionEvent').value='none';el('transactionCategory').value='';el('transactionAmount').value='';el('transactionNote').value='';el('transactionModalTitle').textContent='Tambah Transaksi';if(id){const item=state.transactions.find(t=>t.id===id);if(!item)return;el('transactionId').value=item.id;el('transactionDate').value=item.date;el('transactionStore').value=item.store;el('transactionEvent').value=item.eventId||'none';el('transactionType').value=item.type;el('transactionCategory').value=item.category;el('transactionAmount').value=item.amount;el('transactionNote').value=item.note||'';el('transactionModalTitle').textContent='Edit Transaksi';}refreshTransactionEntryControls();openModal('transactionModal');setTimeout(()=>el('transactionCategory').focus(),80);}
-      async function saveTransaction(event){event.preventDefault();if(!isAdmin())return;const editId=el('transactionId').value;const existing=state.transactions.find(t=>t.id===editId);const entries=transactionEntries();const main=entries[0];const eventValue=main.querySelector('.transaction-row-event').value;const common={date:main.querySelector('.transaction-row-date').value,store:main.querySelector('.transaction-row-store').value,eventId:eventValue==='none'?null:eventValue,type:main.querySelector('.transaction-row-type').value,category:main.querySelector('.transaction-row-category').value.trim()};if(!common.date||!common.store||!common.category){main.scrollIntoView({behavior:'smooth',block:'center'});main.querySelector('.transaction-row-category').focus();return toast('Mohon lengkapi tanggal, toko, jenis, dan kategori transaksi.');}const createdBase=Date.now();const items=entries.map((entry,index)=>({id:editId&&index===0?editId:uid(),...common,amount:Number(entry.querySelector('.transaction-row-amount').value),note:entry.querySelector('.transaction-row-note').value.trim(),createdAt:existing?.createdAt||new Date(createdBase+index).toISOString()}));const invalidIndex=items.findIndex(item=>!Number.isFinite(item.amount)||item.amount<0);if(invalidIndex>=0){const target=entries[invalidIndex];target.scrollIntoView({behavior:'smooth',block:'center'});target.querySelector('.transaction-row-amount').focus();return toast(`Isi nominal yang valid pada baris ${invalidIndex+1}.`);}const totalAmount=items.reduce((sum,item)=>sum+item.amount,0);const button=event.submitter;setButtonBusy(button,true,`Menyimpan ${rawMoney(totalAmount)}…`);try{const {error}=await db.from('transactions').upsert(items.map(transactionToRow));if(error)throw error;closeModal('transactionModal');await loadCloudData(true);toast(existing?`Transaksi berhasil diperbarui. Total ${rawMoney(totalAmount)}.`:`${items.length} transaksi berhasil ditambahkan. Total ${rawMoney(totalAmount)}.`);}catch(error){showSyncError(error);}finally{setButtonBusy(button,false);refreshTransactionEntryControls();}}
+      function openTransactionModal(id=null,context='store',presetEventId=null){
+        if(!isAdmin())return toast('Fitur transaksi hanya untuk Admin.');
+        const existing=id?state.transactions.find(t=>t.id===id):null;
+        const eventMode=existing?!!existing.eventId:context==='event';
+        const eventId=existing?.eventId||presetEventId||selectedEventWorkspaceId();
+        if(eventMode&&!eventId)return toast('Pilih event terlebih dahulu.');
+        el('transactionForm').reset();
+        transactionEntries().slice(1).forEach(entry=>entry.remove());
+        el('transactionId').value='';
+        el('transactionContext').value=eventMode?'event':'store';
+        el('transactionDate').value=todayISO();
+        el('transactionType').value='income';
+        el('transactionStore').value=eventMode?STORES[0]:(selectedGlobalStore==='all'?STORES[0]:selectedGlobalStore);
+        el('transactionEvent').value=eventMode?eventId:'none';
+        el('transactionCategory').value='';
+        el('transactionAmount').value='';
+        el('transactionNote').value='';
+        el('transactionStoreField').classList.toggle('scope-hidden',eventMode);
+        el('transactionEventField').classList.toggle('scope-hidden',!eventMode);
+        el('transactionModalTitle').textContent=eventMode?'Tambah Transaksi Event':'Tambah Transaksi Toko';
+        if(existing){
+          el('transactionId').value=existing.id;
+          el('transactionDate').value=existing.date;
+          if(!eventMode)el('transactionStore').value=existing.store;
+          el('transactionEvent').value=existing.eventId||'none';
+          el('transactionType').value=existing.type;
+          el('transactionCategory').value=existing.category;
+          el('transactionAmount').value=existing.amount;
+          el('transactionNote').value=existing.note||'';
+          el('transactionModalTitle').textContent=eventMode?'Edit Transaksi Event':'Edit Transaksi Toko';
+        }
+        refreshTransactionEntryControls();
+        openModal('transactionModal');
+        setTimeout(()=>el('transactionCategory').focus(),80);
+      }
+      async function saveTransaction(event){
+        event.preventDefault();
+        if(!isAdmin())return;
+        const editId=el('transactionId').value;
+        const existing=state.transactions.find(t=>t.id===editId);
+        const entries=transactionEntries();
+        const main=entries[0];
+        const eventMode=el('transactionContext').value==='event';
+        const eventValue=main.querySelector('.transaction-row-event').value;
+        const common={
+          date:main.querySelector('.transaction-row-date').value,
+          store:eventMode?EVENT_STORE:main.querySelector('.transaction-row-store').value,
+          eventId:eventMode&&eventValue!=='none'?eventValue:null,
+          type:main.querySelector('.transaction-row-type').value,
+          category:main.querySelector('.transaction-row-category').value.trim()
+        };
+        if(!common.date||!common.store||!common.category||(eventMode&&!common.eventId)){
+          main.scrollIntoView({behavior:'smooth',block:'center'});
+          main.querySelector('.transaction-row-category').focus();
+          return toast(eventMode?'Mohon lengkapi tanggal, event, jenis, dan kategori transaksi.':'Mohon lengkapi tanggal, toko, jenis, dan kategori transaksi.');
+        }
+        const createdBase=Date.now();
+        const items=entries.map((entry,index)=>({id:editId&&index===0?editId:uid(),...common,amount:Number(entry.querySelector('.transaction-row-amount').value),note:entry.querySelector('.transaction-row-note').value.trim(),createdAt:existing?.createdAt||new Date(createdBase+index).toISOString()}));
+        const invalidIndex=items.findIndex(item=>!Number.isFinite(item.amount)||item.amount<0);
+        if(invalidIndex>=0){const target=entries[invalidIndex];target.scrollIntoView({behavior:'smooth',block:'center'});target.querySelector('.transaction-row-amount').focus();return toast(`Isi nominal yang valid pada baris ${invalidIndex+1}.`);}
+        const totalAmount=items.reduce((sum,item)=>sum+item.amount,0);
+        const button=event.submitter;setButtonBusy(button,true,`Menyimpan ${rawMoney(totalAmount)}…`);
+        try{
+          const {error}=await db.from('transactions').upsert(items.map(transactionToRow));
+          if(error)throw error;
+          closeModal('transactionModal');
+          await loadCloudData(true);
+          toast(existing?`Transaksi berhasil diperbarui. Total ${rawMoney(totalAmount)}.`:`${items.length} transaksi berhasil ditambahkan. Total ${rawMoney(totalAmount)}.`);
+        }catch(error){showSyncError(error);}finally{setButtonBusy(button,false);refreshTransactionEntryControls();}
+      }
 
       function selectedInventoryDate(){return el('inventoryDateFilter').value||todayISO();}
       function selectedInventoryStore(){if(isEmployee())return employeeBranch();const value=el('globalStore').value;return value&&value!=='all'?value:'';}
       function selectedMaterialStore(){if(isEmployee())return employeeBranch();const value=el('globalStore').value;return value&&value!=='all'?value:'';}
+      function selectedEventWorkspaceId(){return el('eventWorkspaceSelect')?.value||'';}
+      function selectedEventInventoryDate(){return el('eventInventoryDateFilter').value||todayISO();}
+      function shiftEventInventoryDate(days){const current=new Date(`${selectedEventInventoryDate()}T12:00:00`);current.setDate(current.getDate()+days);changeEventInventoryDate(jakartaDate(current));}
+      function changeEventInventoryDate(date){el('eventInventoryDateFilter').value=date;renderEventInventory();}
+      function selectEventWorkspace(eventId,tab='transactions'){if(eventId&&[...el('eventWorkspaceSelect').options].some(option=>option.value===eventId))el('eventWorkspaceSelect').value=eventId;switchEventTab(tab);renderEventWorkspace();setTimeout(()=>el('eventWorkspace').scrollIntoView({behavior:'smooth',block:'start'}),40);}
+      function switchEventTab(tab){activeEventTab=['transactions','inventory','materials'].includes(tab)?tab:'transactions';document.querySelectorAll('[data-event-tab]').forEach(button=>button.classList.toggle('active',button.dataset.eventTab===activeEventTab));document.querySelectorAll('[data-event-panel]').forEach(panel=>panel.hidden=panel.dataset.eventPanel!==activeEventTab);if(activeEventTab==='transactions')renderEventTransactions();if(activeEventTab==='inventory')renderEventInventory();if(activeEventTab==='materials')renderEventMaterials();}
+
       function shiftInventoryDate(days){const current=new Date(`${selectedInventoryDate()}T12:00:00`);current.setDate(current.getDate()+days);changeInventoryDate(jakartaDate(current));}
-      function changeInventoryDate(date){el('inventoryDateFilter').value=date;loadCloudData(true);}
+      function changeInventoryDate(date){el('inventoryDateFilter').value=date;renderInventory();}
       function dailyRowsForSelection(){const date=selectedInventoryDate();const store=selectedInventoryStore();return state.inventoryDaily.filter(row=>row.date===date&&(!store||row.store===store));}
       function dailyRecordToRow(item){return{id:item.id,inventory_id:item.inventoryId||null,store:item.store,event_id:item.eventId||null,record_date:item.date,name:item.name,unit:item.unit,opening_stock:item.openingStock,stock_in:item.stockIn||0,closing_stock:item.closingStock==null?null:item.closingStock,used_stock:item.usedStock||0,note:item.note||'',is_closed:!!item.isClosed,closed_at:item.closedAt||null,closed_by:item.closedBy||null,created_by:item.createdBy||currentSession?.user?.id||null,updated_at:item.updatedAt||new Date().toISOString()};}
       function rowToDailyRecord(row){return{id:row.id,inventoryId:row.inventory_id||null,store:row.store,eventId:row.event_id||null,date:row.record_date,name:row.name,unit:row.unit,openingStock:Number(row.opening_stock||0),stockIn:Number(row.stock_in||0),closingStock:row.closing_stock==null?null:Number(row.closing_stock),usedStock:Number(row.used_stock||0),note:row.note||'',isClosed:!!row.is_closed,closedAt:row.closed_at||null,closedBy:row.closed_by||null,createdBy:row.created_by||null,updatedAt:row.updated_at};}
@@ -1610,10 +1850,11 @@ NOTIFY pgrst, 'reload schema';`
         return{id:`draft-${master.id}-${date}`,inventoryId:master.id,store:master.store,eventId:master.eventId||null,date,name:master.name,unit:master.unit||'unit',openingStock:openingStockForDate(master,date),stockIn:0,closingStock:null,usedStock:0,note:'',isClosed:false,closedAt:null,closedBy:null,createdBy:currentSession?.user?.id||null,updatedAt:new Date().toISOString(),isDraft:true};
       }
 
-      function dailyRowsForDisplay(date,store){
+      function dailyRowsForDisplay(date,store,eventId=null){
         const exactStore=store&&store!=='all'?store:'';
-        const saved=state.inventoryDaily.filter(row=>row.date===date&&canAccessStore(row.store)&&(!exactStore||row.store===exactStore));
-        const masters=state.inventory.filter(item=>canAccessStore(item.store)&&(!exactStore||item.store===exactStore));
+        const inScope=item=>eventId?item.eventId===eventId:!item.eventId;
+        const saved=state.inventoryDaily.filter(row=>row.date===date&&canAccessStore(row.store)&&inScope(row)&&(!exactStore||row.store===exactStore));
+        const masters=state.inventory.filter(item=>canAccessStore(item.store)&&inScope(item)&&(!exactStore||item.store===exactStore));
         const savedByInventory=new Map(saved.filter(row=>row.inventoryId).map(row=>[row.inventoryId,row]));
         const masterIds=new Set(masters.map(item=>item.id));
         const automatic=masters.map(master=>savedByInventory.get(master.id)||createVirtualDailyRecord(master,date));
@@ -1630,17 +1871,23 @@ NOTIFY pgrst, 'reload schema';`
         updateClosingUsagePreview();
       }
 
-      function openDailyClosingModal(){
-        if(!canEditInventory())return toast('Akun ini tidak memiliki izin melakukan closing.');
-        const store=selectedInventoryStore();
-        const date=selectedInventoryDate();
+      function openDailyClosingModal(context='store'){
+        const eventMode=context==='event';
+        if(eventMode?!isAdmin():!canEditInventory())return toast('Akun ini tidak memiliki izin melakukan closing.');
+        const eventId=eventMode?selectedEventWorkspaceId():null;
+        const store=eventMode?EVENT_STORE:selectedInventoryStore();
+        const date=eventMode?selectedEventInventoryDate():selectedInventoryDate();
+        if(eventMode&&!eventId)return toast('Pilih event terlebih dahulu sebelum closing.');
         if(!store)return toast('Pilih satu toko terlebih dahulu sebelum closing.');
         if(date>todayISO())return toast('Closing belum dapat dilakukan untuk tanggal yang akan datang.');
-        const rows=dailyRowsForDisplay(date,store).sort((a,b)=>a.name.localeCompare(b.name));
-        if(!rows.length)return toast('Belum ada nama bahan pada toko ini. Tambahkan nama bahan terlebih dahulu.');
+        const rows=dailyRowsForDisplay(date,store,eventId).sort((a,b)=>a.name.localeCompare(b.name));
+        if(!rows.length)return toast(eventMode?'Belum ada nama bahan pada event ini. Tambahkan bahan event terlebih dahulu.':'Belum ada nama bahan pada toko ini. Tambahkan nama bahan terlebih dahulu.');
         activeClosingRows=rows.map(row=>row.isDraft?{...row,id:uid()}:row);
-        el('dailyClosingStore').value=store;el('dailyClosingDate').value=date;
-        el('dailyClosingModalTitle').textContent=`Closing ${store} — ${formatDate(date)}`;
+        el('dailyClosingStore').value=store;
+        el('dailyClosingDate').value=date;
+        el('dailyClosingContext').value=eventMode?'event':'store';
+        el('dailyClosingEventId').value=eventId||'';
+        el('dailyClosingModalTitle').textContent=eventMode?`Closing Event ${eventName(eventId)} — ${formatDate(date)}`:`Closing ${store} — ${formatDate(date)}`;
         el('dailyClosingRows').innerHTML=`<table><thead><tr><th>No.</th><th>Nama Bahan</th><th>Satuan</th><th>Stok Awal</th><th>Stok Masuk</th><th>Stok Akhir</th><th>Terpakai</th><th>Keterangan</th></tr></thead><tbody>${activeClosingRows.map((row,index)=>`<tr data-daily-closing-row="${index}"><td>${index+1}</td><td><strong>${escapeHtml(row.name)}</strong></td><td>${escapeHtml(row.unit||'unit')}</td><td><input class="input closing-table-input" type="number" min="0" step="0.01" data-closing-open value="${row.openingStock}" required></td><td><input class="input closing-table-input" type="number" min="0" step="0.01" data-closing-in value="${row.stockIn||0}"></td><td><input class="input closing-table-input" type="number" min="0" step="0.01" data-closing-end value="${row.closingStock==null?row.openingStock+(row.stockIn||0):row.closingStock}" required></td><td><strong class="used-value" data-closing-used>0</strong> ${escapeHtml(row.unit||'unit')}</td><td><input class="input closing-note-input" data-closing-note value="${escapeHtml(row.note||'')}" placeholder="Opsional"></td></tr>`).join('')}</tbody></table>`;
         updateClosingUsagePreview();openModal('dailyClosingModal');
       }
@@ -1650,9 +1897,13 @@ NOTIFY pgrst, 'reload schema';`
       }
 
       async function saveDailyClosing(event){
-        event.preventDefault();if(!canEditInventory())return;
-        const store=el('dailyClosingStore').value;const date=el('dailyClosingDate').value;
-        if(!store||date>todayISO())return toast('Pilih toko dan tanggal hari ini atau tanggal sebelumnya untuk menyimpan closing.');
+        event.preventDefault();
+        const eventMode=el('dailyClosingContext').value==='event';
+        if(eventMode?!isAdmin():!canEditInventory())return;
+        const store=el('dailyClosingStore').value;
+        const date=el('dailyClosingDate').value;
+        const eventId=el('dailyClosingEventId').value||null;
+        if(!store||date>todayISO()||(eventMode&&!eventId))return toast('Pilih ruang data dan tanggal hari ini atau tanggal sebelumnya untuk menyimpan closing.');
         const now=new Date().toISOString();const updates=[];const stockUpdates=[];
         for(const rowEl of el('dailyClosingRows').querySelectorAll('[data-daily-closing-row]')){
           const record=activeClosingRows[Number(rowEl.dataset.dailyClosingRow)];if(!record)continue;
@@ -1660,33 +1911,38 @@ NOTIFY pgrst, 'reload schema';`
           if(!Number.isFinite(openingStock)||openingStock<0||!Number.isFinite(stockIn)||stockIn<0||!Number.isFinite(closingStock)||closingStock<0)return toast(`Periksa angka pada bahan ${record.name}.`);
           if(closingStock>available)return toast(`Stok akhir ${record.name} melebihi stok tersedia. Tambahkan jumlah pada Stok Masuk.`);
           const usedStock=Math.max(0,available-closingStock);
-          updates.push(dailyRecordToRow({...record,openingStock,stockIn,closingStock,usedStock,note:rowEl.querySelector('[data-closing-note]').value.trim(),isClosed:true,isDraft:false,closedAt:now,closedBy:currentSession?.user?.id,updatedAt:now}));
+          updates.push(dailyRecordToRow({...record,store,eventId:eventMode?eventId:null,openingStock,stockIn,closingStock,usedStock,note:rowEl.querySelector('[data-closing-note]').value.trim(),isClosed:true,isDraft:false,closedAt:now,closedBy:currentSession?.user?.id,updatedAt:now}));
           if(record.inventoryId){
             const hasLaterClosing=state.inventoryDaily.some(item=>item.inventoryId===record.inventoryId&&item.isClosed&&item.date>date);
             if(!hasLaterClosing)stockUpdates.push({id:record.inventoryId,stock:closingStock});
           }
         }
         const button=event.submitter;setButtonBusy(button,true,'Menyimpan…');
-        try{await upsertInChunks('inventory_daily',updates);for(const item of stockUpdates){const {error}=await db.rpc('update_inventory_stock_after_closing',{target_inventory_id:item.id,new_stock:item.stock,target_updated_at:now});if(error)throw error;}activeClosingRows=[];closeModal('dailyClosingModal');await loadCloudData(true);toast('Closing berhasil disimpan. Pemakaian bahan sudah dihitung otomatis.');}catch(error){showSyncError(error);}finally{setButtonBusy(button,false);}
+        try{await upsertInChunks('inventory_daily',updates);for(const item of stockUpdates){const {error}=await db.rpc('update_inventory_stock_after_closing',{target_inventory_id:item.id,new_stock:item.stock,target_updated_at:now});if(error)throw error;}activeClosingRows=[];closeModal('dailyClosingModal');await loadCloudData(true);toast(eventMode?'Closing bahan event berhasil disimpan.':'Closing berhasil disimpan. Pemakaian bahan sudah dihitung otomatis.');}catch(error){showSyncError(error);}finally{setButtonBusy(button,false);}
       }
 
-      function openInventoryModal(id=null){
+      function openInventoryModal(id=null,context='store',presetEventId=null){
         if(!isAdmin())return toast('Hanya Admin yang dapat mengelola Daftar Bahan.');
         const existing=id?state.inventory.find(item=>item.id===id):null;
-        const assignedStore=existing?.store||selectedMaterialStore();
-        if(!assignedStore)return toast('Pilih satu toko pada halaman Daftar Bahan terlebih dahulu.');
-        if(existing&&!canAccessStore(existing.store))return toast('Anda tidak memiliki akses ke data bahan ini.');
+        const eventMode=existing?!!existing.eventId:context==='event';
+        const eventId=existing?.eventId||presetEventId||selectedEventWorkspaceId();
+        const assignedStore=eventMode?EVENT_STORE:(existing?.store||selectedMaterialStore());
+        if(eventMode&&!eventId)return toast('Pilih event terlebih dahulu.');
+        if(!eventMode&&!assignedStore)return toast('Pilih satu toko pada halaman Daftar Bahan terlebih dahulu.');
+        if(existing&&!eventMode&&!canAccessStore(existing.store))return toast('Anda tidak memiliki akses ke data bahan ini.');
         el('inventoryForm').reset();
         el('inventoryId').value=existing?.id||'';
-        el('inventoryStore').value=assignedStore;
-        el('inventoryEvent').value=existing?.eventId||'none';
+        el('inventoryContext').value=eventMode?'event':'store';
+        el('inventoryStore').value=eventMode?STORES[0]:assignedStore;
+        el('inventoryEvent').value=eventMode?eventId:'none';
         el('inventoryUnit').value=existing?.unit||'unit';
         el('inventoryStock').value=existing?.stock||0;
         el('inventoryMin').value=existing?.min||0;
         el('inventoryNote').value=existing?.note||'';
         el('inventoryName').value=existing?.name||'';
-        el('inventoryModalStoreText').textContent=assignedStore;
-        el('inventoryModalTitle').textContent=existing?'Ubah Bahan & Stok Minimum':'Tambah Bahan';
+        el('inventoryModalScopeLabel').textContent=eventMode?'Bahan khusus untuk event':'Bahan akan digunakan untuk cabang';
+        el('inventoryModalStoreText').textContent=eventMode?eventName(eventId):assignedStore;
+        el('inventoryModalTitle').textContent=existing?(eventMode?'Ubah Bahan Event & Stok Minimum':'Ubah Bahan & Stok Minimum'):(eventMode?'Tambah Bahan Event':'Tambah Bahan Toko');
         openModal('inventoryModal');
         setTimeout(()=>el('inventoryName').focus(),80);
       }
@@ -1695,18 +1951,21 @@ NOTIFY pgrst, 'reload schema';`
         if(!canManageMaterials())return toast('Hanya Admin yang dapat mengubah Daftar Bahan.');
         const itemId=el('inventoryId').value||uid();
         const existing=state.inventory.find(item=>item.id===itemId);
-        const assignedStore=existing?.store||selectedMaterialStore();
+        const eventMode=el('inventoryContext').value==='event';
+        const eventId=eventMode?(el('inventoryEvent').value==='none'?null:el('inventoryEvent').value):null;
+        const assignedStore=eventMode?EVENT_STORE:(existing?.store||selectedMaterialStore());
         const name=el('inventoryName').value.trim();
         const minStock=Number(el('inventoryMin').value);
-        if(!assignedStore)return toast('Pilih satu toko pada halaman Daftar Bahan terlebih dahulu.');
-        if(!canAccessStore(assignedStore))return toast('Anda tidak memiliki akses ke cabang tersebut.');
+        if(eventMode&&!eventId)return toast('Pilih event terlebih dahulu.');
+        if(!eventMode&&!assignedStore)return toast('Pilih satu toko pada halaman Daftar Bahan terlebih dahulu.');
+        if(!eventMode&&!canAccessStore(assignedStore))return toast('Anda tidak memiliki akses ke cabang tersebut.');
         if(!name)return toast('Nama bahan wajib diisi.');
         if(!Number.isFinite(minStock)||minStock<0)return toast('Stok minimum harus berupa angka nol atau lebih.');
-        const duplicate=state.inventory.some(item=>item.id!==itemId&&item.store===assignedStore&&item.name.trim().toLowerCase()===name.toLowerCase());
-        if(duplicate)return toast('Nama bahan tersebut sudah ada pada cabang ini.');
-        const item={id:itemId,store:assignedStore,eventId:existing?.eventId||null,name,unit:existing?.unit||'unit',stock:Number(existing?.stock||0),min:minStock,price:Number(existing?.price||0),note:existing?.note||'',updatedAt:new Date().toISOString()};
+        const duplicate=state.inventory.some(item=>item.id!==itemId&&(eventMode?item.eventId===eventId:!item.eventId&&item.store===assignedStore)&&item.name.trim().toLowerCase()===name.toLowerCase());
+        if(duplicate)return toast(eventMode?'Nama bahan tersebut sudah ada pada event ini.':'Nama bahan tersebut sudah ada pada cabang ini.');
+        const item={id:itemId,store:assignedStore,eventId,name,unit:existing?.unit||'unit',stock:Number(existing?.stock||0),min:minStock,price:Number(existing?.price||0),note:existing?.note||'',updatedAt:new Date().toISOString()};
         const button=event.submitter;setButtonBusy(button,true,'Menyimpan…');
-        try{const {error}=await db.from('inventory').upsert(inventoryToRow(item));if(error)throw error;closeModal('inventoryModal');await loadCloudData(true);toast(existing?'Bahan dan stok minimum berhasil diperbarui.':'Bahan berhasil ditambahkan dan akan tampil setiap hari.');}catch(error){showSyncError(error);}finally{setButtonBusy(button,false);}
+        try{const {error}=await db.from('inventory').upsert(inventoryToRow(item));if(error)throw error;closeModal('inventoryModal');await loadCloudData(true);toast(existing?'Bahan dan stok minimum berhasil diperbarui.':eventMode?'Bahan event berhasil ditambahkan.':'Bahan toko berhasil ditambahkan dan akan tampil setiap hari.');}catch(error){showSyncError(error);}finally{setButtonBusy(button,false);}
       }
 
       function openEventModal(id=null){if(!isAdmin())return;el('eventForm').reset();el('eventId').value='';el('eventDate').value=todayISO();el('eventEndDate').value=todayISO();el('eventTargetSales').value=0;el('eventModalTitle').textContent='Tambah Event';if(id){const item=state.events.find(e=>e.id===id);if(!item)return;el('eventId').value=item.id;el('eventName').value=item.name;el('eventDate').value=item.eventDate;el('eventEndDate').value=item.endDate;el('eventLocation').value=item.location;el('eventOrganizer').value=item.organizer;el('eventTargetSales').value=item.targetSales;el('eventNote').value=item.note||'';el('eventModalTitle').textContent='Edit Event';}openModal('eventModal');setTimeout(()=>el('eventName').focus(),80);}
@@ -1760,15 +2019,33 @@ NOTIFY pgrst, 'reload schema';`
       function stopCloudRefresh(){clearInterval(refreshTimer);clearTimeout(realtimeDebounce);refreshTimer=null;if(cloudChannel&&db)db.removeChannel(cloudChannel);cloudChannel=null;}
 
       function renderAll(){renderDashboard();renderTransactions();renderInventory();renderMaterials();renderEvents();renderProfiles();}
-      function filteredByGlobal(items){return selectedGlobalStore==='all'?items:items.filter(item=>item.store===selectedGlobalStore);}
+      function filteredByGlobal(items){const storeItems=items.filter(item=>!item.eventId);return selectedGlobalStore==='all'?storeItems:storeItems.filter(item=>item.store===selectedGlobalStore);}
       function sumByType(rows,type){return rows.filter(t=>t.type===type).reduce((sum,t)=>sum+t.amount,0);}
 
       function renderDashboard(){if(!canViewAll())return;const today=todayISO();const month=currentMonth();const base=filteredByGlobal(state.transactions);const daily=base.filter(t=>t.date===today);const monthly=base.filter(t=>t.date.startsWith(month));const dailyIncome=sumByType(daily,'income');const dailyExpense=sumByType(daily,'expense');const monthlyIncome=sumByType(monthly,'income');const monthlyExpense=sumByType(monthly,'expense');const lowStock=filteredByGlobal(state.inventory).filter(i=>i.stock<=i.min).length;el('statDailyIncome').textContent=money(dailyIncome);el('statDailyExpense').textContent=money(dailyExpense);el('statDailyProfit').textContent=money(dailyIncome-dailyExpense);el('statDailyIncomeCount').textContent=`${daily.filter(t=>t.type==='income').length} transaksi pemasukan`;el('statDailyExpenseCount').textContent=`${daily.filter(t=>t.type==='expense').length} transaksi pengeluaran`;el('statIncome').textContent=money(monthlyIncome);el('statExpense').textContent=money(monthlyExpense);el('statProfit').textContent=money(monthlyIncome-monthlyExpense);el('statLowStock').textContent=number(lowStock);el('statIncomeCount').textContent=`${monthly.filter(t=>t.type==='income').length} transaksi pemasukan`;el('statExpenseCount').textContent=`${monthly.filter(t=>t.type==='expense').length} transaksi pengeluaran`;renderStoreSummary(month);renderRecentTransactions();renderChart();}
-      function renderStoreSummary(month){el('storeSummary').innerHTML=STORES.map(store=>{const tx=state.transactions.filter(t=>t.store===store&&t.date.startsWith(month));const balance=sumByType(tx,'income')-sumByType(tx,'expense');return`<div class="store-row"><div><strong>${escapeHtml(store)}</strong><small>${tx.length} transaksi</small></div><div class="store-amount" style="color:${balance<0?'var(--red)':'var(--green)'}">${money(balance)}</div></div>`;}).join('');}
-      function renderRecentTransactions(){const rows=filteredByGlobal(state.transactions).slice().sort((a,b)=>`${b.date}${b.createdAt||''}`.localeCompare(`${a.date}${a.createdAt||''}`)).slice(0,10);el('recentTransactions').innerHTML=rows.length?transactionTableMarkup(rows,false):emptyState('Belum ada transaksi','Tambahkan transaksi pertama untuk melihat ringkasan.');}
+      function renderStoreSummary(month){el('storeSummary').innerHTML=STORES.map(store=>{const tx=state.transactions.filter(t=>!t.eventId&&t.store===store&&t.date.startsWith(month));const balance=sumByType(tx,'income')-sumByType(tx,'expense');return`<div class="store-row"><div><strong>${escapeHtml(store)}</strong><small>${tx.length} transaksi</small></div><div class="store-amount" style="color:${balance<0?'var(--red)':'var(--green)'}">${money(balance)}</div></div>`;}).join('');}
+      function renderRecentTransactions(){const rows=filteredByGlobal(state.transactions).slice().sort((a,b)=>`${b.date}${b.createdAt||''}`.localeCompare(`${a.date}${a.createdAt||''}`)).slice(0,10);el('recentTransactions').innerHTML=rows.length?transactionTableMarkup(rows,false,'store'):emptyState('Belum ada transaksi toko','Tambahkan transaksi toko pertama untuk melihat ringkasan.');}
 
-      function renderTransactions(){if(!canViewAll())return;const query=el('transactionSearch').value.toLowerCase().trim();const type=el('transactionTypeFilter').value;const month=el('transactionMonthFilter').value;const store=selectedGlobalStore;const eventFilter=el('transactionEventFilter').value;const rows=state.transactions.filter(t=>{const eName=eventName(t.eventId);const matchesQuery=!query||`${t.category} ${t.note||''} ${t.store} ${eName}`.toLowerCase().includes(query);const matchesType=type==='all'||t.type===type;const matchesMonth=!month||t.date.startsWith(month);const matchesStore=store==='all'||t.store===store;const matchesEvent=eventFilter==='all'||(eventFilter==='none'?!t.eventId:t.eventId===eventFilter);return matchesQuery&&matchesType&&matchesMonth&&matchesStore&&matchesEvent;}).sort((a,b)=>`${b.date}${b.createdAt||''}`.localeCompare(`${a.date}${a.createdAt||''}`));el('transactionsTable').innerHTML=rows.length?transactionTableMarkup(rows,isAdmin()):emptyState('Transaksi tidak ditemukan','Ubah filter atau tambahkan transaksi baru.');}
-      function transactionTableMarkup(rows,editable){return`<table><thead><tr><th>Tanggal</th><th>Toko</th><th>Event</th><th>Jenis</th><th>Kategori</th><th>Keterangan</th><th class="text-right">Nominal</th>${editable?'<th>Aksi</th>':''}</tr></thead><tbody>${rows.map(t=>`<tr><td>${formatDate(t.date)}</td><td><strong>${escapeHtml(t.store)}</strong></td><td><span class="event-tag ${t.eventId?'':'none'}">${escapeHtml(eventName(t.eventId))}</span></td><td><span class="badge ${t.type==='income'?'badge-income':'badge-expense'}">${t.type==='income'?'Pemasukan':'Pengeluaran'}</span></td><td>${escapeHtml(t.category)}</td><td class="muted">${escapeHtml(t.note||'-')}</td><td class="text-right ${t.type==='income'?'amount-income':'amount-expense'}">${t.type==='income'?'+':'-'} ${money(t.amount)}</td>${editable?`<td><div class="actions"><button class="icon-btn" data-edit-transaction="${t.id}" title="Edit">✎</button><button class="icon-btn danger" data-delete-transaction="${t.id}" title="Hapus">🗑</button></div></td>`:''}</tr>`).join('')}</tbody></table>`;}
+      function renderTransactions(){
+        if(!canViewAll())return;
+        const query=el('transactionSearch').value.toLowerCase().trim();
+        const type=el('transactionTypeFilter').value;
+        const month=el('transactionMonthFilter').value;
+        const store=selectedGlobalStore;
+        const rows=state.transactions.filter(t=>{
+          if(t.eventId)return false;
+          const matchesQuery=!query||`${t.category} ${t.note||''} ${t.store}`.toLowerCase().includes(query);
+          const matchesType=type==='all'||t.type===type;
+          const matchesMonth=!month||t.date.startsWith(month);
+          const matchesStore=store==='all'||t.store===store;
+          return matchesQuery&&matchesType&&matchesMonth&&matchesStore;
+        }).sort((a,b)=>`${b.date}${b.createdAt||''}`.localeCompare(`${a.date}${a.createdAt||''}`));
+        el('transactionsTable').innerHTML=rows.length?transactionTableMarkup(rows,isAdmin(),'store'):emptyState('Transaksi toko tidak ditemukan','Ubah filter atau tambahkan transaksi toko baru.');
+      }
+      function transactionTableMarkup(rows,editable,context='store'){
+        const eventMode=context==='event';
+        return`<table><thead><tr><th>Tanggal</th>${eventMode?'':'<th>Toko</th>'}<th>Jenis</th><th>Kategori</th><th>Keterangan</th><th class="text-right">Nominal</th>${editable?'<th>Aksi</th>':''}</tr></thead><tbody>${rows.map(t=>`<tr><td>${formatDate(t.date)}</td>${eventMode?'':`<td><strong>${escapeHtml(t.store)}</strong></td>`}<td><span class="badge ${t.type==='income'?'badge-income':'badge-expense'}">${t.type==='income'?'Pemasukan':'Pengeluaran'}</span></td><td>${escapeHtml(t.category)}</td><td class="muted">${escapeHtml(t.note||'-')}</td><td class="text-right ${t.type==='income'?'amount-income':'amount-expense'}">${t.type==='income'?'+':'-'} ${money(t.amount)}</td>${editable?`<td><div class="actions"><button class="icon-btn" data-edit-transaction="${t.id}" title="Edit">✎</button><button class="icon-btn danger" data-delete-transaction="${t.id}" title="Hapus">🗑</button></div></td>`:''}</tr>`).join('')}</tbody></table>`;
+      }
 
       function renderInventory(){
         const branch=employeeBranch();
@@ -1782,7 +2059,7 @@ NOTIFY pgrst, 'reload schema';`
         const query=el('inventorySearch').value.toLowerCase().trim();
         const statusFilter=el('inventoryStatusFilter').value;
         const store=canViewAll()?el('globalStore').value:branch;
-        const rows=dailyRowsForDisplay(date,store).filter(item=>{
+        const rows=dailyRowsForDisplay(date,store,null).filter(item=>{
           const matchesQuery=!query||item.name.toLowerCase().includes(query);
           const matchesStatus=statusFilter==='all'||(statusFilter==='open'&&!item.isClosed)||(statusFilter==='closed'&&item.isClosed)||(statusFilter==='used'&&item.usedStock>0);
           return matchesQuery&&matchesStatus;
@@ -1790,11 +2067,11 @@ NOTIFY pgrst, 'reload schema';`
 
         renderDailyRecapSummary(date,store,rows);
         renderInventoryClosingDetails(date,store);
-        el('dailyTableTitle').textContent=`Daftar Bahan — ${formatDate(date)}`;
+        el('dailyTableTitle').textContent=`Daftar Bahan Toko — ${formatDate(date)}`;
         el('dailyTableSubtitle').textContent=store==='all'?'Seluruh cabang':(store||'Pilih satu cabang');
         applyDailyActionState(date,store,rows);
 
-        if(!rows.length){el('inventoryTable').innerHTML=emptyState('Belum ada nama bahan','Tambahkan nama bahan terlebih dahulu melalui menu Daftar Bahan di sidebar.');return;}
+        if(!rows.length){el('inventoryTable').innerHTML=emptyState('Belum ada nama bahan toko','Tambahkan nama bahan toko terlebih dahulu melalui menu Daftar Bahan.');return;}
         const showStore=store==='all'||!store;
         el('inventoryTable').innerHTML=`<table><thead><tr>${showStore?'<th>Toko</th>':''}<th>Nama Bahan</th><th>Satuan</th><th>Stok Awal</th><th>Stok Masuk</th><th>Stok Akhir</th><th>Terpakai</th><th>Status Bahan</th><th>Status Closing</th></tr></thead><tbody>${rows.map(item=>{const closeBadge=item.isClosed?'<span class="badge badge-closed">Sudah Closing</span>':'<span class="badge badge-open">Belum Closing</span>';const materialStatus=getDailyMaterialStatus(item);return`<tr class="material-status-row material-status-${materialStatus.key}">${showStore?`<td><strong>${escapeHtml(item.store)}</strong></td>`:''}<td><strong>${escapeHtml(item.name)}</strong></td><td>${escapeHtml(item.unit||'unit')}</td><td>${number(item.openingStock)}</td><td>${item.isClosed?number(item.stockIn):'<span class="muted">—</span>'}</td><td>${item.closingStock==null?'<span class="muted">Belum diisi</span>':number(item.closingStock)}</td><td><strong class="${item.usedStock>0?'used-value':'muted'}">${item.isClosed?number(item.usedStock):'—'}</strong></td><td><span class="badge ${materialStatus.className}">${materialStatus.label}</span><small class="status-detail">Stok acuan ${number(materialStatus.stock)} · Minimum ${number(materialStatus.min)} ${escapeHtml(item.unit||'unit')}</small></td><td>${closeBadge}</td></tr>`;}).join('')}</tbody></table>`;
       }
@@ -1806,6 +2083,7 @@ NOTIFY pgrst, 'reload schema';`
         const editable=isAdmin();
         const exactStore=store&&store!=='all';
         const rows=state.inventory.filter(item=>{
+          if(item.eventId)return false;
           const matchesStore=store==='all'||!store||item.store===store;
           const matchesQuery=!query||item.name.toLowerCase().includes(query);
           return matchesStore&&matchesQuery;
@@ -1815,13 +2093,13 @@ NOTIFY pgrst, 'reload schema';`
         el('addInventoryBtn').disabled=!editable||!exactStore;
         el('addInventoryBtn').title=!editable?'Akun ini hanya dapat melihat daftar bahan':!exactStore?'Pilih satu toko terlebih dahulu':'Tambahkan nama bahan untuk toko ini';
 
-        if(!rows.length){el('materialsTable').innerHTML=emptyState('Belum ada nama bahan',editable?(exactStore?'Tekan Tambah Nama Bahan untuk membuat daftar.':'Pilih satu toko terlebih dahulu.'):'Belum ada nama bahan pada pilihan ini.');return;}
+        if(!rows.length){el('materialsTable').innerHTML=emptyState('Belum ada nama bahan toko',editable?(exactStore?'Tekan Tambah Nama Bahan untuk membuat daftar.':'Pilih satu toko terlebih dahulu.'):'Belum ada nama bahan pada pilihan ini.');return;}
         const showStore=store==='all'||!store;
-        el('materialsTable').innerHTML=`<table><thead><tr>${showStore?'<th>Toko</th>':''}<th>Nama Bahan</th><th>Stok Saat Ini</th><th>Stok Minimum</th><th>Status Bahan</th><th>Terakhir Diperbarui</th>${editable?'<th>Aksi</th>':''}</tr></thead><tbody>${rows.map(item=>{const status=getStockStatus(item);return`<tr class="material-status-row material-status-${status.key}">${showStore?`<td><strong>${escapeHtml(item.store)}</strong></td>`:''}<td><strong>${escapeHtml(item.name)}</strong><br><small class="muted">Otomatis tampil pada rekapan harian</small></td><td><div class="material-stock-value"><strong>${number(item.stock)}</strong><small>${escapeHtml(item.unit||'unit')}</small></div></td><td><div class="material-stock-value"><strong>${number(item.min)}</strong><small>${escapeHtml(item.unit||'unit')}</small></div></td><td><span class="badge ${status.className}">${status.label}</span>${status.key==='low'?`<small class="status-detail">Kurang ${number(Math.max(0,item.min-item.stock))} ${escapeHtml(item.unit||'unit')} menuju batas minimum</small>`:status.key==='empty'?'<small class="status-detail">Stok sudah habis</small>':'<small class="status-detail">Stok masih di atas batas minimum</small>'}</td><td>${item.updatedAt?new Intl.DateTimeFormat('id-ID',{day:'2-digit',month:'short',year:'numeric'}).format(new Date(item.updatedAt)):'-'}</td>${editable?`<td><div class="actions"><button class="icon-btn" data-edit-inventory="${item.id}" title="Ubah bahan dan stok minimum">✎</button><button class="icon-btn danger" data-delete-inventory="${item.id}" title="Hapus dari daftar bahan">🗑</button></div></td>`:''}</tr>`;}).join('')}</tbody></table>`;
+        el('materialsTable').innerHTML=`<table><thead><tr>${showStore?'<th>Toko</th>':''}<th>Nama Bahan</th><th>Stok Saat Ini</th><th>Stok Minimum</th><th>Status Bahan</th><th>Terakhir Diperbarui</th>${editable?'<th>Aksi</th>':''}</tr></thead><tbody>${rows.map(item=>{const status=getStockStatus(item);return`<tr class="material-status-row material-status-${status.key}">${showStore?`<td><strong>${escapeHtml(item.store)}</strong></td>`:''}<td><strong>${escapeHtml(item.name)}</strong><br><small class="muted">Khusus operasional toko</small></td><td><div class="material-stock-value"><strong>${number(item.stock)}</strong><small>${escapeHtml(item.unit||'unit')}</small></div></td><td><div class="material-stock-value"><strong>${number(item.min)}</strong><small>${escapeHtml(item.unit||'unit')}</small></div></td><td><span class="badge ${status.className}">${status.label}</span>${status.key==='low'?`<small class="status-detail">Kurang ${number(Math.max(0,item.min-item.stock))} ${escapeHtml(item.unit||'unit')} menuju batas minimum</small>`:status.key==='empty'?'<small class="status-detail">Stok sudah habis</small>':'<small class="status-detail">Stok masih di atas batas minimum</small>'}</td><td>${item.updatedAt?new Intl.DateTimeFormat('id-ID',{day:'2-digit',month:'short',year:'numeric'}).format(new Date(item.updatedAt)):'-'}</td>${editable?`<td><div class="actions"><button class="icon-btn" data-edit-inventory="${item.id}" title="Ubah bahan dan stok minimum">✎</button><button class="icon-btn danger" data-delete-inventory="${item.id}" title="Hapus dari daftar bahan">🗑</button></div></td>`:''}</tr>`;}).join('')}</tbody></table>`;
       }
 
       function applyDailyActionState(date,store,rows=[]){
-        const exactStore=store&&store!=='all';const allowedDate=date<=todayISO();const masterCount=exactStore?state.inventory.filter(item=>item.store===store).length:0;
+        const exactStore=store&&store!=='all';const allowedDate=date<=todayISO();const masterCount=exactStore?state.inventory.filter(item=>!item.eventId&&item.store===store).length:0;
         const writeAllowed=canEditInventory()&&exactStore&&allowedDate;
         el('closeDailyRecapBtn').disabled=!writeAllowed||!masterCount;
         el('closeDailyRecapBtn').textContent=date===todayISO()?'✓ Closing Hari Ini':'✓ Closing Tanggal Ini';
@@ -1836,8 +2114,8 @@ NOTIFY pgrst, 'reload schema';`
       }
 
       function renderInventoryClosingDetails(date,store){
-        const rows=state.inventoryDaily.filter(row=>row.date===date&&(store==='all'||!store||row.store===store)&&row.isClosed&&row.usedStock>0).sort((a,b)=>a.store.localeCompare(b.store)||a.name.localeCompare(b.name));
-        const closedAny=state.inventoryDaily.some(row=>row.date===date&&(store==='all'||!store||row.store===store)&&row.isClosed);
+        const rows=state.inventoryDaily.filter(row=>!row.eventId&&row.date===date&&(store==='all'||!store||row.store===store)&&row.isClosed&&row.usedStock>0).sort((a,b)=>a.store.localeCompare(b.store)||a.name.localeCompare(b.name));
+        const closedAny=state.inventoryDaily.some(row=>!row.eventId&&row.date===date&&(store==='all'||!store||row.store===store)&&row.isClosed);
         if(!rows.length){el('inventoryClosingDetails').innerHTML=emptyState(closedAny?'Tidak ada bahan yang terpakai':'Closing belum dilakukan',closedAny?'Semua bahan tercatat tanpa pemakaian pada tanggal ini.':'Lakukan closing untuk menghasilkan detail bahan yang dipakai.');return;}
         el('inventoryClosingDetails').innerHTML=`<table><thead><tr><th>Toko</th><th>Nama Bahan</th><th>Satuan</th><th>Stok Awal</th><th>Stok Masuk</th><th>Stok Akhir</th><th>Jumlah Terpakai</th><th>Keterangan</th></tr></thead><tbody>${rows.map(row=>`<tr><td><strong>${escapeHtml(row.store)}</strong></td><td><strong>${escapeHtml(row.name)}</strong></td><td>${escapeHtml(row.unit||'unit')}</td><td>${number(row.openingStock)}</td><td>${number(row.stockIn)}</td><td>${number(row.closingStock)}</td><td><strong class="used-value">${number(row.usedStock)} ${escapeHtml(row.unit||'unit')}</strong></td><td class="muted">${escapeHtml(row.note||'-')}</td></tr>`).join('')}</tbody></table>`;
       }
@@ -1846,7 +2124,106 @@ NOTIFY pgrst, 'reload schema';`
       function getDailyMaterialStatus(item){const master=state.inventory.find(material=>material.id===item.inventoryId);const stock=item.isClosed&&item.closingStock!=null?Number(item.closingStock||0):Number(item.openingStock||0);const min=Number(master?.min||0);return{...getStockStatus({stock,min}),stock,min};}
 
       function getEventStatus(item){const today=todayISO();if(item.eventDate>today)return{key:'upcoming',label:'Akan Datang',className:'event-status-upcoming'};if(item.endDate<today)return{key:'completed',label:'Selesai',className:'event-status-completed'};return{key:'ongoing',label:'Berlangsung',className:'event-status-ongoing'};}
-      function renderEvents(){if(!canViewAll())return;const allEventTx=state.transactions.filter(t=>t.eventId);const eventIncome=sumByType(allEventTx,'income');const eventExpense=sumByType(allEventTx,'expense');el('statEventCount').textContent=number(state.events.length);el('statEventActive').textContent=number(state.events.filter(e=>getEventStatus(e).key!=='completed').length);el('statEventIncome').textContent=money(eventIncome);el('statEventProfit').textContent=money(eventIncome-eventExpense);const query=el('eventSearch').value.toLowerCase().trim();const statusFilter=el('eventStatusFilter').value;const rows=state.events.filter(item=>{const status=getEventStatus(item);return(!query||`${item.name} ${item.location} ${item.organizer} ${item.note}`.toLowerCase().includes(query))&&(statusFilter==='all'||status.key===statusFilter);}).sort((a,b)=>b.eventDate.localeCompare(a.eventDate));if(!rows.length){el('eventsTable').innerHTML=emptyState('Belum ada event','Tambahkan kegiatan event untuk mulai membuat rekapan.');return;}el('eventsTable').innerHTML=`<table><thead><tr><th>Event</th><th>Tanggal</th><th>Status</th><th>Pemasukan</th><th>Pengeluaran</th><th>Saldo</th><th>Bahan</th><th>Target</th><th>Aksi</th></tr></thead><tbody>${rows.map(item=>{const tx=state.transactions.filter(t=>t.eventId===item.id);const income=sumByType(tx,'income');const expense=sumByType(tx,'expense');const materials=state.inventory.filter(i=>i.eventId===item.id);const status=getEventStatus(item);return`<tr><td><div class="event-title"><strong>${escapeHtml(item.name)}</strong><small>${escapeHtml(item.location)}${item.organizer?` • ${escapeHtml(item.organizer)}`:''}</small></div></td><td>${formatDate(item.eventDate)}${item.endDate!==item.eventDate?`<br><small class="muted">s.d. ${formatDate(item.endDate)}</small>`:''}</td><td><span class="badge ${status.className}">${status.label}</span></td><td class="amount-income">${money(income)}</td><td class="amount-expense">${money(expense)}</td><td><strong>${money(income-expense)}</strong></td><td><div class="mini-summary"><strong>${materials.length} bahan</strong></div></td><td>${money(item.targetSales)}</td><td><div class="actions"><button class="icon-btn" data-event-transactions="${item.id}" title="Lihat transaksi">⇄</button><button class="icon-btn" data-event-materials="${item.id}" title="Lihat bahan">▤</button>${isAdmin()?`<button class="icon-btn" data-edit-event="${item.id}" title="Edit">✎</button><button class="icon-btn danger" data-delete-event="${item.id}" title="Hapus">🗑</button>`:''}</div></td></tr>`;}).join('')}</tbody></table>`;}
+      function renderEvents(){
+        if(!canViewAll())return;
+        const allEventTx=state.transactions.filter(t=>t.eventId);
+        const eventIncome=sumByType(allEventTx,'income');
+        const eventExpense=sumByType(allEventTx,'expense');
+        el('statEventCount').textContent=number(state.events.length);
+        el('statEventActive').textContent=number(state.events.filter(e=>getEventStatus(e).key!=='completed').length);
+        el('statEventIncome').textContent=money(eventIncome);
+        el('statEventProfit').textContent=money(eventIncome-eventExpense);
+        const query=el('eventSearch').value.toLowerCase().trim();
+        const statusFilter=el('eventStatusFilter').value;
+        const rows=state.events.filter(item=>{const status=getEventStatus(item);return(!query||`${item.name} ${item.location} ${item.organizer} ${item.note}`.toLowerCase().includes(query))&&(statusFilter==='all'||status.key===statusFilter);}).sort((a,b)=>b.eventDate.localeCompare(a.eventDate));
+        if(!rows.length)el('eventsTable').innerHTML=emptyState('Belum ada event','Tambahkan event untuk membuat ruang transaksi dan bahan yang terpisah dari toko.');
+        else el('eventsTable').innerHTML=`<table><thead><tr><th>Event</th><th>Tanggal</th><th>Status</th><th>Pemasukan</th><th>Pengeluaran</th><th>Saldo</th><th>Bahan</th><th>Target</th><th>Aksi</th></tr></thead><tbody>${rows.map(item=>{const tx=state.transactions.filter(t=>t.eventId===item.id);const income=sumByType(tx,'income');const expense=sumByType(tx,'expense');const materials=state.inventory.filter(i=>i.eventId===item.id);const status=getEventStatus(item);return`<tr><td><div class="event-title"><strong>${escapeHtml(item.name)}</strong><small>${escapeHtml(item.location)}${item.organizer?` • ${escapeHtml(item.organizer)}`:''}</small></div></td><td>${formatDate(item.eventDate)}${item.endDate!==item.eventDate?`<br><small class="muted">s.d. ${formatDate(item.endDate)}</small>`:''}</td><td><span class="badge ${status.className}">${status.label}</span></td><td class="amount-income">${money(income)}</td><td class="amount-expense">${money(expense)}</td><td><strong>${money(income-expense)}</strong></td><td><div class="mini-summary"><strong>${materials.length} bahan</strong></div></td><td>${money(item.targetSales)}</td><td><div class="actions"><button class="icon-btn" data-event-transactions="${item.id}" title="Pemasukan & Pengeluaran Event">⇄</button><button class="icon-btn" data-event-inventory="${item.id}" title="Rekapan Bahan Event">▤</button><button class="icon-btn" data-event-materials="${item.id}" title="Daftar Bahan Event">＋</button>${isAdmin()?`<button class="icon-btn" data-edit-event="${item.id}" title="Edit Event">✎</button><button class="icon-btn danger" data-delete-event="${item.id}" title="Hapus Event">🗑</button>`:''}</div></td></tr>`;}).join('')}</tbody></table>`;
+        renderEventWorkspace();
+      }
+
+
+      function renderEventWorkspace(){
+        if(!canViewAll())return;
+        const eventId=selectedEventWorkspaceId();
+        const selected=eventById(eventId);
+        const disabled=!selected;
+        el('eventWorkspaceSubtitle').textContent=selected?`${selected.name} • ${formatDate(selected.eventDate)}${selected.endDate!==selected.eventDate?`–${formatDate(selected.endDate)}`:''} • data tidak terhubung ke toko.`:'Pilih atau tambahkan event untuk membuka data operasional khusus event.';
+        ['addEventTransactionBtn','addEventInventoryBtn','closeEventDailyRecapBtn','exportEventTransactionsBtn','exportEventInventoryBtn'].forEach(id=>{if(el(id))el(id).disabled=disabled||(id.startsWith('add')||id.startsWith('close')?!isAdmin():false);});
+        switchEventTab(activeEventTab);
+      }
+
+      function renderEventTransactions(){
+        if(!canViewAll())return;
+        const eventId=selectedEventWorkspaceId();
+        if(!eventId){el('eventTransactionsTable').innerHTML=emptyState('Belum ada event yang dipilih','Pilih event pada slicer Event yang Dibuka.');return;}
+        const query=el('eventTransactionSearch').value.toLowerCase().trim();
+        const type=el('eventTransactionTypeFilter').value;
+        const month=el('eventTransactionMonthFilter').value;
+        const rows=state.transactions.filter(t=>t.eventId===eventId&&(!query||`${t.category} ${t.note||''}`.toLowerCase().includes(query))&&(type==='all'||t.type===type)&&(!month||t.date.startsWith(month))).sort((a,b)=>`${b.date}${b.createdAt||''}`.localeCompare(`${a.date}${a.createdAt||''}`));
+        el('eventTransactionsTable').innerHTML=rows.length?transactionTableMarkup(rows,isAdmin(),'event'):emptyState('Belum ada transaksi event','Tambahkan pemasukan atau pengeluaran khusus untuk event ini.');
+      }
+
+      function renderEventInventory(){
+        if(!canViewAll())return;
+        const eventId=selectedEventWorkspaceId();
+        const date=selectedEventInventoryDate();
+        if(!eventId){
+          el('eventDailyRecapSummary').innerHTML='';
+          el('eventInventoryTable').innerHTML=emptyState('Belum ada event yang dipilih','Pilih event untuk melihat rekapan bahan.');
+          el('eventInventoryClosingDetails').innerHTML=emptyState('Belum ada event yang dipilih','Pilih event untuk melihat detail closing.');
+          el('closeEventDailyRecapBtn').disabled=true;
+          return;
+        }
+        const query=el('eventInventorySearch').value.toLowerCase().trim();
+        const statusFilter=el('eventInventoryStatusFilter').value;
+        const rows=dailyRowsForDisplay(date,EVENT_STORE,eventId).filter(item=>{
+          const matchesQuery=!query||item.name.toLowerCase().includes(query);
+          const matchesStatus=statusFilter==='all'||(statusFilter==='open'&&!item.isClosed)||(statusFilter==='closed'&&item.isClosed)||(statusFilter==='used'&&item.usedStock>0);
+          return matchesQuery&&matchesStatus;
+        }).sort((a,b)=>a.name.localeCompare(b.name));
+        renderEventDailyRecapSummary(date,eventId,rows);
+        renderEventInventoryClosingDetails(date,eventId);
+        el('eventDailyTableTitle').textContent=`Daftar Bahan Event — ${formatDate(date)}`;
+        el('eventDailyTableSubtitle').textContent=eventName(eventId);
+        applyEventDailyActionState(date,eventId);
+        if(!rows.length){el('eventInventoryTable').innerHTML=emptyState('Belum ada bahan event','Tambahkan nama bahan melalui tab Daftar Bahan Event.');return;}
+        el('eventInventoryTable').innerHTML=`<table><thead><tr><th>Nama Bahan</th><th>Satuan</th><th>Stok Awal</th><th>Stok Masuk</th><th>Stok Akhir</th><th>Terpakai</th><th>Status Bahan</th><th>Status Closing</th></tr></thead><tbody>${rows.map(item=>{const closeBadge=item.isClosed?'<span class="badge badge-closed">Sudah Closing</span>':'<span class="badge badge-open">Belum Closing</span>';const materialStatus=getDailyMaterialStatus(item);return`<tr class="material-status-row material-status-${materialStatus.key}"><td><strong>${escapeHtml(item.name)}</strong></td><td>${escapeHtml(item.unit||'unit')}</td><td>${number(item.openingStock)}</td><td>${item.isClosed?number(item.stockIn):'<span class="muted">—</span>'}</td><td>${item.closingStock==null?'<span class="muted">Belum diisi</span>':number(item.closingStock)}</td><td><strong class="${item.usedStock>0?'used-value':'muted'}">${item.isClosed?number(item.usedStock):'—'}</strong></td><td><span class="badge ${materialStatus.className}">${materialStatus.label}</span><small class="status-detail">Stok acuan ${number(materialStatus.stock)} · Minimum ${number(materialStatus.min)} ${escapeHtml(item.unit||'unit')}</small></td><td>${closeBadge}</td></tr>`;}).join('')}</tbody></table>`;
+      }
+
+      function renderEventMaterials(){
+        if(!canViewAll())return;
+        const eventId=selectedEventWorkspaceId();
+        if(!eventId){el('eventMaterialsTable').innerHTML=emptyState('Belum ada event yang dipilih','Pilih event untuk membuka daftar bahan khusus event.');el('addEventInventoryBtn').disabled=true;return;}
+        const query=el('eventMaterialsSearch').value.toLowerCase().trim();
+        const rows=state.inventory.filter(item=>item.eventId===eventId&&(!query||item.name.toLowerCase().includes(query))).sort((a,b)=>a.name.localeCompare(b.name));
+        el('addEventInventoryBtn').hidden=!isAdmin();
+        el('addEventInventoryBtn').disabled=!isAdmin();
+        if(!rows.length){el('eventMaterialsTable').innerHTML=emptyState('Belum ada nama bahan event',isAdmin()?'Tekan Tambah Bahan Event untuk membuat daftar khusus event.':'Belum ada bahan pada event ini.');return;}
+        el('eventMaterialsTable').innerHTML=`<table><thead><tr><th>Nama Bahan</th><th>Stok Saat Ini</th><th>Stok Minimum</th><th>Status Bahan</th><th>Terakhir Diperbarui</th>${isAdmin()?'<th>Aksi</th>':''}</tr></thead><tbody>${rows.map(item=>{const status=getStockStatus(item);return`<tr class="material-status-row material-status-${status.key}"><td><strong>${escapeHtml(item.name)}</strong><br><small class="muted">Khusus ${escapeHtml(eventName(eventId))}</small></td><td><div class="material-stock-value"><strong>${number(item.stock)}</strong><small>${escapeHtml(item.unit||'unit')}</small></div></td><td><div class="material-stock-value"><strong>${number(item.min)}</strong><small>${escapeHtml(item.unit||'unit')}</small></div></td><td><span class="badge ${status.className}">${status.label}</span>${status.key==='low'?`<small class="status-detail">Kurang ${number(Math.max(0,item.min-item.stock))} ${escapeHtml(item.unit||'unit')} menuju batas minimum</small>`:status.key==='empty'?'<small class="status-detail">Stok sudah habis</small>':'<small class="status-detail">Stok masih di atas batas minimum</small>'}</td><td>${item.updatedAt?new Intl.DateTimeFormat('id-ID',{day:'2-digit',month:'short',year:'numeric'}).format(new Date(item.updatedAt)):'-'}</td>${isAdmin()?`<td><div class="actions"><button class="icon-btn" data-edit-inventory="${item.id}" title="Ubah bahan event">✎</button><button class="icon-btn danger" data-delete-inventory="${item.id}" title="Hapus bahan event">🗑</button></div></td>`:''}</tr>`;}).join('')}</tbody></table>`;
+      }
+
+      function renderEventDailyRecapSummary(date,eventId,rows){
+        const closed=rows.filter(row=>row.isClosed);const used=closed.filter(row=>row.usedStock>0);const allClosed=rows.length>0&&closed.length===rows.length;const latestClose=closed.map(row=>row.closedAt).filter(Boolean).sort().at(-1);
+        const statusClass=!rows.length?'status-empty':allClosed?'status-closed':'status-open';const statusText=!rows.length?'Belum Ada Bahan':allClosed?'Sudah Closing':closed.length?'Closing Sebagian':'Menunggu Closing';
+        const totalUsed=used.reduce((sum,row)=>sum+Number(row.usedStock||0),0);
+        el('eventDailyRecapSummary').innerHTML=`<div class="daily-summary-item"><span>Tanggal</span><strong>${formatDate(date)}</strong><small>${date===todayISO()?'Rekapan hari ini':'Riwayat closing'}</small></div><div class="daily-summary-item"><span>Event</span><strong>${escapeHtml(eventName(eventId))}</strong><small>${rows.length} nama bahan</small></div><div class="daily-summary-item ${statusClass}"><span>Status</span><strong>${statusText}</strong><small>${latestClose?`Disimpan ${new Intl.DateTimeFormat('id-ID',{timeZone:'Asia/Jakarta',hour:'2-digit',minute:'2-digit'}).format(new Date(latestClose))}`:'Belum ada closing'}</small></div><div class="daily-summary-item"><span>Pemakaian</span><strong>${used.length} jenis bahan</strong><small>Total angka terpakai ${number(totalUsed)}</small></div>`;
+      }
+
+      function renderEventInventoryClosingDetails(date,eventId){
+        const rows=state.inventoryDaily.filter(row=>row.eventId===eventId&&row.date===date&&row.isClosed&&row.usedStock>0).sort((a,b)=>a.name.localeCompare(b.name));
+        const closedAny=state.inventoryDaily.some(row=>row.eventId===eventId&&row.date===date&&row.isClosed);
+        if(!rows.length){el('eventInventoryClosingDetails').innerHTML=emptyState(closedAny?'Tidak ada bahan yang terpakai':'Closing belum dilakukan',closedAny?'Semua bahan event tercatat tanpa pemakaian pada tanggal ini.':'Lakukan closing bahan event untuk menghasilkan detail pemakaian.');return;}
+        el('eventInventoryClosingDetails').innerHTML=`<table><thead><tr><th>Nama Bahan</th><th>Satuan</th><th>Stok Awal</th><th>Stok Masuk</th><th>Stok Akhir</th><th>Jumlah Terpakai</th><th>Keterangan</th></tr></thead><tbody>${rows.map(row=>`<tr><td><strong>${escapeHtml(row.name)}</strong></td><td>${escapeHtml(row.unit||'unit')}</td><td>${number(row.openingStock)}</td><td>${number(row.stockIn)}</td><td>${number(row.closingStock)}</td><td><strong class="used-value">${number(row.usedStock)} ${escapeHtml(row.unit||'unit')}</strong></td><td class="muted">${escapeHtml(row.note||'-')}</td></tr>`).join('')}</tbody></table>`;
+      }
+
+      function applyEventDailyActionState(date,eventId){
+        const masterCount=eventId?state.inventory.filter(item=>item.eventId===eventId).length:0;
+        const allowedDate=date<=todayISO();
+        el('closeEventDailyRecapBtn').hidden=!isAdmin();
+        el('closeEventDailyRecapBtn').disabled=!isAdmin()||!eventId||!allowedDate||!masterCount;
+        el('closeEventDailyRecapBtn').textContent=date===todayISO()?'✓ Closing Hari Ini':'✓ Closing Tanggal Ini';
+        el('closeEventDailyRecapBtn').title=!eventId?'Pilih event terlebih dahulu':!allowedDate?'Closing belum tersedia untuk tanggal mendatang':!masterCount?'Tambahkan bahan melalui tab Daftar Bahan Event terlebih dahulu':'Isi atau perbarui closing bahan event';
+      }
 
       function renderProfiles(){
         if(!canViewAll()||!el('profilesTable'))return;
@@ -1868,20 +2245,40 @@ NOTIFY pgrst, 'reload schema';`
         }).join('')}</tbody></table>`;
       }
 
-      async function handleTransactionTableClick(event){if(!isAdmin())return;const edit=event.target.closest('[data-edit-transaction]');const remove=event.target.closest('[data-delete-transaction]');if(edit)openTransactionModal(edit.dataset.editTransaction);if(remove&&confirm('Hapus transaksi ini dari database online?')){try{const {error}=await db.from('transactions').delete().eq('id',remove.dataset.deleteTransaction);if(error)throw error;await loadCloudData(true);toast('Transaksi berhasil dihapus.');}catch(error){showSyncError(error);}}}
+      async function handleTransactionTableClick(event){
+        if(!isAdmin())return;
+        const edit=event.target.closest('[data-edit-transaction]');
+        const remove=event.target.closest('[data-delete-transaction]');
+        if(edit){const item=state.transactions.find(row=>row.id===edit.dataset.editTransaction);openTransactionModal(edit.dataset.editTransaction,item?.eventId?'event':'store',item?.eventId||null);}
+        if(remove&&confirm('Hapus transaksi ini dari database online?')){try{const {error}=await db.from('transactions').delete().eq('id',remove.dataset.deleteTransaction);if(error)throw error;await loadCloudData(true);toast('Transaksi berhasil dihapus.');}catch(error){showSyncError(error);}}
+      }
       async function handleInventoryTableClick(event){
         if(!canManageMaterials())return;
         const edit=event.target.closest('[data-edit-inventory]');
         const remove=event.target.closest('[data-delete-inventory]');
         const targetId=edit?.dataset.editInventory||remove?.dataset.deleteInventory;
         const targetItem=targetId?state.inventory.find(item=>item.id===targetId):null;
-        if(targetItem&&!canAccessStore(targetItem.store))return toast('Anda tidak memiliki akses ke cabang data ini.');
-        if(edit)openInventoryModal(edit.dataset.editInventory);
-        if(remove&&confirm('Hapus bahan ini dari daftar aktif? Riwayat closing harian tetap tersimpan.')){
+        if(targetItem&&!targetItem.eventId&&!canAccessStore(targetItem.store))return toast('Anda tidak memiliki akses ke cabang data ini.');
+        if(edit)openInventoryModal(edit.dataset.editInventory,targetItem?.eventId?'event':'store',targetItem?.eventId||null);
+        if(remove&&confirm(targetItem?.eventId?'Hapus bahan ini dari daftar event? Riwayat closing tetap tersimpan sampai event dihapus.':'Hapus bahan ini dari daftar aktif? Riwayat closing harian tetap tersimpan.')){
           try{const {error}=await db.from('inventory').delete().eq('id',remove.dataset.deleteInventory);if(error)throw error;await loadCloudData(true);toast('Bahan berhasil dihapus dari daftar aktif.');}catch(error){showSyncError(error);}
         }
       }
-      async function handleEventsTableClick(event){if(!canViewAll())return;const edit=event.target.closest('[data-edit-event]');const remove=event.target.closest('[data-delete-event]');const tx=event.target.closest('[data-event-transactions]');const materials=event.target.closest('[data-event-materials]');if(edit&&isAdmin())openEventModal(edit.dataset.editEvent);if(tx){el('transactionEventFilter').value=tx.dataset.eventTransactions;switchView('transactions');renderTransactions();}if(materials){el('inventoryEventFilter').value=materials.dataset.eventMaterials;switchView('inventory');renderInventory();}if(remove&&isAdmin()&&confirm('Hapus event ini? Transaksi dan bahan tetap tersimpan tetapi tidak lagi terhubung ke event.')){try{const {error}=await db.from('events').delete().eq('id',remove.dataset.deleteEvent);if(error)throw error;await loadCloudData(true);toast('Event berhasil dihapus.');}catch(error){showSyncError(error);}}}
+      async function handleEventsTableClick(event){
+        if(!canViewAll())return;
+        const edit=event.target.closest('[data-edit-event]');
+        const remove=event.target.closest('[data-delete-event]');
+        const tx=event.target.closest('[data-event-transactions]');
+        const inventory=event.target.closest('[data-event-inventory]');
+        const materials=event.target.closest('[data-event-materials]');
+        if(edit&&isAdmin())openEventModal(edit.dataset.editEvent);
+        if(tx)selectEventWorkspace(tx.dataset.eventTransactions,'transactions');
+        if(inventory)selectEventWorkspace(inventory.dataset.eventInventory,'inventory');
+        if(materials)selectEventWorkspace(materials.dataset.eventMaterials,'materials');
+        if(remove&&isAdmin()&&confirm('Hapus event ini beserta seluruh transaksi, daftar bahan, dan rekapan bahan khusus event?')){
+          try{const {error}=await db.from('events').delete().eq('id',remove.dataset.deleteEvent);if(error)throw error;await loadCloudData(true);toast('Event beserta data khususnya berhasil dihapus.');}catch(error){showSyncError(error);}
+        }
+      }
       function handleProfileAccessDraftChange(event){
         if(!isAdmin())return;
         const changed=event.target.closest('[data-role-user],[data-branch-user]');
@@ -1961,7 +2358,13 @@ NOTIFY pgrst, 'reload schema';`
 
       function downloadFile(name,content,type){const blob=new Blob([content],{type});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);}
       function toCSV(rows){return rows.map(row=>row.map(value=>`"${String(value??'').replace(/"/g,'""')}"`).join(',')).join('\n');}
-      function exportTransactionsCSV(){if(!canViewAll())return;const rows=[['Tanggal','Toko','Event','Jenis','Kategori','Keterangan','Nominal']];state.transactions.slice().sort((a,b)=>b.date.localeCompare(a.date)).forEach(t=>rows.push([t.date,t.store,eventName(t.eventId),t.type==='income'?'Pemasukan':'Pengeluaran',t.category,t.note||'',t.amount]));downloadFile(`rekap-transaksi-${todayISO()}.csv`,'\ufeff'+toCSV(rows),'text/csv;charset=utf-8');toast('File transaksi berhasil diekspor.');}
+      function exportTransactionsCSV(){
+        if(!canViewAll())return;
+        const store=selectedGlobalStore;
+        const rows=[['Tanggal','Toko','Jenis','Kategori','Keterangan','Nominal']];
+        state.transactions.filter(t=>!t.eventId&&(store==='all'||t.store===store)).slice().sort((a,b)=>b.date.localeCompare(a.date)).forEach(t=>rows.push([t.date,t.store,t.type==='income'?'Pemasukan':'Pengeluaran',t.category,t.note||'',t.amount]));
+        downloadFile(`rekap-transaksi-toko-${todayISO()}.csv`,'\ufeff'+toCSV(rows),'text/csv;charset=utf-8');toast('File transaksi toko berhasil diekspor.');
+      }
       function exportInventoryCSV(){
         if(!canViewAll()&&!employeeBranch())return toast('Cabang akun belum ditetapkan.');
         const date=selectedInventoryDate();const store=canViewAll()?el('globalStore').value:employeeBranch();
@@ -1970,15 +2373,34 @@ NOTIFY pgrst, 'reload schema';`
         accessibleRows.forEach(i=>{const materialStatus=getDailyMaterialStatus(i);rows.push([i.date,i.store,i.name,i.unit||'unit',i.openingStock,i.stockIn,i.closingStock==null?'':i.closingStock,i.usedStock,materialStatus.min,materialStatus.label,i.isClosed?'Sudah Closing':'Belum Closing',i.note||'']);});
         downloadFile(`rekap-bahan-harian-${date}.csv`,'\ufeff'+toCSV(rows),'text/csv;charset=utf-8');toast('Rekapan bahan harian berhasil diekspor.');
       }
+      function exportEventTransactionsCSV(){
+        if(!canViewAll())return;
+        const eventId=selectedEventWorkspaceId();
+        if(!eventId)return toast('Pilih event terlebih dahulu.');
+        const rows=[['Tanggal','Event','Jenis','Kategori','Keterangan','Nominal']];
+        state.transactions.filter(t=>t.eventId===eventId).slice().sort((a,b)=>b.date.localeCompare(a.date)).forEach(t=>rows.push([t.date,eventName(eventId),t.type==='income'?'Pemasukan':'Pengeluaran',t.category,t.note||'',t.amount]));
+        downloadFile(`transaksi-event-${eventName(eventId).replace(/[^a-z0-9]+/gi,'-').toLowerCase()}-${todayISO()}.csv`,'\ufeff'+toCSV(rows),'text/csv;charset=utf-8');toast('Transaksi event berhasil diekspor.');
+      }
+
+      function exportEventInventoryCSV(){
+        if(!canViewAll())return;
+        const eventId=selectedEventWorkspaceId();
+        if(!eventId)return toast('Pilih event terlebih dahulu.');
+        const date=selectedEventInventoryDate();
+        const rows=[['Tanggal','Event','Nama Bahan','Satuan','Stok Awal','Stok Masuk','Stok Akhir','Jumlah Terpakai','Stok Minimum','Status Bahan','Status Closing','Keterangan']];
+        dailyRowsForDisplay(date,EVENT_STORE,eventId).forEach(item=>{const materialStatus=getDailyMaterialStatus(item);rows.push([date,eventName(eventId),item.name,item.unit||'unit',item.openingStock,item.stockIn,item.closingStock==null?'':item.closingStock,item.usedStock,materialStatus.min,materialStatus.label,item.isClosed?'Sudah Closing':'Belum Closing',item.note||'']);});
+        downloadFile(`rekap-bahan-event-${eventName(eventId).replace(/[^a-z0-9]+/gi,'-').toLowerCase()}-${date}.csv`,'\ufeff'+toCSV(rows),'text/csv;charset=utf-8');toast('Rekapan bahan event berhasil diekspor.');
+      }
+
       function exportEventsCSV(){if(!canViewAll())return;const rows=[['Nama Event','Tanggal Mulai','Tanggal Selesai','Lokasi','Penyelenggara','Status','Pemasukan','Pengeluaran','Saldo','Jumlah Bahan','Target Penjualan','Keterangan']];state.events.forEach(e=>{const tx=state.transactions.filter(t=>t.eventId===e.id),materials=state.inventory.filter(i=>i.eventId===e.id),income=sumByType(tx,'income'),expense=sumByType(tx,'expense');rows.push([e.name,e.eventDate,e.endDate,e.location,e.organizer,getEventStatus(e).label,income,expense,income-expense,materials.length,e.targetSales,e.note||'']);});downloadFile(`rekap-event-${todayISO()}.csv`,'\ufeff'+toCSV(rows),'text/csv;charset=utf-8');toast('File event berhasil diekspor.');}
-      function backupJSON(){if(!isAdmin())return;downloadFile(`cadangan-rekap-toko-cloud-${todayISO()}.json`,JSON.stringify({version:6,exportedAt:new Date().toISOString(),stores:STORES,transactions:state.transactions,inventory:state.inventory,inventoryDaily:state.inventoryDaily,events:state.events},null,2),'application/json');toast('Cadangan data berhasil diunduh.');}
+      function backupJSON(){if(!isAdmin())return;downloadFile(`cadangan-rekap-toko-cloud-${todayISO()}.json`,JSON.stringify({version:7,exportedAt:new Date().toISOString(),stores:STORES,transactions:state.transactions,inventory:state.inventory,inventoryDaily:state.inventoryDaily,events:state.events},null,2),'application/json');toast('Cadangan data berhasil diunduh.');}
 
       async function restoreJSON(event){if(!isAdmin())return;const file=event.target.files[0];if(!file)return;try{const data=JSON.parse(await file.text());if(!Array.isArray(data.transactions)||!Array.isArray(data.inventory))throw new Error('Format file tidak sesuai.');if(!confirm('Ganti seluruh data cloud dengan isi file cadangan ini?'))return;el('loadingCover').hidden=false;await deleteAllCloudRows();await upsertInChunks('events',(data.events||[]).map(item=>eventToRow({...item,id:item.id||uid()})));await upsertInChunks('transactions',data.transactions.map(item=>transactionToRow({...item,id:item.id||uid()})));await upsertInChunks('inventory',data.inventory.map(item=>inventoryToRow({...item,id:item.id||uid()})));await upsertInChunks('inventory_daily',(data.inventoryDaily||[]).map(item=>dailyRecordToRow({...item,id:item.id||uid()})));await loadCloudData(true);toast('Data cloud berhasil dipulihkan.');}catch(error){showSyncError(error);}finally{event.target.value='';el('loadingCover').hidden=true;}}
       async function clearAllData(){if(!isAdmin())return;if(!confirm('Yakin menghapus SEMUA transaksi, bahan, dan event dari Supabase?'))return;if(!confirm('Konfirmasi terakhir: tindakan ini tidak dapat dibatalkan.'))return;try{el('loadingCover').hidden=false;await deleteAllCloudRows();await loadCloudData(true);toast('Semua data cloud berhasil dihapus.');}catch(error){showSyncError(error);}finally{el('loadingCover').hidden=true;}}
       async function deleteAllCloudRows(){const daily=await db.from('inventory_daily').delete().neq('id','');if(daily.error)throw daily.error;const [tx,inventory,events]=await Promise.all([db.from('transactions').delete().neq('id',''),db.from('inventory').delete().neq('id',''),db.from('events').delete().neq('id','')]);if(tx.error)throw tx.error;if(inventory.error)throw inventory.error;if(events.error)throw events.error;}
       async function upsertInChunks(table,rows){for(let i=0;i<rows.length;i+=500){const {error}=await db.from(table).upsert(rows.slice(i,i+500));if(error)throw error;}}
 
-      async function loadDemoData(){if(!isAdmin())return;if((state.transactions.length||state.inventory.length||state.events.length)&&!confirm('Data contoh akan ditambahkan ke data yang sudah ada. Lanjutkan?'))return;const start=todayISO();const endDate=new Date();endDate.setDate(endDate.getDate()+2);const demoEvent={id:uid(),name:'Festival Kuliner Contoh',eventDate:start,endDate:jakartaDate(endDate),location:'Jakarta',organizer:'Tim Event',targetSales:15000000,note:'Contoh rekapan event',createdAt:new Date().toISOString()};const tx=[{id:uid(),date:start,store:'Chickumbar Blok M',eventId:null,type:'income',category:'Penjualan Harian',amount:2850000,note:'Penjualan outlet',createdAt:new Date().toISOString()},{id:uid(),date:start,store:'Hi Fruit',eventId:demoEvent.id,type:'income',category:'Penjualan Event',amount:4200000,note:'Penjualan hari pertama event',createdAt:new Date().toISOString()},{id:uid(),date:start,store:'Hi Fruit',eventId:demoEvent.id,type:'expense',category:'Sewa Booth Event',amount:1200000,note:'Biaya booth',createdAt:new Date().toISOString()}].map(transactionToRow);const inv=[{id:uid(),store:'Chickumbar Blok M',eventId:null,name:'Ayam fillet',unit:'kg',stock:18,min:10,price:42000,note:'Supplier utama',updatedAt:new Date().toISOString()},{id:uid(),store:'Hi Fruit',eventId:demoEvent.id,name:'Mangga',unit:'kg',stock:12,min:5,price:28000,note:'Kebutuhan event',updatedAt:new Date().toISOString()}].map(inventoryToRow);try{el('loadingCover').hidden=false;await upsertInChunks('events',[eventToRow(demoEvent)]);await upsertInChunks('transactions',tx);await upsertInChunks('inventory',inv);await loadCloudData(true);toast('Data contoh berhasil ditambahkan.');}catch(error){showSyncError(error);}finally{el('loadingCover').hidden=true;}}
+      async function loadDemoData(){if(!isAdmin())return;if((state.transactions.length||state.inventory.length||state.events.length)&&!confirm('Data contoh akan ditambahkan ke data yang sudah ada. Lanjutkan?'))return;const start=todayISO();const endDate=new Date();endDate.setDate(endDate.getDate()+2);const demoEvent={id:uid(),name:'Festival Kuliner Contoh',eventDate:start,endDate:jakartaDate(endDate),location:'Jakarta',organizer:'Tim Event',targetSales:15000000,note:'Contoh rekapan event',createdAt:new Date().toISOString()};const tx=[{id:uid(),date:start,store:'Chickumbar Blok M',eventId:null,type:'income',category:'Penjualan Harian',amount:2850000,note:'Penjualan outlet',createdAt:new Date().toISOString()},{id:uid(),date:start,store:EVENT_STORE,eventId:demoEvent.id,type:'income',category:'Penjualan Event',amount:4200000,note:'Penjualan hari pertama event',createdAt:new Date().toISOString()},{id:uid(),date:start,store:EVENT_STORE,eventId:demoEvent.id,type:'expense',category:'Sewa Booth Event',amount:1200000,note:'Biaya booth',createdAt:new Date().toISOString()}].map(transactionToRow);const inv=[{id:uid(),store:'Chickumbar Blok M',eventId:null,name:'Ayam fillet',unit:'kg',stock:18,min:10,price:42000,note:'Supplier utama',updatedAt:new Date().toISOString()},{id:uid(),store:EVENT_STORE,eventId:demoEvent.id,name:'Mangga',unit:'kg',stock:12,min:5,price:28000,note:'Kebutuhan event',updatedAt:new Date().toISOString()}].map(inventoryToRow);try{el('loadingCover').hidden=false;await upsertInChunks('events',[eventToRow(demoEvent)]);await upsertInChunks('transactions',tx);await upsertInChunks('inventory',inv);await loadCloudData(true);toast('Data contoh berhasil ditambahkan.');}catch(error){showSyncError(error);}finally{el('loadingCover').hidden=true;}}
 
       async function copyDatabaseSql(){try{await navigator.clipboard.writeText(DATABASE_SQL);}catch(_){el('setupSql').select();document.execCommand('copy');}toast('SQL terbaru berhasil disalin.');}
 
