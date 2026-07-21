@@ -532,6 +532,13 @@
     .branch-select { min-width:190px; }
     .branch-notice { margin:0 0 16px; padding:12px 14px; border-radius:12px; border:1px solid #bbf7d0; background:#f0fdf4; color:#166534; font-size:13px; line-height:1.5; }
     .branch-notice.warning { border-color:#fecaca; background:#fff1f2; color:#be123c; }
+    .inventory-workflow-note { margin:0 0 16px; padding:13px 15px; border:1px solid #bfdbfe; background:#eff6ff; color:#1e3a8a; border-radius:13px; font-size:13px; line-height:1.55; }
+    .inventory-workflow-note strong { color:#1d4ed8; }
+    .material-store-summary { display:flex; justify-content:space-between; gap:16px; align-items:center; padding:13px 15px; border:1px solid var(--line); background:#f8fafc; border-radius:13px; margin-bottom:16px; }
+    .material-store-summary span { color:var(--muted); font-size:12px; }
+    .material-store-summary strong { font-size:13px; text-align:right; }
+    .closing-quick-actions { display:flex; align-items:center; gap:8px; margin-right:auto; }
+    .closing-quick-actions .btn { white-space:nowrap; }
     .admin-only[hidden] { display:none !important; }
     .danger-text { color:var(--red); }
     .mini-summary { display:grid; gap:4px; }
@@ -746,34 +753,34 @@
         <section class="view" id="view-inventory">
           <div class="toolbar">
             <div>
-              <h3>Rekapan Bahan Harian</h3>
-              <p id="inventoryAccessText">Catat stok bahan setiap hari, lalu lakukan closing untuk melihat jumlah bahan yang terpakai.</p>
+              <h3>Closing Bahan Harian</h3>
+              <p id="inventoryAccessText">Daftar nama bahan otomatis tampil setiap hari. User cukup mengisi closing untuk menghitung pemakaian.</p>
             </div>
             <div class="toolbar-actions">
               <button class="btn btn-light" id="exportInventoryBtn">⇩ Ekspor CSV</button>
-              <button class="btn btn-light" id="startDailyRecapBtn">▶ Mulai Rekapan</button>
-              <button class="btn btn-dark" id="closeDailyRecapBtn">✓ Closing Rekapan</button>
-              <button class="btn btn-primary" id="addInventoryBtn">＋ Tambah Bahan</button>
+              <button class="btn btn-dark" id="closeDailyRecapBtn">✓ Closing Hari Ini</button>
+              <button class="btn btn-primary" id="addInventoryBtn">＋ Tambah Nama Bahan</button>
             </div>
           </div>
           <div class="branch-notice" id="branchNotice" hidden></div>
+          <div class="inventory-workflow-note">
+            <strong>Alur sederhana:</strong> tambahkan nama bahan satu kali. Nama tersebut akan muncul otomatis pada rekapan setiap hari. Saat operasional selesai, tekan <strong>Closing Hari Ini</strong>, isi stok masuk bila ada, lalu isi stok akhir hasil hitung fisik.
+          </div>
           <div class="card filters">
             <div class="date-slicer" aria-label="Pilih tanggal rekapan">
               <button class="btn btn-light date-nav-btn" id="inventoryPrevDateBtn" type="button" title="Hari sebelumnya">‹</button>
               <input class="input" type="date" id="inventoryDateFilter" aria-label="Tanggal rekapan bahan" />
               <button class="btn btn-light date-nav-btn" id="inventoryNextDateBtn" type="button" title="Hari berikutnya">›</button>
             </div>
-            <input class="input" id="inventorySearch" placeholder="Cari nama bahan atau event..." />
+            <input class="input" id="inventorySearch" placeholder="Cari nama bahan..." />
             <select class="select" id="inventoryStatusFilter">
               <option value="all">Semua Status</option>
               <option value="open">Belum Closing</option>
               <option value="closed">Sudah Closing</option>
               <option value="used">Ada Pemakaian</option>
-              <option value="low">Perlu Restok</option>
-              <option value="empty">Habis</option>
             </select>
             <select class="select" id="inventoryStoreFilter"></select>
-            <select class="select" id="inventoryEventFilter"></select>
+            <select class="select" id="inventoryEventFilter" hidden><option value="all">Semua Event</option></select>
             <button class="btn btn-light" id="inventoryTodayBtn" type="button">Hari Ini</button>
           </div>
 
@@ -781,14 +788,14 @@
 
           <article class="card table-card">
             <div class="card-head">
-              <div><h3 id="dailyTableTitle">Rekapan Bahan</h3><p id="dailyTableSubtitle">Pilih tanggal untuk melihat rekapan.</p></div>
+              <div><h3 id="dailyTableTitle">Daftar Bahan Harian</h3><p id="dailyTableSubtitle">Pilih tanggal untuk melihat hasil closing.</p></div>
             </div>
             <div class="table-wrap" id="inventoryTable"></div>
           </article>
 
           <article class="card table-card closing-card" id="inventoryClosingCard">
             <div class="card-head">
-              <div><h3>Detail Pemakaian Saat Closing</h3><p>Menampilkan bahan apa saja dan berapa jumlah yang terpakai pada tanggal pilihan.</p></div>
+              <div><h3>Detail Bahan Terpakai</h3><p>Ringkasan bahan yang terpakai berdasarkan hasil closing pada tanggal pilihan.</p></div>
             </div>
             <div class="table-wrap" id="inventoryClosingDetails"></div>
           </article>
@@ -843,16 +850,21 @@
   </div>
 
   <div class="modal" id="inventoryModal" role="dialog" aria-modal="true">
-    <div class="modal-panel"><div class="modal-head"><h3 id="inventoryModalTitle">Tambah Bahan</h3><button class="close-btn" data-close="inventoryModal">✕</button></div>
-      <form id="inventoryForm"><div class="modal-body"><input type="hidden" id="inventoryId" /><div class="form-grid">
-        <div class="field"><label for="inventoryStore">Toko/Brand</label><select class="select" id="inventoryStore" required></select></div>
-        <div class="field"><label for="inventoryEvent">Kegiatan Event</label><select class="select" id="inventoryEvent"></select></div>
-        <div class="field"><label for="inventoryName">Nama Bahan</label><input class="input" id="inventoryName" required /></div>
-        <div class="field"><label for="inventoryUnit">Satuan</label><input class="input" id="inventoryUnit" list="unitList" required /><datalist id="unitList"><option value="kg"></option><option value="gram"></option><option value="liter"></option><option value="ml"></option><option value="pcs"></option><option value="pack"></option><option value="botol"></option><option value="dus"></option><option value="sachet"></option></datalist></div>
-        <div class="field"><label for="inventoryStock">Stok Saat Ini</label><input class="input" type="number" id="inventoryStock" min="0" step="0.01" required /></div>
-        <div class="field"><label for="inventoryMin">Batas Minimum</label><input class="input" type="number" id="inventoryMin" min="0" step="0.01" required /></div>
-        <div class="field full"><label for="inventoryNote">Keterangan</label><textarea class="textarea" id="inventoryNote"></textarea></div>
-      </div></div><div class="modal-foot"><button type="button" class="btn btn-light" data-close="inventoryModal">Batal</button><button type="submit" class="btn btn-primary">Simpan Bahan</button></div></form>
+    <div class="modal-panel"><div class="modal-head"><h3 id="inventoryModalTitle">Tambah Nama Bahan</h3><button class="close-btn" data-close="inventoryModal">✕</button></div>
+      <form id="inventoryForm"><div class="modal-body">
+        <input type="hidden" id="inventoryId" />
+        <select id="inventoryStore" hidden></select>
+        <select id="inventoryEvent" hidden><option value="none">Non-Event</option></select>
+        <input type="hidden" id="inventoryUnit" value="unit" />
+        <input type="hidden" id="inventoryStock" value="0" />
+        <input type="hidden" id="inventoryMin" value="0" />
+        <textarea id="inventoryNote" hidden></textarea>
+        <div class="material-store-summary"><span>Nama bahan akan digunakan untuk cabang</span><strong id="inventoryModalStoreText">-</strong></div>
+        <div class="form-grid">
+          <div class="field full"><label for="inventoryName">Nama Bahan</label><input class="input" id="inventoryName" placeholder="Contoh: Ayam fillet, gula, cup 16 oz" required /></div>
+        </div>
+        <p class="helper-text" style="margin:12px 0 0">Nama bahan cukup ditambahkan satu kali dan akan muncul otomatis pada rekapan closing setiap hari.</p>
+      </div><div class="modal-foot"><button type="button" class="btn btn-light" data-close="inventoryModal">Batal</button><button type="submit" class="btn btn-primary">Simpan Nama Bahan</button></div></form>
     </div>
   </div>
 
@@ -863,10 +875,10 @@
         <div class="modal-body">
           <input type="hidden" id="dailyClosingStore" />
           <input type="hidden" id="dailyClosingDate" />
-          <p class="closing-help">Masukkan <strong>stok masuk</strong> bila ada penambahan bahan pada hari tersebut dan isi <strong>stok akhir</strong> hasil hitung fisik. Jumlah terpakai dihitung otomatis: stok awal + stok masuk − stok akhir.</p>
+          <p class="closing-help"><strong>Stok awal</strong> otomatis mengikuti closing terakhir dan dapat dikoreksi bila diperlukan. Isi <strong>stok masuk</strong> bila ada bahan datang, lalu masukkan <strong>stok akhir</strong> hasil hitung fisik. Pemakaian dihitung otomatis: stok awal + stok masuk − stok akhir.</p>
           <div class="table-wrap" id="dailyClosingRows"></div>
         </div>
-        <div class="modal-foot"><button type="button" class="btn btn-light" data-close="dailyClosingModal">Batal</button><button type="submit" class="btn btn-primary">Simpan Closing</button></div>
+        <div class="modal-foot"><div class="closing-quick-actions"><button type="button" class="btn btn-light" id="fillNoUsageBtn">Isi Semua Tanpa Pemakaian</button></div><button type="button" class="btn btn-light" data-close="dailyClosingModal">Batal</button><button type="submit" class="btn btn-primary">Simpan Closing</button></div>
       </form>
     </div>
   </div>
@@ -1197,6 +1209,7 @@ NOTIFY pgrst, 'reload schema';`
       let dataLoading = false;
       let eventsBound = false;
       let forceSetupScreen = false;
+      let activeClosingRows = [];
 
       const el = id => document.getElementById(id);
       const rawMoney = value => new Intl.NumberFormat('id-ID',{style:'currency',currency:'IDR',maximumFractionDigits:0}).format(Number(value||0));
@@ -1332,22 +1345,20 @@ NOTIFY pgrst, 'reload schema';`
           el('inventoryStore').disabled=owner;
           el('addInventoryBtn').hidden=owner;
           el('addInventoryBtn').disabled=owner;
-          el('startDailyRecapBtn').hidden=owner;
           el('closeDailyRecapBtn').hidden=owner;
           el('exportInventoryBtn').disabled=false;
           el('branchNotice').hidden=admin;
           if(owner){
             el('branchNotice').className='branch-notice';
             el('branchNotice').textContent='Mode Owner aktif: Anda dapat melihat rekapan bahan semua cabang, tetapi tidak dapat menambah, mengubah, menghapus, atau memperbarui stok.';
-            el('inventoryAccessText').textContent='Rekapan bahan seluruh cabang dalam mode hanya lihat.';
+            el('inventoryAccessText').textContent='Lihat hasil closing bahan harian seluruh cabang dalam mode hanya lihat.';
           }else{
-            el('inventoryAccessText').textContent='Pantau bahan seluruh toko dan kebutuhan bahan untuk kegiatan event.';
+            el('inventoryAccessText').textContent='Daftar nama bahan otomatis tampil setiap hari. Pilih cabang lalu lakukan closing.';
           }
           return;
         }
 
         el('addInventoryBtn').hidden=false;
-        el('startDailyRecapBtn').hidden=false;
         el('closeDailyRecapBtn').hidden=false;
         const fixedOptions=branch?`<option value="${escapeHtml(branch)}">${escapeHtml(branch)}</option>`:'<option value="">Cabang belum ditetapkan</option>';
         el('inventoryStoreFilter').innerHTML=fixedOptions;
@@ -1363,7 +1374,7 @@ NOTIFY pgrst, 'reload schema';`
         el('branchNotice').textContent=branch
           ? `Akun ini hanya dapat mengakses dan memperbarui rekapan bahan cabang ${branch}. Data cabang lain tidak dapat dibuka.`
           : 'Akun ini belum ditetapkan ke cabang mana pun. Hubungi Admin agar cabang akses dipilih terlebih dahulu.';
-        el('inventoryAccessText').textContent=branch?`Rekapan bahan khusus cabang ${branch}.`:'Cabang akses belum ditetapkan oleh Admin.';
+        el('inventoryAccessText').textContent=branch?`Daftar bahan cabang ${branch} otomatis tampil setiap hari untuk closing.`:'Cabang akses belum ditetapkan oleh Admin.';
       }
 
       function setGateMessage(node,message,type){node.hidden=!message;node.textContent=message||'';node.className=type==='success'?'gate-success':'gate-error';}
@@ -1388,7 +1399,7 @@ NOTIFY pgrst, 'reload schema';`
         document.addEventListener('click',event=>{const go=event.target.closest('[data-go]');if(go)switchView(go.dataset.go);const close=event.target.closest('[data-close]');if(close)closeModal(close.dataset.close);});
         el('menuBtn').addEventListener('click',toggleSidebar);el('overlay').addEventListener('click',toggleSidebar);
         el('globalStore').addEventListener('change',event=>{selectedGlobalStore=event.target.value;renderDashboard();});
-        el('addTransactionBtn').addEventListener('click',()=>openTransactionModal());el('addInventoryBtn').addEventListener('click',()=>openInventoryModal());el('startDailyRecapBtn').addEventListener('click',startDailyRecap);el('closeDailyRecapBtn').addEventListener('click',openDailyClosingModal);el('addEventBtn').addEventListener('click',()=>openEventModal());
+        el('addTransactionBtn').addEventListener('click',()=>openTransactionModal());el('addInventoryBtn').addEventListener('click',()=>openInventoryModal());el('closeDailyRecapBtn').addEventListener('click',openDailyClosingModal);el('fillNoUsageBtn').addEventListener('click',fillClosingWithAvailableStock);el('addEventBtn').addEventListener('click',()=>openEventModal());
         el('transactionForm').addEventListener('submit',saveTransaction);el('inventoryForm').addEventListener('submit',saveInventory);el('dailyClosingForm').addEventListener('submit',saveDailyClosing);el('dailyClosingRows').addEventListener('input',updateClosingUsagePreview);el('eventForm').addEventListener('submit',saveEvent);
         ['transactionSearch','transactionTypeFilter','transactionMonthFilter','transactionStoreFilter','transactionEventFilter'].forEach(id=>el(id).addEventListener('input',renderTransactions));
         ['inventorySearch','inventoryStatusFilter','inventoryStoreFilter','inventoryEventFilter'].forEach(id=>el(id).addEventListener('input',renderInventory));
@@ -1424,19 +1435,29 @@ NOTIFY pgrst, 'reload schema';`
       function dailyRecordToRow(item){return{id:item.id,inventory_id:item.inventoryId||null,store:item.store,event_id:item.eventId||null,record_date:item.date,name:item.name,unit:item.unit,opening_stock:item.openingStock,stock_in:item.stockIn||0,closing_stock:item.closingStock==null?null:item.closingStock,used_stock:item.usedStock||0,note:item.note||'',is_closed:!!item.isClosed,closed_at:item.closedAt||null,closed_by:item.closedBy||null,created_by:item.createdBy||currentSession?.user?.id||null,updated_at:item.updatedAt||new Date().toISOString()};}
       function rowToDailyRecord(row){return{id:row.id,inventoryId:row.inventory_id||null,store:row.store,eventId:row.event_id||null,date:row.record_date,name:row.name,unit:row.unit,openingStock:Number(row.opening_stock||0),stockIn:Number(row.stock_in||0),closingStock:row.closing_stock==null?null:Number(row.closing_stock),usedStock:Number(row.used_stock||0),note:row.note||'',isClosed:!!row.is_closed,closedAt:row.closed_at||null,closedBy:row.closed_by||null,createdBy:row.created_by||null,updatedAt:row.updated_at};}
 
-      async function startDailyRecap(){
-        if(!canEditInventory())return toast('Akun ini tidak memiliki izin membuat rekapan harian.');
-        const store=selectedInventoryStore();
-        const date=selectedInventoryDate();
-        if(!store)return toast('Pilih satu toko terlebih dahulu untuk memulai rekapan.');
-        if(date!==todayISO())return toast('Rekapan baru hanya dapat dimulai untuk tanggal hari ini. Tanggal sebelumnya tetap dapat dilihat.');
-        const materials=state.inventory.filter(item=>item.store===store);
-        if(!materials.length)return toast('Belum ada daftar bahan pada toko ini. Tambahkan bahan terlebih dahulu.');
-        const existingIds=new Set(state.inventoryDaily.filter(row=>row.store===store&&row.date===date).map(row=>row.inventoryId));
-        const now=new Date().toISOString();
-        const rows=materials.filter(item=>!existingIds.has(item.id)).map(item=>dailyRecordToRow({id:uid(),inventoryId:item.id,store:item.store,eventId:item.eventId,date,name:item.name,unit:item.unit,openingStock:item.stock,stockIn:0,closingStock:null,usedStock:0,note:'',isClosed:false,createdBy:currentSession?.user?.id,updatedAt:now}));
-        if(!rows.length)return toast('Rekapan bahan hari ini sudah dimulai.');
-        try{el('loadingCover').hidden=false;await upsertInChunks('inventory_daily',rows);await loadCloudData(true);toast(`${rows.length} bahan berhasil dimasukkan ke rekapan hari ini.`);}catch(error){showSyncError(error);}finally{el('loadingCover').hidden=true;}
+      function createVirtualDailyRecord(master,date){
+        return{id:`draft-${master.id}`,inventoryId:master.id,store:master.store,eventId:master.eventId||null,date,name:master.name,unit:master.unit||'unit',openingStock:Number(master.stock||0),stockIn:0,closingStock:null,usedStock:0,note:'',isClosed:false,closedAt:null,closedBy:null,createdBy:currentSession?.user?.id||null,updatedAt:new Date().toISOString(),isDraft:true};
+      }
+
+      function dailyRowsForDisplay(date,store){
+        const exactStore=store&&store!=='all'?store:'';
+        const saved=state.inventoryDaily.filter(row=>row.date===date&&canAccessStore(row.store)&&(!exactStore||row.store===exactStore));
+        if(date!==todayISO())return saved;
+        const masters=state.inventory.filter(item=>canAccessStore(item.store)&&(!exactStore||item.store===exactStore));
+        const savedByInventory=new Map(saved.filter(row=>row.inventoryId).map(row=>[row.inventoryId,row]));
+        const masterIds=new Set(masters.map(item=>item.id));
+        const automatic=masters.map(master=>savedByInventory.get(master.id)||createVirtualDailyRecord(master,date));
+        const archived=saved.filter(row=>!row.inventoryId||!masterIds.has(row.inventoryId));
+        return [...automatic,...archived];
+      }
+
+      function fillClosingWithAvailableStock(){
+        el('dailyClosingRows').querySelectorAll('[data-daily-closing-row]').forEach(row=>{
+          const index=Number(row.dataset.dailyClosingRow);const record=activeClosingRows[index];if(!record)return;
+          const opening=Number(row.querySelector('[data-closing-open]').value||0);const stockIn=Number(row.querySelector('[data-closing-in]').value||0);
+          row.querySelector('[data-closing-end]').value=opening+stockIn;
+        });
+        updateClosingUsagePreview();
       }
 
       function openDailyClosingModal(){
@@ -1444,17 +1465,18 @@ NOTIFY pgrst, 'reload schema';`
         const store=selectedInventoryStore();
         const date=selectedInventoryDate();
         if(!store)return toast('Pilih satu toko terlebih dahulu sebelum closing.');
-        if(date!==todayISO())return toast('Closing hanya dapat dilakukan untuk rekapan hari ini.');
-        const rows=state.inventoryDaily.filter(row=>row.store===store&&row.date===date).sort((a,b)=>eventName(a.eventId).localeCompare(eventName(b.eventId))||a.name.localeCompare(b.name));
-        if(!rows.length)return toast('Mulai rekapan hari ini terlebih dahulu sebelum melakukan closing.');
+        if(date!==todayISO())return toast('Closing hanya dapat dilakukan untuk hari ini. Riwayat tanggal sebelumnya tetap dapat dilihat.');
+        const rows=dailyRowsForDisplay(date,store).sort((a,b)=>a.name.localeCompare(b.name));
+        if(!rows.length)return toast('Belum ada nama bahan pada toko ini. Tambahkan nama bahan terlebih dahulu.');
+        activeClosingRows=rows.map(row=>row.isDraft?{...row,id:uid()}:row);
         el('dailyClosingStore').value=store;el('dailyClosingDate').value=date;
         el('dailyClosingModalTitle').textContent=`Closing ${store} — ${formatDate(date)}`;
-        el('dailyClosingRows').innerHTML=`<table><thead><tr><th>Bahan</th><th>Satuan</th><th>Stok Awal</th><th>Stok Masuk</th><th>Stok Akhir</th><th>Terpakai</th><th>Keterangan</th></tr></thead><tbody>${rows.map(row=>`<tr data-daily-closing-row="${row.id}"><td><strong>${escapeHtml(row.name)}</strong><br><small class="muted">${escapeHtml(eventName(row.eventId))}</small></td><td>${escapeHtml(row.unit)}</td><td>${number(row.openingStock)}</td><td><input class="input closing-table-input" type="number" min="0" step="0.01" data-closing-in value="${row.stockIn||0}"></td><td><input class="input closing-table-input" type="number" min="0" step="0.01" data-closing-end value="${row.closingStock==null?row.openingStock+(row.stockIn||0):row.closingStock}" required></td><td><span class="used-value" data-closing-used>0</span> ${escapeHtml(row.unit)}</td><td><input class="input closing-note-input" data-closing-note value="${escapeHtml(row.note||'')}" placeholder="Opsional"></td></tr>`).join('')}</tbody></table>`;
+        el('dailyClosingRows').innerHTML=`<table><thead><tr><th>No.</th><th>Nama Bahan</th><th>Satuan</th><th>Stok Awal</th><th>Stok Masuk</th><th>Stok Akhir</th><th>Terpakai</th><th>Keterangan</th></tr></thead><tbody>${activeClosingRows.map((row,index)=>`<tr data-daily-closing-row="${index}"><td>${index+1}</td><td><strong>${escapeHtml(row.name)}</strong></td><td>${escapeHtml(row.unit||'unit')}</td><td><input class="input closing-table-input" type="number" min="0" step="0.01" data-closing-open value="${row.openingStock}" required></td><td><input class="input closing-table-input" type="number" min="0" step="0.01" data-closing-in value="${row.stockIn||0}"></td><td><input class="input closing-table-input" type="number" min="0" step="0.01" data-closing-end value="${row.closingStock==null?row.openingStock+(row.stockIn||0):row.closingStock}" required></td><td><strong class="used-value" data-closing-used>0</strong> ${escapeHtml(row.unit||'unit')}</td><td><input class="input closing-note-input" data-closing-note value="${escapeHtml(row.note||'')}" placeholder="Opsional"></td></tr>`).join('')}</tbody></table>`;
         updateClosingUsagePreview();openModal('dailyClosingModal');
       }
 
       function updateClosingUsagePreview(){
-        el('dailyClosingRows').querySelectorAll('[data-daily-closing-row]').forEach(row=>{const record=state.inventoryDaily.find(item=>item.id===row.dataset.dailyClosingRow);if(!record)return;const stockIn=Number(row.querySelector('[data-closing-in]').value||0);const closing=Number(row.querySelector('[data-closing-end]').value||0);const used=Math.max(0,record.openingStock+stockIn-closing);const target=row.querySelector('[data-closing-used]');target.textContent=number(used);target.classList.toggle('zero',used===0);});
+        el('dailyClosingRows').querySelectorAll('[data-daily-closing-row]').forEach(row=>{const record=activeClosingRows[Number(row.dataset.dailyClosingRow)];if(!record)return;const opening=Number(row.querySelector('[data-closing-open]').value||0);const stockIn=Number(row.querySelector('[data-closing-in]').value||0);const closing=Number(row.querySelector('[data-closing-end]').value||0);const used=Math.max(0,opening+stockIn-closing);const target=row.querySelector('[data-closing-used]');target.textContent=number(used);target.classList.toggle('zero',used===0);});
       }
 
       async function saveDailyClosing(event){
@@ -1463,70 +1485,55 @@ NOTIFY pgrst, 'reload schema';`
         if(!store||date!==todayISO())return toast('Closing hanya dapat disimpan untuk toko terpilih pada hari ini.');
         const now=new Date().toISOString();const updates=[];const stockUpdates=[];
         for(const rowEl of el('dailyClosingRows').querySelectorAll('[data-daily-closing-row]')){
-          const record=state.inventoryDaily.find(item=>item.id===rowEl.dataset.dailyClosingRow);if(!record)continue;
-          const stockIn=Number(rowEl.querySelector('[data-closing-in]').value||0);const closingStock=Number(rowEl.querySelector('[data-closing-end]').value);const available=record.openingStock+stockIn;
-          if(!Number.isFinite(stockIn)||stockIn<0||!Number.isFinite(closingStock)||closingStock<0)return toast(`Periksa angka pada bahan ${record.name}.`);
+          const record=activeClosingRows[Number(rowEl.dataset.dailyClosingRow)];if(!record)continue;
+          const openingStock=Number(rowEl.querySelector('[data-closing-open]').value);const stockIn=Number(rowEl.querySelector('[data-closing-in]').value||0);const closingStock=Number(rowEl.querySelector('[data-closing-end]').value);const available=openingStock+stockIn;
+          if(!Number.isFinite(openingStock)||openingStock<0||!Number.isFinite(stockIn)||stockIn<0||!Number.isFinite(closingStock)||closingStock<0)return toast(`Periksa angka pada bahan ${record.name}.`);
           if(closingStock>available)return toast(`Stok akhir ${record.name} melebihi stok tersedia. Tambahkan jumlah pada Stok Masuk.`);
           const usedStock=Math.max(0,available-closingStock);
-          updates.push(dailyRecordToRow({...record,stockIn,closingStock,usedStock,note:rowEl.querySelector('[data-closing-note]').value.trim(),isClosed:true,closedAt:now,closedBy:currentSession?.user?.id,updatedAt:now}));
+          updates.push(dailyRecordToRow({...record,openingStock,stockIn,closingStock,usedStock,note:rowEl.querySelector('[data-closing-note]').value.trim(),isClosed:true,isDraft:false,closedAt:now,closedBy:currentSession?.user?.id,updatedAt:now}));
           if(record.inventoryId)stockUpdates.push({id:record.inventoryId,stock:closingStock});
         }
         const button=event.submitter;setButtonBusy(button,true,'Menyimpan…');
-        try{await upsertInChunks('inventory_daily',updates);for(const item of stockUpdates){const {error}=await db.from('inventory').update({stock:item.stock,updated_at:now}).eq('id',item.id);if(error)throw error;}closeModal('dailyClosingModal');await loadCloudData(true);toast('Closing berhasil. Detail pemakaian bahan sudah dihitung.');}catch(error){showSyncError(error);}finally{setButtonBusy(button,false);}
+        try{await upsertInChunks('inventory_daily',updates);for(const item of stockUpdates){const {error}=await db.from('inventory').update({stock:item.stock,updated_at:now}).eq('id',item.id);if(error)throw error;}activeClosingRows=[];closeModal('dailyClosingModal');await loadCloudData(true);toast('Closing berhasil disimpan. Pemakaian bahan sudah dihitung otomatis.');}catch(error){showSyncError(error);}finally{setButtonBusy(button,false);}
       }
 
       function openInventoryModal(id=null){
         const branch=employeeBranch();
-        if(isOwner())return toast('Akun Owner hanya dapat melihat data dan tidak dapat mengubah rekapan bahan.');
+        if(isOwner())return toast('Akun Owner hanya dapat melihat data dan tidak dapat mengubah daftar bahan.');
         if(!isAdmin()&&!branch)return toast('Cabang akun belum ditetapkan. Hubungi Admin.');
+        const existing=id?state.inventory.find(item=>item.id===id):null;
+        const assignedStore=existing?.store||(isAdmin()?selectedInventoryStore():branch);
+        if(!assignedStore)return toast('Pilih satu toko pada filter terlebih dahulu sebelum menambahkan nama bahan.');
+        if(existing&&!canAccessStore(existing.store))return toast('Anda tidak memiliki akses ke data bahan ini.');
         el('inventoryForm').reset();
-        el('inventoryId').value='';
-        el('inventoryStock').value=0;
-        el('inventoryMin').value=0;
-        el('inventoryStore').value=isAdmin()?(selectedGlobalStore==='all'?STORES[0]:selectedGlobalStore):branch;
-        el('inventoryEvent').value='none';
-        el('inventoryModalTitle').textContent='Tambah Bahan';
-        if(id){
-          const item=state.inventory.find(i=>i.id===id);
-          if(!item||!canAccessStore(item.store))return toast('Anda tidak memiliki akses ke data bahan ini.');
-          el('inventoryId').value=item.id;
-          el('inventoryStore').value=item.store;
-          el('inventoryEvent').value=item.eventId||'none';
-          el('inventoryName').value=item.name;
-          el('inventoryUnit').value=item.unit;
-          el('inventoryStock').value=item.stock;
-          el('inventoryMin').value=item.min;
-          el('inventoryNote').value=item.note||'';
-          el('inventoryModalTitle').textContent='Edit Bahan';
-        }
+        el('inventoryId').value=existing?.id||'';
+        el('inventoryStore').value=assignedStore;
+        el('inventoryEvent').value=existing?.eventId||'none';
+        el('inventoryUnit').value=existing?.unit||'unit';
+        el('inventoryStock').value=existing?.stock||0;
+        el('inventoryMin').value=existing?.min||0;
+        el('inventoryNote').value=existing?.note||'';
+        el('inventoryName').value=existing?.name||'';
+        el('inventoryModalStoreText').textContent=assignedStore;
+        el('inventoryModalTitle').textContent=existing?'Ubah Nama Bahan':'Tambah Nama Bahan';
         openModal('inventoryModal');
         setTimeout(()=>el('inventoryName').focus(),80);
       }
       async function saveInventory(event){
         event.preventDefault();
-        if(!canEditInventory())return toast('Akun ini tidak memiliki izin untuk mengubah rekapan bahan.');
-        const assignedStore=isAdmin()?el('inventoryStore').value:employeeBranch();
-        if(!assignedStore)return toast('Cabang akun belum ditetapkan. Hubungi Admin.');
-        if(!canAccessStore(assignedStore))return toast('Anda tidak memiliki akses ke cabang tersebut.');
+        if(!canEditInventory())return toast('Akun ini tidak memiliki izin untuk mengubah daftar bahan.');
         const itemId=el('inventoryId').value||uid();
-        const existing=state.inventory.find(i=>i.id===itemId);
-        const item={id:itemId,store:assignedStore,eventId:el('inventoryEvent').value==='none'?null:el('inventoryEvent').value,name:el('inventoryName').value.trim(),unit:el('inventoryUnit').value.trim(),stock:Number(el('inventoryStock').value),min:Number(el('inventoryMin').value),price:existing?.price||0,note:el('inventoryNote').value.trim(),updatedAt:new Date().toISOString()};
-        if(!item.store||!item.name||!item.unit||[item.stock,item.min].some(v=>!Number.isFinite(v)||v<0))return toast('Mohon lengkapi data bahan.');
-        if(existing&&!canAccessStore(existing.store))return toast('Anda tidak memiliki akses untuk mengubah data ini.');
-        const isEdit=!!existing;
-        const button=event.submitter;
-        setButtonBusy(button,true,'Menyimpan…');
-        try{
-          const {error}=await db.from('inventory').upsert(inventoryToRow(item));
-          if(error)throw error;
-          if(!existing&&selectedInventoryDate()===todayISO()){
-            const recapExists=state.inventoryDaily.some(row=>row.store===assignedStore&&row.date===todayISO());
-            if(recapExists){const dailyItem={id:uid(),inventoryId:item.id,store:item.store,eventId:item.eventId,date:todayISO(),name:item.name,unit:item.unit,openingStock:item.stock,stockIn:0,closingStock:null,usedStock:0,note:'',isClosed:false,createdBy:currentSession?.user?.id,updatedAt:new Date().toISOString()};const dailyResult=await db.from('inventory_daily').upsert(dailyRecordToRow(dailyItem));if(dailyResult.error)throw dailyResult.error;}
-          }
-          closeModal('inventoryModal');
-          await loadCloudData(true);
-          toast(isEdit?'Data bahan berhasil diperbarui.':'Bahan berhasil ditambahkan.');
-        }catch(error){showSyncError(error);}finally{setButtonBusy(button,false);}
+        const existing=state.inventory.find(item=>item.id===itemId);
+        const assignedStore=existing?.store||(isAdmin()?selectedInventoryStore():employeeBranch());
+        const name=el('inventoryName').value.trim();
+        if(!assignedStore)return toast('Pilih satu toko pada filter terlebih dahulu.');
+        if(!canAccessStore(assignedStore))return toast('Anda tidak memiliki akses ke cabang tersebut.');
+        if(!name)return toast('Nama bahan wajib diisi.');
+        const duplicate=state.inventory.some(item=>item.id!==itemId&&item.store===assignedStore&&item.name.trim().toLowerCase()===name.toLowerCase());
+        if(duplicate)return toast('Nama bahan tersebut sudah ada pada cabang ini.');
+        const item={id:itemId,store:assignedStore,eventId:existing?.eventId||null,name,unit:existing?.unit||'unit',stock:Number(existing?.stock||0),min:Number(existing?.min||0),price:Number(existing?.price||0),note:existing?.note||'',updatedAt:new Date().toISOString()};
+        const button=event.submitter;setButtonBusy(button,true,'Menyimpan…');
+        try{const {error}=await db.from('inventory').upsert(inventoryToRow(item));if(error)throw error;closeModal('inventoryModal');await loadCloudData(true);toast(existing?'Nama bahan berhasil diperbarui.':'Nama bahan berhasil ditambahkan dan akan tampil setiap hari.');}catch(error){showSyncError(error);}finally{setButtonBusy(button,false);}
       }
 
       function openEventModal(id=null){if(!isAdmin())return;el('eventForm').reset();el('eventId').value='';el('eventDate').value=todayISO();el('eventEndDate').value=todayISO();el('eventTargetSales').value=0;el('eventModalTitle').textContent='Tambah Event';if(id){const item=state.events.find(e=>e.id===id);if(!item)return;el('eventId').value=item.id;el('eventName').value=item.name;el('eventDate').value=item.eventDate;el('eventEndDate').value=item.endDate;el('eventLocation').value=item.location;el('eventOrganizer').value=item.organizer;el('eventTargetSales').value=item.targetSales;el('eventNote').value=item.note||'';el('eventModalTitle').textContent='Edit Event';}openModal('eventModal');setTimeout(()=>el('eventName').focus(),80);}
@@ -1575,7 +1582,7 @@ NOTIFY pgrst, 'reload schema';`
         }catch(error){showSyncError(error);}finally{dataLoading=false;el('loadingCover').hidden=true;}
       }
 
-      function startCloudRefresh(){stopCloudRefresh();refreshTimer=setInterval(()=>loadCloudData(true),30000);try{cloudChannel=db.channel('rekap-toko-cloud-v5').on('postgres_changes',{event:'*',schema:'public',table:'transactions'},scheduleRealtimeRefresh).on('postgres_changes',{event:'*',schema:'public',table:'inventory'},scheduleRealtimeRefresh).on('postgres_changes',{event:'*',schema:'public',table:'inventory_daily'},scheduleRealtimeRefresh).on('postgres_changes',{event:'*',schema:'public',table:'events'},scheduleRealtimeRefresh).on('postgres_changes',{event:'*',schema:'public',table:'profiles'},scheduleRealtimeRefresh).subscribe();}catch(error){console.warn('Realtime tidak aktif, polling tetap berjalan.',error);}}
+      function startCloudRefresh(){stopCloudRefresh();refreshTimer=setInterval(()=>loadCloudData(true),30000);try{cloudChannel=db.channel('rekap-toko-cloud-v6').on('postgres_changes',{event:'*',schema:'public',table:'transactions'},scheduleRealtimeRefresh).on('postgres_changes',{event:'*',schema:'public',table:'inventory'},scheduleRealtimeRefresh).on('postgres_changes',{event:'*',schema:'public',table:'inventory_daily'},scheduleRealtimeRefresh).on('postgres_changes',{event:'*',schema:'public',table:'events'},scheduleRealtimeRefresh).on('postgres_changes',{event:'*',schema:'public',table:'profiles'},scheduleRealtimeRefresh).subscribe();}catch(error){console.warn('Realtime tidak aktif, polling tetap berjalan.',error);}}
       function scheduleRealtimeRefresh(){clearTimeout(realtimeDebounce);realtimeDebounce=setTimeout(async()=>{if(currentSession)await loadCurrentProfile(currentSession.user);applyRoleUI();loadCloudData(true);},400);}
       function stopCloudRefresh(){clearInterval(refreshTimer);clearTimeout(realtimeDebounce);refreshTimer=null;if(cloudChannel&&db)db.removeChannel(cloudChannel);cloudChannel=null;}
 
@@ -1594,60 +1601,54 @@ NOTIFY pgrst, 'reload schema';`
         const branch=employeeBranch();
         if(isEmployee()&&!branch){
           el('dailyRecapSummary').innerHTML='';
-          el('inventoryTable').innerHTML=emptyState('Cabang belum ditetapkan','Admin harus memilih satu cabang untuk akun ini sebelum rekapan bahan dapat digunakan.');
+          el('inventoryTable').innerHTML=emptyState('Cabang belum ditetapkan','Admin harus memilih satu cabang untuk akun ini sebelum closing bahan dapat digunakan.');
           el('inventoryClosingDetails').innerHTML=emptyState('Belum dapat menampilkan closing','Cabang akun belum ditetapkan.');
           return;
         }
         const date=selectedInventoryDate();
         const editable=canEditInventory();
+        const manageNames=editable&&date===todayISO();
         const query=el('inventorySearch').value.toLowerCase().trim();
         const statusFilter=el('inventoryStatusFilter').value;
         const store=canViewAll()?el('inventoryStoreFilter').value:branch;
-        const eventFilter=el('inventoryEventFilter').value;
-        const rows=state.inventoryDaily.filter(item=>{
-          if(item.date!==date||!canAccessStore(item.store))return false;
-          const stockForStatus=item.isClosed?Number(item.closingStock||0):item.openingStock;
-          const master=state.inventory.find(inv=>inv.id===item.inventoryId);
-          const stockStatus=getStockStatus({stock:stockForStatus,min:master?.min||0});
-          const eName=eventName(item.eventId);
-          const matchesQuery=!query||`${item.name} ${item.note||''} ${eName}`.toLowerCase().includes(query);
-          const matchesStatus=statusFilter==='all'||(statusFilter==='open'&&!item.isClosed)||(statusFilter==='closed'&&item.isClosed)||(statusFilter==='used'&&item.usedStock>0)||(statusFilter==='low'&&(stockStatus.key==='low'||stockStatus.key==='empty'))||(statusFilter==='empty'&&stockStatus.key==='empty');
-          const matchesStore=store==='all'||item.store===store;
-          const matchesEvent=eventFilter==='all'||(eventFilter==='none'?!item.eventId:item.eventId===eventFilter);
-          return matchesQuery&&matchesStatus&&matchesStore&&matchesEvent;
-        }).sort((a,b)=>a.store.localeCompare(b.store)||eventName(a.eventId).localeCompare(eventName(b.eventId))||a.name.localeCompare(b.name));
+        const rows=dailyRowsForDisplay(date,store).filter(item=>{
+          const matchesQuery=!query||item.name.toLowerCase().includes(query);
+          const matchesStatus=statusFilter==='all'||(statusFilter==='open'&&!item.isClosed)||(statusFilter==='closed'&&item.isClosed)||(statusFilter==='used'&&item.usedStock>0);
+          return matchesQuery&&matchesStatus;
+        }).sort((a,b)=>a.store.localeCompare(b.store)||a.name.localeCompare(b.name));
 
-        renderDailyRecapSummary(date,store);
+        renderDailyRecapSummary(date,store,rows);
         renderInventoryClosingDetails(date,store);
-        el('dailyTableTitle').textContent=`Rekapan ${formatDate(date)}`;
+        el('dailyTableTitle').textContent=`Daftar Bahan — ${formatDate(date)}`;
         el('dailyTableSubtitle').textContent=store==='all'?'Seluruh cabang':(store||'Pilih satu cabang');
-        applyDailyActionState(date,store);
+        applyDailyActionState(date,store,rows);
 
-        if(!rows.length){el('inventoryTable').innerHTML=emptyState('Belum ada rekapan pada tanggal ini',date===todayISO()&&editable?'Pilih satu toko lalu klik Mulai Rekapan.':'Gunakan pemilih tanggal untuk melihat rekapan harian lainnya.');return;}
-        el('inventoryTable').innerHTML=`<table><thead><tr><th>Toko</th><th>Event</th><th>Nama Bahan</th><th>Satuan</th><th>Stok Awal</th><th>Stok Masuk</th><th>Stok Akhir</th><th>Terpakai</th><th>Status</th>${editable?'<th>Aksi Bahan</th>':''}</tr></thead><tbody>${rows.map(item=>{const master=state.inventory.find(inv=>inv.id===item.inventoryId);const stockForStatus=item.isClosed?Number(item.closingStock||0):item.openingStock;const stockStatus=getStockStatus({stock:stockForStatus,min:master?.min||0});const closeBadge=item.isClosed?'<span class="badge badge-closed">Sudah Closing</span>':'<span class="badge badge-open">Belum Closing</span>';return`<tr><td><strong>${escapeHtml(item.store)}</strong></td><td><span class="event-tag ${item.eventId?'':'none'}">${escapeHtml(eventName(item.eventId))}</span></td><td><strong>${escapeHtml(item.name)}</strong><br><small class="muted">${escapeHtml(item.note||'')}</small></td><td><strong>${escapeHtml(item.unit||'-')}</strong></td><td>${number(item.openingStock)}</td><td>${number(item.stockIn)}</td><td>${item.closingStock==null?'<span class="muted">Belum diisi</span>':number(item.closingStock)}</td><td><strong class="${item.usedStock>0?'used-value':'muted'}">${number(item.usedStock)}</strong></td><td><div class="closing-status-line">${closeBadge}<span class="badge ${stockStatus.className}">${stockStatus.label}</span></div></td>${editable?`<td><div class="actions">${master?`<button class="icon-btn" data-edit-inventory="${master.id}" title="Edit data bahan">✎</button><button class="icon-btn danger" data-delete-inventory="${master.id}" title="Hapus bahan">🗑</button>`:'<span class="muted">Arsip</span>'}</div></td>`:''}</tr>`;}).join('')}</tbody></table>`;
+        if(!rows.length){el('inventoryTable').innerHTML=emptyState('Belum ada nama bahan',editable&&date===todayISO()?'Pilih satu toko lalu tekan Tambah Nama Bahan.':'Belum ada hasil closing pada tanggal ini.');return;}
+        const showStore=store==='all'||!store;
+        el('inventoryTable').innerHTML=`<table><thead><tr>${showStore?'<th>Toko</th>':''}<th>Nama Bahan</th><th>Satuan</th><th>Stok Awal</th><th>Stok Masuk</th><th>Stok Akhir</th><th>Terpakai</th><th>Status</th>${manageNames?'<th>Aksi</th>':''}</tr></thead><tbody>${rows.map(item=>{const master=state.inventory.find(inv=>inv.id===item.inventoryId);const closeBadge=item.isClosed?'<span class="badge badge-closed">Sudah Closing</span>':'<span class="badge badge-open">Belum Closing</span>';return`<tr>${showStore?`<td><strong>${escapeHtml(item.store)}</strong></td>`:''}<td><strong>${escapeHtml(item.name)}</strong></td><td>${escapeHtml(item.unit||'unit')}</td><td>${number(item.openingStock)}</td><td>${item.isClosed?number(item.stockIn):'<span class="muted">—</span>'}</td><td>${item.closingStock==null?'<span class="muted">Belum diisi</span>':number(item.closingStock)}</td><td><strong class="${item.usedStock>0?'used-value':'muted'}">${item.isClosed?number(item.usedStock):'—'}</strong></td><td>${closeBadge}</td>${manageNames?`<td><div class="actions">${master?`<button class="icon-btn" data-edit-inventory="${master.id}" title="Ubah nama bahan">✎</button><button class="icon-btn danger" data-delete-inventory="${master.id}" title="Hapus dari daftar bahan">🗑</button>`:'<span class="muted">Arsip</span>'}</div></td>`:''}</tr>`;}).join('')}</tbody></table>`;
       }
 
-      function applyDailyActionState(date,store){
-        const exactStore=store&&store!=='all';const today=date===todayISO();const rows=state.inventoryDaily.filter(row=>row.date===date&&(!exactStore||row.store===store));
+      function applyDailyActionState(date,store,rows=[]){
+        const exactStore=store&&store!=='all';const today=date===todayISO();const masterCount=exactStore?state.inventory.filter(item=>item.store===store).length:0;
         const writeAllowed=canEditInventory()&&exactStore&&today;
-        el('startDailyRecapBtn').disabled=!writeAllowed;
-        el('closeDailyRecapBtn').disabled=!writeAllowed||!rows.length;
-        el('startDailyRecapBtn').title=!exactStore?'Pilih satu toko terlebih dahulu':!today?'Rekapan baru hanya untuk hari ini':'Buat rekapan dari daftar bahan saat ini';
-        el('closeDailyRecapBtn').title=!exactStore?'Pilih satu toko terlebih dahulu':!today?'Closing hanya untuk hari ini':!rows.length?'Mulai rekapan terlebih dahulu':'Isi stok akhir dan hitung pemakaian';
+        el('closeDailyRecapBtn').disabled=!writeAllowed||!masterCount;
+        el('addInventoryBtn').disabled=!writeAllowed;
+        el('closeDailyRecapBtn').title=!exactStore?'Pilih satu toko terlebih dahulu':!today?'Closing hanya untuk hari ini':!masterCount?'Tambahkan nama bahan terlebih dahulu':'Isi stok akhir dan simpan closing';
+        el('addInventoryBtn').title=!exactStore?'Pilih satu toko terlebih dahulu':!today?'Nama bahan baru hanya ditambahkan dari tampilan hari ini':'Tambahkan nama bahan ke daftar harian';
       }
 
-      function renderDailyRecapSummary(date,store){
-        const rows=state.inventoryDaily.filter(row=>row.date===date&&(store==='all'||!store||row.store===store));
-        const closed=rows.filter(row=>row.isClosed);const used=rows.filter(row=>row.isClosed&&row.usedStock>0);const allClosed=rows.length>0&&closed.length===rows.length;const latestClose=closed.map(row=>row.closedAt).filter(Boolean).sort().at(-1);
-        const statusClass=!rows.length?'status-empty':allClosed?'status-closed':'status-open';const statusText=!rows.length?'Belum Dimulai':allClosed?'Sudah Closing':closed.length?'Closing Sebagian':'Belum Closing';
-        el('dailyRecapSummary').innerHTML=`<div class="daily-summary-item"><span>Tanggal Rekapan</span><strong>${formatDate(date)}</strong><small>${date===todayISO()?'Hari ini':'Riwayat rekapan'}</small></div><div class="daily-summary-item"><span>Cabang</span><strong>${escapeHtml(store==='all'||!store?'Semua Cabang':store)}</strong><small>${rows.length} bahan tercatat</small></div><div class="daily-summary-item ${statusClass}"><span>Status Closing</span><strong>${statusText}</strong><small>${latestClose?`Terakhir ${new Intl.DateTimeFormat('id-ID',{timeZone:'Asia/Jakarta',hour:'2-digit',minute:'2-digit'}).format(new Date(latestClose))}`:'Belum ada waktu closing'}</small></div><div class="daily-summary-item"><span>Detail Pemakaian</span><strong>${used.length} jenis bahan</strong><small>${closed.length} dari ${rows.length} bahan sudah dihitung</small></div>`;
+      function renderDailyRecapSummary(date,store,displayRows=dailyRowsForDisplay(date,store)){
+        const rows=displayRows;const closed=rows.filter(row=>row.isClosed);const used=closed.filter(row=>row.usedStock>0);const allClosed=rows.length>0&&closed.length===rows.length;const latestClose=closed.map(row=>row.closedAt).filter(Boolean).sort().at(-1);
+        const statusClass=!rows.length?'status-empty':allClosed?'status-closed':'status-open';const statusText=!rows.length?'Belum Ada Bahan':allClosed?'Sudah Closing':closed.length?'Closing Sebagian':'Menunggu Closing';
+        const totalUsed=used.reduce((sum,row)=>sum+Number(row.usedStock||0),0);
+        el('dailyRecapSummary').innerHTML=`<div class="daily-summary-item"><span>Tanggal</span><strong>${formatDate(date)}</strong><small>${date===todayISO()?'Rekapan hari ini':'Riwayat closing'}</small></div><div class="daily-summary-item"><span>Cabang</span><strong>${escapeHtml(store==='all'||!store?'Semua Cabang':store)}</strong><small>${rows.length} nama bahan</small></div><div class="daily-summary-item ${statusClass}"><span>Status</span><strong>${statusText}</strong><small>${latestClose?`Disimpan ${new Intl.DateTimeFormat('id-ID',{timeZone:'Asia/Jakarta',hour:'2-digit',minute:'2-digit'}).format(new Date(latestClose))}`:'Belum ada closing'}</small></div><div class="daily-summary-item"><span>Pemakaian</span><strong>${used.length} jenis bahan</strong><small>Total angka terpakai ${number(totalUsed)}</small></div>`;
       }
 
       function renderInventoryClosingDetails(date,store){
         const rows=state.inventoryDaily.filter(row=>row.date===date&&(store==='all'||!store||row.store===store)&&row.isClosed&&row.usedStock>0).sort((a,b)=>a.store.localeCompare(b.store)||a.name.localeCompare(b.name));
         const closedAny=state.inventoryDaily.some(row=>row.date===date&&(store==='all'||!store||row.store===store)&&row.isClosed);
         if(!rows.length){el('inventoryClosingDetails').innerHTML=emptyState(closedAny?'Tidak ada bahan yang terpakai':'Closing belum dilakukan',closedAny?'Semua bahan tercatat tanpa pemakaian pada tanggal ini.':'Lakukan closing untuk menghasilkan detail bahan yang dipakai.');return;}
-        el('inventoryClosingDetails').innerHTML=`<table><thead><tr><th>Toko</th><th>Event</th><th>Bahan</th><th>Satuan</th><th>Stok Awal</th><th>Stok Masuk</th><th>Stok Akhir</th><th>Jumlah Terpakai</th><th>Keterangan</th></tr></thead><tbody>${rows.map(row=>`<tr><td><strong>${escapeHtml(row.store)}</strong></td><td>${escapeHtml(eventName(row.eventId))}</td><td><strong>${escapeHtml(row.name)}</strong></td><td>${escapeHtml(row.unit)}</td><td>${number(row.openingStock)}</td><td>${number(row.stockIn)}</td><td>${number(row.closingStock)}</td><td><strong class="used-value">${number(row.usedStock)} ${escapeHtml(row.unit)}</strong></td><td class="muted">${escapeHtml(row.note||'-')}</td></tr>`).join('')}</tbody></table>`;
+        el('inventoryClosingDetails').innerHTML=`<table><thead><tr><th>Toko</th><th>Nama Bahan</th><th>Satuan</th><th>Stok Awal</th><th>Stok Masuk</th><th>Stok Akhir</th><th>Jumlah Terpakai</th><th>Keterangan</th></tr></thead><tbody>${rows.map(row=>`<tr><td><strong>${escapeHtml(row.store)}</strong></td><td><strong>${escapeHtml(row.name)}</strong></td><td>${escapeHtml(row.unit||'unit')}</td><td>${number(row.openingStock)}</td><td>${number(row.stockIn)}</td><td>${number(row.closingStock)}</td><td><strong class="used-value">${number(row.usedStock)} ${escapeHtml(row.unit||'unit')}</strong></td><td class="muted">${escapeHtml(row.note||'-')}</td></tr>`).join('')}</tbody></table>`;
       }
 
       function getStockStatus(item){if(item.stock<=0)return{key:'empty',label:'Habis',className:'badge-empty'};if(item.stock<=item.min)return{key:'low',label:'Perlu Restok',className:'badge-low'};return{key:'ok',label:'Aman',className:'badge-ok'};}
@@ -1766,13 +1767,13 @@ NOTIFY pgrst, 'reload schema';`
       function exportInventoryCSV(){
         if(!canViewAll()&&!employeeBranch())return toast('Cabang akun belum ditetapkan.');
         const date=selectedInventoryDate();const store=canViewAll()?el('inventoryStoreFilter').value:employeeBranch();
-        const accessibleRows=state.inventoryDaily.filter(item=>item.date===date&&canAccessStore(item.store)&&(store==='all'||item.store===store));
-        const rows=[['Tanggal','Toko','Event','Nama Bahan','Satuan','Stok Awal','Stok Masuk','Stok Akhir','Jumlah Terpakai','Status Closing','Keterangan']];
-        accessibleRows.forEach(i=>rows.push([i.date,i.store,eventName(i.eventId),i.name,i.unit,i.openingStock,i.stockIn,i.closingStock==null?'':i.closingStock,i.usedStock,i.isClosed?'Sudah Closing':'Belum Closing',i.note||'']));
+        const accessibleRows=dailyRowsForDisplay(date,store).filter(item=>canAccessStore(item.store));
+        const rows=[['Tanggal','Toko','Nama Bahan','Satuan','Stok Awal','Stok Masuk','Stok Akhir','Jumlah Terpakai','Status Closing','Keterangan']];
+        accessibleRows.forEach(i=>rows.push([i.date,i.store,i.name,i.unit||'unit',i.openingStock,i.stockIn,i.closingStock==null?'':i.closingStock,i.usedStock,i.isClosed?'Sudah Closing':'Belum Closing',i.note||'']));
         downloadFile(`rekap-bahan-harian-${date}.csv`,'\ufeff'+toCSV(rows),'text/csv;charset=utf-8');toast('Rekapan bahan harian berhasil diekspor.');
       }
       function exportEventsCSV(){if(!canViewAll())return;const rows=[['Nama Event','Tanggal Mulai','Tanggal Selesai','Lokasi','Penyelenggara','Status','Pemasukan','Pengeluaran','Saldo','Jumlah Bahan','Target Penjualan','Keterangan']];state.events.forEach(e=>{const tx=state.transactions.filter(t=>t.eventId===e.id),materials=state.inventory.filter(i=>i.eventId===e.id),income=sumByType(tx,'income'),expense=sumByType(tx,'expense');rows.push([e.name,e.eventDate,e.endDate,e.location,e.organizer,getEventStatus(e).label,income,expense,income-expense,materials.length,e.targetSales,e.note||'']);});downloadFile(`rekap-event-${todayISO()}.csv`,'\ufeff'+toCSV(rows),'text/csv;charset=utf-8');toast('File event berhasil diekspor.');}
-      function backupJSON(){if(!isAdmin())return;downloadFile(`cadangan-rekap-toko-cloud-${todayISO()}.json`,JSON.stringify({version:5,exportedAt:new Date().toISOString(),stores:STORES,transactions:state.transactions,inventory:state.inventory,inventoryDaily:state.inventoryDaily,events:state.events},null,2),'application/json');toast('Cadangan data berhasil diunduh.');}
+      function backupJSON(){if(!isAdmin())return;downloadFile(`cadangan-rekap-toko-cloud-${todayISO()}.json`,JSON.stringify({version:6,exportedAt:new Date().toISOString(),stores:STORES,transactions:state.transactions,inventory:state.inventory,inventoryDaily:state.inventoryDaily,events:state.events},null,2),'application/json');toast('Cadangan data berhasil diunduh.');}
 
       async function restoreJSON(event){if(!isAdmin())return;const file=event.target.files[0];if(!file)return;try{const data=JSON.parse(await file.text());if(!Array.isArray(data.transactions)||!Array.isArray(data.inventory))throw new Error('Format file tidak sesuai.');if(!confirm('Ganti seluruh data cloud dengan isi file cadangan ini?'))return;el('loadingCover').hidden=false;await deleteAllCloudRows();await upsertInChunks('events',(data.events||[]).map(item=>eventToRow({...item,id:item.id||uid()})));await upsertInChunks('transactions',data.transactions.map(item=>transactionToRow({...item,id:item.id||uid()})));await upsertInChunks('inventory',data.inventory.map(item=>inventoryToRow({...item,id:item.id||uid()})));await upsertInChunks('inventory_daily',(data.inventoryDaily||[]).map(item=>dailyRecordToRow({...item,id:item.id||uid()})));await loadCloudData(true);toast('Data cloud berhasil dipulihkan.');}catch(error){showSyncError(error);}finally{event.target.value='';el('loadingCover').hidden=true;}}
       async function clearAllData(){if(!isAdmin())return;if(!confirm('Yakin menghapus SEMUA transaksi, bahan, dan event dari Supabase?'))return;if(!confirm('Konfirmasi terakhir: tindakan ini tidak dapat dibatalkan.'))return;try{el('loadingCover').hidden=false;await deleteAllCloudRows();await loadCloudData(true);toast('Semua data cloud berhasil dihapus.');}catch(error){showSyncError(error);}finally{el('loadingCover').hidden=true;}}
