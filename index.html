@@ -678,6 +678,7 @@
         <button class="active" data-full-view data-view="dashboard"><span class="icon">▦</span> Dashboard</button>
         <button data-full-view data-view="transactions"><span class="icon">⇄</span> Pemasukan & Pengeluaran</button>
         <button data-view="inventory"><span class="icon">▤</span> Rekapan Bahan</button>
+        <button data-view="materials"><span class="icon">＋</span> Tambah Bahan</button>
         <button data-full-view data-view="events"><span class="icon">★</span> Rekapan Event</button>
         <button class="admin-only" data-admin-only data-view="settings"><span class="icon">⚙</span> Data & Pengaturan</button>
       </nav>
@@ -759,12 +760,11 @@
             <div class="toolbar-actions">
               <button class="btn btn-light" id="exportInventoryBtn">⇩ Ekspor CSV</button>
               <button class="btn btn-dark" id="closeDailyRecapBtn">✓ Closing Hari Ini</button>
-              <button class="btn btn-primary" id="addInventoryBtn">＋ Tambah Nama Bahan</button>
             </div>
           </div>
           <div class="branch-notice" id="branchNotice" hidden></div>
           <div class="inventory-workflow-note">
-            <strong>Alur sederhana:</strong> tambahkan nama bahan satu kali. Nama tersebut akan muncul otomatis pada rekapan setiap hari. Saat operasional selesai, tekan <strong>Closing Hari Ini</strong>, isi stok masuk bila ada, lalu isi stok akhir hasil hitung fisik.
+            <strong>Alur sederhana:</strong> nama bahan dikelola dari menu <strong>Tambah Bahan</strong> di sidebar dan otomatis muncul pada rekapan setiap hari. Saat operasional selesai, tekan <strong>Closing Hari Ini</strong>, isi stok masuk bila ada, lalu isi stok akhir hasil hitung fisik.
           </div>
           <div class="card filters">
             <div class="date-slicer" aria-label="Pilih tanggal rekapan">
@@ -798,6 +798,32 @@
               <div><h3>Detail Bahan Terpakai</h3><p>Ringkasan bahan yang terpakai berdasarkan hasil closing pada tanggal pilihan.</p></div>
             </div>
             <div class="table-wrap" id="inventoryClosingDetails"></div>
+          </article>
+        </section>
+
+        <section class="view" id="view-materials">
+          <div class="toolbar">
+            <div>
+              <h3>Daftar & Tambah Bahan</h3>
+              <p id="materialsAccessText">Tambahkan nama bahan satu kali. Nama yang tersimpan otomatis ditampilkan pada Rekapan Bahan setiap hari.</p>
+            </div>
+            <div class="toolbar-actions">
+              <button class="btn btn-primary" id="addInventoryBtn">＋ Tambah Nama Bahan</button>
+            </div>
+          </div>
+          <div class="branch-notice" id="materialsBranchNotice" hidden></div>
+          <div class="inventory-workflow-note">
+            Halaman ini khusus untuk mengelola <strong>nama bahan</strong>. Pilih toko, tambahkan nama bahan, lalu lakukan pencatatan stok harian dari menu <strong>Rekapan Bahan</strong>.
+          </div>
+          <div class="card filters">
+            <input class="input" id="materialsSearch" placeholder="Cari nama bahan..." />
+            <select class="select" id="materialsStoreFilter"></select>
+          </div>
+          <article class="card table-card">
+            <div class="card-head">
+              <div><h3>Nama Bahan Aktif</h3><p>Semua nama di daftar ini otomatis muncul pada closing harian cabang yang sesuai.</p></div>
+            </div>
+            <div class="table-wrap" id="materialsTable"></div>
           </article>
         </section>
 
@@ -1317,12 +1343,12 @@ NOTIFY pgrst, 'reload schema';`
         applyStoreAccessUI();
 
         if(isEmployee()){
-          activeView='inventory';
-          switchView('inventory');
+          if(!['inventory','materials'].includes(activeView))activeView='inventory';
+          switchView(activeView);
         }else if(owner&&activeView==='settings'){
           activeView='dashboard';
           switchView('dashboard');
-        }else if(!['dashboard','transactions','inventory','events','settings'].includes(activeView)){
+        }else if(!['dashboard','transactions','inventory','materials','events','settings'].includes(activeView)){
           activeView='dashboard';
           switchView('dashboard');
         }
@@ -1339,21 +1365,28 @@ NOTIFY pgrst, 'reload schema';`
           populateStoreSelect(el('globalStore'),true);
           populateStoreSelect(el('transactionStoreFilter'),true);
           populateStoreSelect(el('inventoryStoreFilter'),true);
+          populateStoreSelect(el('materialsStoreFilter'),true);
           populateStoreSelect(el('transactionStore'),false);
           populateStoreSelect(el('inventoryStore'),false);
           el('inventoryStoreFilter').disabled=false;
+          el('materialsStoreFilter').disabled=false;
           el('inventoryStore').disabled=owner;
           el('addInventoryBtn').hidden=owner;
           el('addInventoryBtn').disabled=owner;
           el('closeDailyRecapBtn').hidden=owner;
           el('exportInventoryBtn').disabled=false;
           el('branchNotice').hidden=admin;
+          el('materialsBranchNotice').hidden=admin;
           if(owner){
             el('branchNotice').className='branch-notice';
             el('branchNotice').textContent='Mode Owner aktif: Anda dapat melihat rekapan bahan semua cabang, tetapi tidak dapat menambah, mengubah, menghapus, atau memperbarui stok.';
+            el('materialsBranchNotice').className='branch-notice';
+            el('materialsBranchNotice').textContent='Mode Owner aktif: daftar nama bahan semua cabang dapat dilihat, tetapi tidak dapat diubah.';
             el('inventoryAccessText').textContent='Lihat hasil closing bahan harian seluruh cabang dalam mode hanya lihat.';
+            el('materialsAccessText').textContent='Lihat daftar nama bahan seluruh cabang dalam mode hanya lihat.';
           }else{
             el('inventoryAccessText').textContent='Daftar nama bahan otomatis tampil setiap hari. Pilih cabang lalu lakukan closing.';
+            el('materialsAccessText').textContent='Pilih cabang lalu tambahkan nama bahan yang akan tampil otomatis pada closing harian.';
           }
           return;
         }
@@ -1362,19 +1395,28 @@ NOTIFY pgrst, 'reload schema';`
         el('closeDailyRecapBtn').hidden=false;
         const fixedOptions=branch?`<option value="${escapeHtml(branch)}">${escapeHtml(branch)}</option>`:'<option value="">Cabang belum ditetapkan</option>';
         el('inventoryStoreFilter').innerHTML=fixedOptions;
+        el('materialsStoreFilter').innerHTML=fixedOptions;
         el('inventoryStore').innerHTML=fixedOptions;
         el('inventoryStoreFilter').value=branch;
+        el('materialsStoreFilter').value=branch;
         el('inventoryStore').value=branch;
         el('inventoryStoreFilter').disabled=true;
+        el('materialsStoreFilter').disabled=true;
         el('inventoryStore').disabled=true;
         el('addInventoryBtn').disabled=!branch;
         el('exportInventoryBtn').disabled=!branch;
         el('branchNotice').hidden=false;
+        el('materialsBranchNotice').hidden=false;
         el('branchNotice').className=`branch-notice${branch?'':' warning'}`;
+        el('materialsBranchNotice').className=`branch-notice${branch?'':' warning'}`;
         el('branchNotice').textContent=branch
           ? `Akun ini hanya dapat mengakses dan memperbarui rekapan bahan cabang ${branch}. Data cabang lain tidak dapat dibuka.`
           : 'Akun ini belum ditetapkan ke cabang mana pun. Hubungi Admin agar cabang akses dipilih terlebih dahulu.';
+        el('materialsBranchNotice').textContent=branch
+          ? `Nama bahan yang ditambahkan di halaman ini hanya berlaku untuk cabang ${branch}.`
+          : 'Akun ini belum ditetapkan ke cabang mana pun. Hubungi Admin agar cabang akses dipilih terlebih dahulu.';
         el('inventoryAccessText').textContent=branch?`Daftar bahan cabang ${branch} otomatis tampil setiap hari untuk closing.`:'Cabang akses belum ditetapkan oleh Admin.';
+        el('materialsAccessText').textContent=branch?`Kelola nama bahan khusus cabang ${branch}.`:'Cabang akses belum ditetapkan oleh Admin.';
       }
 
       function setGateMessage(node,message,type){node.hidden=!message;node.textContent=message||'';node.className=type==='success'?'gate-success':'gate-error';}
@@ -1403,13 +1445,14 @@ NOTIFY pgrst, 'reload schema';`
         el('transactionForm').addEventListener('submit',saveTransaction);el('inventoryForm').addEventListener('submit',saveInventory);el('dailyClosingForm').addEventListener('submit',saveDailyClosing);el('dailyClosingRows').addEventListener('input',updateClosingUsagePreview);el('eventForm').addEventListener('submit',saveEvent);
         ['transactionSearch','transactionTypeFilter','transactionMonthFilter','transactionStoreFilter','transactionEventFilter'].forEach(id=>el(id).addEventListener('input',renderTransactions));
         ['inventorySearch','inventoryStatusFilter','inventoryStoreFilter','inventoryEventFilter'].forEach(id=>el(id).addEventListener('input',renderInventory));
+        ['materialsSearch','materialsStoreFilter'].forEach(id=>el(id).addEventListener('input',renderMaterials));
         el('inventoryDateFilter').addEventListener('change',()=>loadCloudData(true));
         el('inventoryTodayBtn').addEventListener('click',()=>changeInventoryDate(todayISO()));
         el('inventoryPrevDateBtn').addEventListener('click',()=>shiftInventoryDate(-1));
         el('inventoryNextDateBtn').addEventListener('click',()=>shiftInventoryDate(1));
         el('inventoryStoreFilter').addEventListener('change',renderInventory);
         ['eventSearch','eventStatusFilter'].forEach(id=>el(id).addEventListener('input',renderEvents));
-        el('transactionsTable').addEventListener('click',handleTransactionTableClick);el('inventoryTable').addEventListener('click',handleInventoryTableClick);el('eventsTable').addEventListener('click',handleEventsTableClick);el('profilesTable').addEventListener('change',handleProfileAccessDraftChange);el('profilesTable').addEventListener('click',handleProfileAccessSave);
+        el('transactionsTable').addEventListener('click',handleTransactionTableClick);el('materialsTable').addEventListener('click',handleInventoryTableClick);el('eventsTable').addEventListener('click',handleEventsTableClick);el('profilesTable').addEventListener('change',handleProfileAccessDraftChange);el('profilesTable').addEventListener('click',handleProfileAccessSave);
                 el('exportTransactionsBtn').addEventListener('click',exportTransactionsCSV);el('exportInventoryBtn').addEventListener('click',exportInventoryCSV);el('exportEventsBtn').addEventListener('click',exportEventsCSV);
         el('backupBtn').addEventListener('click',backupJSON);el('restoreBtn').addEventListener('click',()=>el('restoreInput').click());el('restoreInput').addEventListener('change',restoreJSON);el('demoBtn').addEventListener('click',loadDemoData);el('clearBtn').addEventListener('click',clearAllData);
         window.addEventListener('resize',renderChart);window.addEventListener('online',()=>loadCloudData(true));window.addEventListener('offline',()=>setCloudStatus('error','Offline'));
@@ -1418,7 +1461,7 @@ NOTIFY pgrst, 'reload schema';`
 
       async function logout(){if(db)await db.auth.signOut();}
       async function changeConnection(){if(!confirm('Ubah koneksi Supabase? Anda akan keluar dari sesi saat ini.'))return;forceSetupScreen=true;stopCloudRefresh();if(db)await db.auth.signOut();else showSetup();}
-      function switchView(view){if(isEmployee()&&view!=='inventory')view='inventory';if(isOwner()&&view==='settings')view='dashboard';activeView=view;document.querySelectorAll('.view').forEach(v=>v.classList.toggle('active',v.id===`view-${view}`));document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('active',b.dataset.view===view));const headings={dashboard:'Dashboard',transactions:'Pemasukan & Pengeluaran',inventory:'Rekapan Bahan',events:'Rekapan Event',settings:'Cloud & Pengaturan'};el('pageHeading').textContent=headings[view];if(window.innerWidth<=780)closeSidebar();if(view==='dashboard')renderDashboard();if(view==='transactions')renderTransactions();if(view==='inventory')renderInventory();if(view==='events')renderEvents();if(view==='settings')renderProfiles();}
+      function switchView(view){if(isEmployee()&&!['inventory','materials'].includes(view))view='inventory';if(isOwner()&&view==='settings')view='dashboard';activeView=view;document.querySelectorAll('.view').forEach(v=>v.classList.toggle('active',v.id===`view-${view}`));document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('active',b.dataset.view===view));const headings={dashboard:'Dashboard',transactions:'Pemasukan & Pengeluaran',inventory:'Rekapan Bahan',materials:'Tambah Bahan',events:'Rekapan Event',settings:'Cloud & Pengaturan'};el('pageHeading').textContent=headings[view];if(window.innerWidth<=780)closeSidebar();if(view==='dashboard')renderDashboard();if(view==='transactions')renderTransactions();if(view==='inventory')renderInventory();if(view==='materials')renderMaterials();if(view==='events')renderEvents();if(view==='settings')renderProfiles();}
       function toggleSidebar(){el('sidebar').classList.toggle('open');el('overlay').classList.toggle('open');}
       function closeSidebar(){el('sidebar').classList.remove('open');el('overlay').classList.remove('open');}
       function openModal(id){el(id).classList.add('open');}
@@ -1429,6 +1472,7 @@ NOTIFY pgrst, 'reload schema';`
 
       function selectedInventoryDate(){return el('inventoryDateFilter').value||todayISO();}
       function selectedInventoryStore(){if(isEmployee())return employeeBranch();const value=el('inventoryStoreFilter').value;return value&&value!=='all'?value:'';}
+      function selectedMaterialStore(){if(isEmployee())return employeeBranch();const value=el('materialsStoreFilter').value;return value&&value!=='all'?value:'';}
       function shiftInventoryDate(days){const current=new Date(`${selectedInventoryDate()}T12:00:00`);current.setDate(current.getDate()+days);changeInventoryDate(jakartaDate(current));}
       function changeInventoryDate(date){el('inventoryDateFilter').value=date;loadCloudData(true);}
       function dailyRowsForSelection(){const date=selectedInventoryDate();const store=selectedInventoryStore();return state.inventoryDaily.filter(row=>row.date===date&&(!store||row.store===store));}
@@ -1502,8 +1546,8 @@ NOTIFY pgrst, 'reload schema';`
         if(isOwner())return toast('Akun Owner hanya dapat melihat data dan tidak dapat mengubah daftar bahan.');
         if(!isAdmin()&&!branch)return toast('Cabang akun belum ditetapkan. Hubungi Admin.');
         const existing=id?state.inventory.find(item=>item.id===id):null;
-        const assignedStore=existing?.store||(isAdmin()?selectedInventoryStore():branch);
-        if(!assignedStore)return toast('Pilih satu toko pada filter terlebih dahulu sebelum menambahkan nama bahan.');
+        const assignedStore=existing?.store||(isAdmin()?selectedMaterialStore():branch);
+        if(!assignedStore)return toast('Pilih satu toko pada halaman Tambah Bahan terlebih dahulu.');
         if(existing&&!canAccessStore(existing.store))return toast('Anda tidak memiliki akses ke data bahan ini.');
         el('inventoryForm').reset();
         el('inventoryId').value=existing?.id||'';
@@ -1524,9 +1568,9 @@ NOTIFY pgrst, 'reload schema';`
         if(!canEditInventory())return toast('Akun ini tidak memiliki izin untuk mengubah daftar bahan.');
         const itemId=el('inventoryId').value||uid();
         const existing=state.inventory.find(item=>item.id===itemId);
-        const assignedStore=existing?.store||(isAdmin()?selectedInventoryStore():employeeBranch());
+        const assignedStore=existing?.store||(isAdmin()?selectedMaterialStore():employeeBranch());
         const name=el('inventoryName').value.trim();
-        if(!assignedStore)return toast('Pilih satu toko pada filter terlebih dahulu.');
+        if(!assignedStore)return toast('Pilih satu toko pada halaman Tambah Bahan terlebih dahulu.');
         if(!canAccessStore(assignedStore))return toast('Anda tidak memiliki akses ke cabang tersebut.');
         if(!name)return toast('Nama bahan wajib diisi.');
         const duplicate=state.inventory.some(item=>item.id!==itemId&&item.store===assignedStore&&item.name.trim().toLowerCase()===name.toLowerCase());
@@ -1586,7 +1630,7 @@ NOTIFY pgrst, 'reload schema';`
       function scheduleRealtimeRefresh(){clearTimeout(realtimeDebounce);realtimeDebounce=setTimeout(async()=>{if(currentSession)await loadCurrentProfile(currentSession.user);applyRoleUI();loadCloudData(true);},400);}
       function stopCloudRefresh(){clearInterval(refreshTimer);clearTimeout(realtimeDebounce);refreshTimer=null;if(cloudChannel&&db)db.removeChannel(cloudChannel);cloudChannel=null;}
 
-      function renderAll(){renderDashboard();renderTransactions();renderInventory();renderEvents();renderProfiles();}
+      function renderAll(){renderDashboard();renderTransactions();renderInventory();renderMaterials();renderEvents();renderProfiles();}
       function filteredByGlobal(items){return selectedGlobalStore==='all'?items:items.filter(item=>item.store===selectedGlobalStore);}
       function sumByType(rows,type){return rows.filter(t=>t.type===type).reduce((sum,t)=>sum+t.amount,0);}
 
@@ -1606,8 +1650,6 @@ NOTIFY pgrst, 'reload schema';`
           return;
         }
         const date=selectedInventoryDate();
-        const editable=canEditInventory();
-        const manageNames=editable&&date===todayISO();
         const query=el('inventorySearch').value.toLowerCase().trim();
         const statusFilter=el('inventoryStatusFilter').value;
         const store=canViewAll()?el('inventoryStoreFilter').value:branch;
@@ -1623,18 +1665,42 @@ NOTIFY pgrst, 'reload schema';`
         el('dailyTableSubtitle').textContent=store==='all'?'Seluruh cabang':(store||'Pilih satu cabang');
         applyDailyActionState(date,store,rows);
 
-        if(!rows.length){el('inventoryTable').innerHTML=emptyState('Belum ada nama bahan',editable&&date===todayISO()?'Pilih satu toko lalu tekan Tambah Nama Bahan.':'Belum ada hasil closing pada tanggal ini.');return;}
+        if(!rows.length){el('inventoryTable').innerHTML=emptyState('Belum ada nama bahan',date===todayISO()?'Tambahkan nama bahan terlebih dahulu melalui menu Tambah Bahan di sidebar.':'Belum ada hasil closing pada tanggal ini.');return;}
         const showStore=store==='all'||!store;
-        el('inventoryTable').innerHTML=`<table><thead><tr>${showStore?'<th>Toko</th>':''}<th>Nama Bahan</th><th>Satuan</th><th>Stok Awal</th><th>Stok Masuk</th><th>Stok Akhir</th><th>Terpakai</th><th>Status</th>${manageNames?'<th>Aksi</th>':''}</tr></thead><tbody>${rows.map(item=>{const master=state.inventory.find(inv=>inv.id===item.inventoryId);const closeBadge=item.isClosed?'<span class="badge badge-closed">Sudah Closing</span>':'<span class="badge badge-open">Belum Closing</span>';return`<tr>${showStore?`<td><strong>${escapeHtml(item.store)}</strong></td>`:''}<td><strong>${escapeHtml(item.name)}</strong></td><td>${escapeHtml(item.unit||'unit')}</td><td>${number(item.openingStock)}</td><td>${item.isClosed?number(item.stockIn):'<span class="muted">—</span>'}</td><td>${item.closingStock==null?'<span class="muted">Belum diisi</span>':number(item.closingStock)}</td><td><strong class="${item.usedStock>0?'used-value':'muted'}">${item.isClosed?number(item.usedStock):'—'}</strong></td><td>${closeBadge}</td>${manageNames?`<td><div class="actions">${master?`<button class="icon-btn" data-edit-inventory="${master.id}" title="Ubah nama bahan">✎</button><button class="icon-btn danger" data-delete-inventory="${master.id}" title="Hapus dari daftar bahan">🗑</button>`:'<span class="muted">Arsip</span>'}</div></td>`:''}</tr>`;}).join('')}</tbody></table>`;
+        el('inventoryTable').innerHTML=`<table><thead><tr>${showStore?'<th>Toko</th>':''}<th>Nama Bahan</th><th>Satuan</th><th>Stok Awal</th><th>Stok Masuk</th><th>Stok Akhir</th><th>Terpakai</th><th>Status</th></tr></thead><tbody>${rows.map(item=>{const closeBadge=item.isClosed?'<span class="badge badge-closed">Sudah Closing</span>':'<span class="badge badge-open">Belum Closing</span>';return`<tr>${showStore?`<td><strong>${escapeHtml(item.store)}</strong></td>`:''}<td><strong>${escapeHtml(item.name)}</strong></td><td>${escapeHtml(item.unit||'unit')}</td><td>${number(item.openingStock)}</td><td>${item.isClosed?number(item.stockIn):'<span class="muted">—</span>'}</td><td>${item.closingStock==null?'<span class="muted">Belum diisi</span>':number(item.closingStock)}</td><td><strong class="${item.usedStock>0?'used-value':'muted'}">${item.isClosed?number(item.usedStock):'—'}</strong></td><td>${closeBadge}</td></tr>`;}).join('')}</tbody></table>`;
+      }
+
+      function renderMaterials(){
+        const branch=employeeBranch();
+        if(isEmployee()&&!branch){
+          el('materialsTable').innerHTML=emptyState('Cabang belum ditetapkan','Admin harus menentukan cabang akun sebelum nama bahan dapat dikelola.');
+          el('addInventoryBtn').disabled=true;
+          return;
+        }
+        const query=el('materialsSearch').value.toLowerCase().trim();
+        const store=canViewAll()?el('materialsStoreFilter').value:branch;
+        const editable=canEditInventory()&&!isOwner();
+        const exactStore=store&&store!=='all';
+        const rows=state.inventory.filter(item=>{
+          const matchesStore=store==='all'||!store||item.store===store;
+          const matchesQuery=!query||item.name.toLowerCase().includes(query);
+          return matchesStore&&matchesQuery;
+        }).sort((a,b)=>a.store.localeCompare(b.store)||a.name.localeCompare(b.name));
+
+        el('addInventoryBtn').hidden=isOwner();
+        el('addInventoryBtn').disabled=!editable||!exactStore;
+        el('addInventoryBtn').title=!editable?'Akun ini hanya dapat melihat daftar bahan':!exactStore?'Pilih satu toko terlebih dahulu':'Tambahkan nama bahan untuk toko ini';
+
+        if(!rows.length){el('materialsTable').innerHTML=emptyState('Belum ada nama bahan',editable?(exactStore?'Tekan Tambah Nama Bahan untuk membuat daftar.':'Pilih satu toko terlebih dahulu.'):'Belum ada nama bahan pada pilihan ini.');return;}
+        const showStore=store==='all'||!store;
+        el('materialsTable').innerHTML=`<table><thead><tr>${showStore?'<th>Toko</th>':''}<th>Nama Bahan</th><th>Terakhir Diperbarui</th>${editable?'<th>Aksi</th>':''}</tr></thead><tbody>${rows.map(item=>`<tr>${showStore?`<td><strong>${escapeHtml(item.store)}</strong></td>`:''}<td><strong>${escapeHtml(item.name)}</strong><br><small class="muted">Otomatis tampil pada rekapan harian</small></td><td>${item.updatedAt?new Intl.DateTimeFormat('id-ID',{day:'2-digit',month:'short',year:'numeric'}).format(new Date(item.updatedAt)):'-'}</td>${editable?`<td><div class="actions"><button class="icon-btn" data-edit-inventory="${item.id}" title="Ubah nama bahan">✎</button><button class="icon-btn danger" data-delete-inventory="${item.id}" title="Hapus dari daftar bahan">🗑</button></div></td>`:''}</tr>`).join('')}</tbody></table>`;
       }
 
       function applyDailyActionState(date,store,rows=[]){
         const exactStore=store&&store!=='all';const today=date===todayISO();const masterCount=exactStore?state.inventory.filter(item=>item.store===store).length:0;
         const writeAllowed=canEditInventory()&&exactStore&&today;
         el('closeDailyRecapBtn').disabled=!writeAllowed||!masterCount;
-        el('addInventoryBtn').disabled=!writeAllowed;
-        el('closeDailyRecapBtn').title=!exactStore?'Pilih satu toko terlebih dahulu':!today?'Closing hanya untuk hari ini':!masterCount?'Tambahkan nama bahan terlebih dahulu':'Isi stok akhir dan simpan closing';
-        el('addInventoryBtn').title=!exactStore?'Pilih satu toko terlebih dahulu':!today?'Nama bahan baru hanya ditambahkan dari tampilan hari ini':'Tambahkan nama bahan ke daftar harian';
+        el('closeDailyRecapBtn').title=!exactStore?'Pilih satu toko terlebih dahulu':!today?'Closing hanya untuk hari ini':!masterCount?'Tambahkan nama bahan melalui menu Tambah Bahan terlebih dahulu':'Isi stok akhir dan simpan closing';
       }
 
       function renderDailyRecapSummary(date,store,displayRows=dailyRowsForDisplay(date,store)){
