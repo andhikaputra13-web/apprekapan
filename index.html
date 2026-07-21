@@ -838,7 +838,7 @@
               <option value="closed">Sudah Closing</option>
               <option value="used">Ada Pemakaian</option>
             </select>
-            <select class="select" id="inventoryStoreFilter"></select>
+            <select class="select" id="inventoryStoreFilter" hidden aria-hidden="true" tabindex="-1"></select>
             <select class="select" id="inventoryEventFilter" hidden><option value="all">Semua Event</option></select>
             <button class="btn btn-light" id="inventoryTodayBtn" type="button">Hari Ini</button>
           </div>
@@ -864,7 +864,7 @@
           <div class="toolbar">
             <div>
               <h3>Daftar Bahan</h3>
-              <p id="materialsAccessText">Tambahkan nama bahan dan tentukan stok minimum. Status bahan diperbarui otomatis dari hasil closing terakhir.</p>
+              <p id="materialsAccessText">Pilih toko melalui slicer di header, lalu tambahkan nama bahan dan tentukan stok minimum. Status bahan diperbarui otomatis dari hasil closing terakhir.</p>
             </div>
             <div class="toolbar-actions">
               <button class="btn btn-primary" id="addInventoryBtn">＋ Tambah Nama Bahan</button>
@@ -876,7 +876,7 @@
           </div>
           <div class="card filters">
             <input class="input" id="materialsSearch" placeholder="Cari nama bahan..." />
-            <select class="select" id="materialsStoreFilter"></select>
+            <select class="select" id="materialsStoreFilter" hidden aria-hidden="true" tabindex="-1"></select>
           </div>
           <article class="card table-card">
             <div class="card-head">
@@ -1556,12 +1556,12 @@ NOTIFY pgrst, 'reload schema';`
         el('nav').addEventListener('click',event=>{const button=event.target.closest('button[data-view]');if(button)switchView(button.dataset.view);});
         document.addEventListener('click',event=>{const go=event.target.closest('[data-go]');if(go)switchView(go.dataset.go);const close=event.target.closest('[data-close]');if(close)closeModal(close.dataset.close);});
         el('menuBtn').addEventListener('click',toggleSidebar);el('overlay').addEventListener('click',toggleSidebar);
-        el('globalStore').addEventListener('change',event=>{selectedGlobalStore=event.target.value;renderDashboard();});
+        el('globalStore').addEventListener('change',event=>{selectedGlobalStore=event.target.value;const inventoryStore=el('inventoryStoreFilter');const materialsStore=el('materialsStoreFilter');if(inventoryStore&&[...inventoryStore.options].some(option=>option.value===event.target.value))inventoryStore.value=event.target.value;if(materialsStore&&[...materialsStore.options].some(option=>option.value===event.target.value))materialsStore.value=event.target.value;renderDashboard();renderInventory();renderMaterials();});
         el('addTransactionBtn').addEventListener('click',()=>openTransactionModal());el('addInventoryBtn').addEventListener('click',()=>openInventoryModal());el('closeDailyRecapBtn').addEventListener('click',openDailyClosingModal);el('fillNoUsageBtn').addEventListener('click',fillClosingWithAvailableStock);el('addEventBtn').addEventListener('click',()=>openEventModal());
         el('transactionForm').addEventListener('submit',saveTransaction);el('transactionRows').addEventListener('click',handleTransactionRowClick);el('transactionRows').addEventListener('input',updateTransactionTotal);el('inventoryForm').addEventListener('submit',saveInventory);el('dailyClosingForm').addEventListener('submit',saveDailyClosing);el('dailyClosingRows').addEventListener('input',updateClosingUsagePreview);el('eventForm').addEventListener('submit',saveEvent);
         ['transactionSearch','transactionTypeFilter','transactionMonthFilter','transactionStoreFilter','transactionEventFilter'].forEach(id=>el(id).addEventListener('input',renderTransactions));
         ['inventorySearch','inventoryStatusFilter','inventoryStoreFilter','inventoryEventFilter'].forEach(id=>el(id).addEventListener('input',renderInventory));
-        ['materialsSearch','materialsStoreFilter'].forEach(id=>el(id).addEventListener('input',renderMaterials));
+        el('materialsSearch').addEventListener('input',renderMaterials);
         el('inventoryDateFilter').addEventListener('change',()=>loadCloudData(true));
         el('inventoryTodayBtn').addEventListener('click',()=>changeInventoryDate(todayISO()));
         el('inventoryPrevDateBtn').addEventListener('click',()=>shiftInventoryDate(-1));
@@ -1593,8 +1593,8 @@ NOTIFY pgrst, 'reload schema';`
       async function saveTransaction(event){event.preventDefault();if(!isAdmin())return;const editId=el('transactionId').value;const existing=state.transactions.find(t=>t.id===editId);const entries=transactionEntries();const main=entries[0];const eventValue=main.querySelector('.transaction-row-event').value;const common={date:main.querySelector('.transaction-row-date').value,store:main.querySelector('.transaction-row-store').value,eventId:eventValue==='none'?null:eventValue,type:main.querySelector('.transaction-row-type').value,category:main.querySelector('.transaction-row-category').value.trim()};if(!common.date||!common.store||!common.category){main.scrollIntoView({behavior:'smooth',block:'center'});main.querySelector('.transaction-row-category').focus();return toast('Mohon lengkapi tanggal, toko, jenis, dan kategori transaksi.');}const createdBase=Date.now();const items=entries.map((entry,index)=>({id:editId&&index===0?editId:uid(),...common,amount:Number(entry.querySelector('.transaction-row-amount').value),note:entry.querySelector('.transaction-row-note').value.trim(),createdAt:existing?.createdAt||new Date(createdBase+index).toISOString()}));const invalidIndex=items.findIndex(item=>!Number.isFinite(item.amount)||item.amount<0);if(invalidIndex>=0){const target=entries[invalidIndex];target.scrollIntoView({behavior:'smooth',block:'center'});target.querySelector('.transaction-row-amount').focus();return toast(`Isi nominal yang valid pada baris ${invalidIndex+1}.`);}const totalAmount=items.reduce((sum,item)=>sum+item.amount,0);const button=event.submitter;setButtonBusy(button,true,`Menyimpan ${rawMoney(totalAmount)}…`);try{const {error}=await db.from('transactions').upsert(items.map(transactionToRow));if(error)throw error;closeModal('transactionModal');await loadCloudData(true);toast(existing?`Transaksi berhasil diperbarui. Total ${rawMoney(totalAmount)}.`:`${items.length} transaksi berhasil ditambahkan. Total ${rawMoney(totalAmount)}.`);}catch(error){showSyncError(error);}finally{setButtonBusy(button,false);refreshTransactionEntryControls();}}
 
       function selectedInventoryDate(){return el('inventoryDateFilter').value||todayISO();}
-      function selectedInventoryStore(){if(isEmployee())return employeeBranch();const value=el('inventoryStoreFilter').value;return value&&value!=='all'?value:'';}
-      function selectedMaterialStore(){if(isEmployee())return employeeBranch();const value=el('materialsStoreFilter').value;return value&&value!=='all'?value:'';}
+      function selectedInventoryStore(){if(isEmployee())return employeeBranch();const value=el('globalStore').value;return value&&value!=='all'?value:'';}
+      function selectedMaterialStore(){if(isEmployee())return employeeBranch();const value=el('globalStore').value;return value&&value!=='all'?value:'';}
       function shiftInventoryDate(days){const current=new Date(`${selectedInventoryDate()}T12:00:00`);current.setDate(current.getDate()+days);changeInventoryDate(jakartaDate(current));}
       function changeInventoryDate(date){el('inventoryDateFilter').value=date;loadCloudData(true);}
       function dailyRowsForSelection(){const date=selectedInventoryDate();const store=selectedInventoryStore();return state.inventoryDaily.filter(row=>row.date===date&&(!store||row.store===store));}
@@ -1783,7 +1783,7 @@ NOTIFY pgrst, 'reload schema';`
         const date=selectedInventoryDate();
         const query=el('inventorySearch').value.toLowerCase().trim();
         const statusFilter=el('inventoryStatusFilter').value;
-        const store=canViewAll()?el('inventoryStoreFilter').value:branch;
+        const store=canViewAll()?el('globalStore').value:branch;
         const rows=dailyRowsForDisplay(date,store).filter(item=>{
           const matchesQuery=!query||item.name.toLowerCase().includes(query);
           const matchesStatus=statusFilter==='all'||(statusFilter==='open'&&!item.isClosed)||(statusFilter==='closed'&&item.isClosed)||(statusFilter==='used'&&item.usedStock>0);
@@ -1804,7 +1804,7 @@ NOTIFY pgrst, 'reload schema';`
       function renderMaterials(){
         if(!canViewAll())return;
         const query=el('materialsSearch').value.toLowerCase().trim();
-        const store=el('materialsStoreFilter').value;
+        const store=isEmployee()?employeeBranch():el('globalStore').value;
         const editable=isAdmin();
         const exactStore=store&&store!=='all';
         const rows=state.inventory.filter(item=>{
@@ -1965,7 +1965,7 @@ NOTIFY pgrst, 'reload schema';`
       function exportTransactionsCSV(){if(!canViewAll())return;const rows=[['Tanggal','Toko','Event','Jenis','Kategori','Keterangan','Nominal']];state.transactions.slice().sort((a,b)=>b.date.localeCompare(a.date)).forEach(t=>rows.push([t.date,t.store,eventName(t.eventId),t.type==='income'?'Pemasukan':'Pengeluaran',t.category,t.note||'',t.amount]));downloadFile(`rekap-transaksi-${todayISO()}.csv`,'\ufeff'+toCSV(rows),'text/csv;charset=utf-8');toast('File transaksi berhasil diekspor.');}
       function exportInventoryCSV(){
         if(!canViewAll()&&!employeeBranch())return toast('Cabang akun belum ditetapkan.');
-        const date=selectedInventoryDate();const store=canViewAll()?el('inventoryStoreFilter').value:employeeBranch();
+        const date=selectedInventoryDate();const store=canViewAll()?el('globalStore').value:employeeBranch();
         const accessibleRows=dailyRowsForDisplay(date,store).filter(item=>canAccessStore(item.store));
         const rows=[['Tanggal','Toko','Nama Bahan','Satuan','Stok Awal','Stok Masuk','Stok Akhir','Jumlah Terpakai','Status Closing','Keterangan']];
         accessibleRows.forEach(i=>rows.push([i.date,i.store,i.name,i.unit||'unit',i.openingStock,i.stockIn,i.closingStock==null?'':i.closingStock,i.usedStock,i.isClosed?'Sudah Closing':'Belum Closing',i.note||'']));
