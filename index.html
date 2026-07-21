@@ -607,7 +607,7 @@
     <aside class="sidebar" id="sidebar">
       <div class="brand">
         <div class="brand-mark">RT</div>
-        <div><h1>Rekap Toko</h1></div>
+        <div><h1>Rekap Toko</h1><small>Operasional 5 Cabang</small></div>
       </div>
 
       <nav class="nav" id="nav">
@@ -619,8 +619,8 @@
       </nav>
 
       <div class="sidebar-note">
-        <strong id="sidebarRoleText">Database online aktif</strong><br>
-        Data tersimpan di Supabase dan dapat dibuka dari semua perangkat yang login.
+        <strong id="sidebarUserEmail">Pengguna</strong><br>
+        <span id="sidebarUserAccess">Memuat informasi akun...</span>
       </div>
     </aside>
 
@@ -1091,6 +1091,7 @@ NOTIFY pgrst, 'reload schema';`;
           applyRoleUI();
           el('setupScreen').hidden=true;el('authScreen').hidden=true;el('appShell').hidden=false;
           el('userEmail').textContent=session.user?.email||'Pengguna';
+          el('sidebarUserEmail').textContent=session.user?.email||'Pengguna';
           el('settingsUserEmail').textContent=session.user?.email||'-';
           updateProjectLabels();
           await loadCloudData(true);
@@ -1113,7 +1114,7 @@ NOTIFY pgrst, 'reload schema';`;
         el('roleBadge').className=`role-badge ${admin?'role-admin':'role-employee'}`;
         el('settingsUserRole').textContent=admin?'Admin':'Karyawan';
         el('settingsUserBranch').textContent=admin?'Semua cabang':(branch||'Belum ditetapkan');
-        el('sidebarRoleText').textContent=admin?'Akses Admin':branch?`Akses Karyawan: ${branch}`:'Akses Karyawan belum memiliki cabang';
+        el('sidebarUserAccess').textContent=admin?'Admin · Semua cabang':branch?`Karyawan · ${branch}`:'Karyawan · Cabang belum ditetapkan';
         applyStoreAccessUI();
         if(!admin){activeView='inventory';switchView('inventory');}
         else if(!['dashboard','transactions','inventory','events','settings'].includes(activeView)){activeView='dashboard';switchView('dashboard');}
