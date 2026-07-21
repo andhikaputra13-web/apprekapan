@@ -737,9 +737,9 @@
         <button class="active" data-full-view data-view="dashboard"><span class="icon">▦</span> Dashboard</button>
         <button data-full-view data-view="transactions"><span class="icon">⇄</span> Pemasukan & Pengeluaran</button>
         <button data-view="inventory"><span class="icon">▤</span> Rekapan Bahan</button>
-        <button data-view="materials"><span class="icon">＋</span> Daftar Bahan</button>
+        <button data-full-view data-view="materials"><span class="icon">＋</span> Daftar Bahan</button>
         <button data-full-view data-view="events"><span class="icon">★</span> Rekapan Event</button>
-        <button class="admin-only" data-admin-only data-view="settings"><span class="icon">⚙</span> Data & Pengaturan</button>
+        <button data-full-view data-view="settings"><span class="icon">⚙</span> Data & Pengaturan</button>
       </nav>
 
       <div class="sidebar-note">
@@ -860,7 +860,7 @@
           </article>
         </section>
 
-        <section class="view" id="view-materials">
+        <section class="view" id="view-materials" data-full-view>
           <div class="toolbar">
             <div>
               <h3>Daftar Bahan</h3>
@@ -901,19 +901,19 @@
           <article class="card table-card"><div class="table-wrap" id="eventsTable"></div></article>
         </section>
 
-        <section class="view admin-only" data-admin-only id="view-settings">
-          <div class="toolbar"><div><h3>Cloud & Pengaturan Admin</h3><p>Kelola koneksi, akun, cadangan, dan data online aplikasi.</p></div></div>
+        <section class="view" data-full-view id="view-settings">
+          <div class="toolbar"><div><h3>Cloud & Pengaturan</h3><p id="settingsAccessText">Admin dapat mengelola pengaturan. Owner dapat melihat informasi dan daftar akun dalam mode hanya lihat.</p></div></div>
           <div class="grid settings-grid">
-            <article class="card setting-box"><h3>Status Supabase</h3><p>Seluruh data tersimpan di database online yang sama.</p><div class="connection-list"><div class="connection-row"><span>Proyek</span><strong id="settingsProjectHost">-</strong></div><div class="connection-row"><span>Pengguna</span><strong id="settingsUserEmail">-</strong></div><div class="connection-row"><span>Hak akses</span><strong id="settingsUserRole">-</strong></div><div class="connection-row"><span>Cabang akses</span><strong id="settingsUserBranch">-</strong></div><div class="connection-row"><span>Sinkronisasi terakhir</span><strong id="lastSyncText">Belum</strong></div></div><div class="toolbar-actions"><button class="btn btn-dark" id="syncNowBtn">Sinkronkan Sekarang</button><button class="btn btn-light" id="changeConfigBtn">Ubah Koneksi</button></div></article>
+            <article class="card setting-box"><h3>Status Supabase</h3><p>Seluruh data tersimpan di database online yang sama.</p><div class="connection-list"><div class="connection-row"><span>Proyek</span><strong id="settingsProjectHost">-</strong></div><div class="connection-row"><span>Pengguna</span><strong id="settingsUserEmail">-</strong></div><div class="connection-row"><span>Hak akses</span><strong id="settingsUserRole">-</strong></div><div class="connection-row"><span>Cabang akses</span><strong id="settingsUserBranch">-</strong></div><div class="connection-row"><span>Sinkronisasi terakhir</span><strong id="lastSyncText">Belum</strong></div></div><div class="toolbar-actions"><button class="btn btn-dark" id="syncNowBtn">Sinkronkan Sekarang</button><button class="btn btn-light" id="changeConfigBtn" data-admin-write>Ubah Koneksi</button></div></article>
             <article class="card setting-box"><h3>Cadangkan Data Cloud</h3><p>Unduh transaksi, bahan, dan event dari Supabase ke format JSON.</p><button class="btn btn-dark" id="backupBtn">Unduh Cadangan JSON</button></article>
-            <article class="card setting-box"><h3>Pulihkan ke Supabase</h3><p>Data cloud saat ini akan diganti dengan isi file cadangan.</p><input type="file" id="restoreInput" accept="application/json" hidden /><button class="btn btn-light" id="restoreBtn">Pilih File Cadangan</button></article>
-            <article class="card setting-box"><h3>Data Contoh Online</h3><p>Tambahkan contoh transaksi, bahan, dan event.</p><button class="btn btn-light" id="demoBtn">Muat Data Contoh</button></article>
+            <article class="card setting-box" data-admin-write><h3>Pulihkan ke Supabase</h3><p>Data cloud saat ini akan diganti dengan isi file cadangan.</p><input type="file" id="restoreInput" accept="application/json" hidden /><button class="btn btn-light" id="restoreBtn">Pilih File Cadangan</button></article>
+            <article class="card setting-box" data-admin-write><h3>Data Contoh Online</h3><p>Tambahkan contoh transaksi, bahan, dan event.</p><button class="btn btn-light" id="demoBtn">Muat Data Contoh</button></article>
             <article class="card setting-box"><h3>Keluar dari Akun</h3><p>Akhiri sesi pada perangkat ini.</p><button class="btn btn-light" id="settingsLogoutBtn">Keluar</button></article>
-            <article class="card setting-box"><h3>Hapus Semua Data Cloud</h3><p>Tindakan ini menghapus transaksi, bahan, dan event untuk semua perangkat.</p><button class="btn btn-danger" id="clearBtn">Hapus Semua Data</button></article>
+            <article class="card setting-box" data-admin-write><h3>Hapus Semua Data Cloud</h3><p>Tindakan ini menghapus transaksi, bahan, dan event untuk semua perangkat.</p><button class="btn btn-danger" id="clearBtn">Hapus Semua Data</button></article>
           </div>
           <article class="card table-card" style="margin-top:18px">
-            <div class="card-head"><div><h3>Hak Akses Akun</h3><p>Admin memiliki semua fitur. Owner dapat melihat seluruh rekapan semua cabang tanpa mengubah data. Tetapkan tepat satu toko untuk setiap akun Karyawan.</p></div></div>
-            <div class="card-body"><p class="profiles-note">Buat akun baru melalui Supabase Dashboard → Authentication → Users. Akun pertama otomatis menjadi Admin; akun berikutnya menjadi Karyawan. Admin dapat mengubah akun menjadi Owner atau menetapkan satu toko untuk Karyawan. Pembatasan baca/tulis berlaku pada tampilan web dan Supabase Row Level Security.</p><div class="table-wrap" id="profilesTable"></div></div>
+            <div class="card-head"><div><h3>Hak Akses Akun</h3><p>Admin dapat mengatur akses akun. Owner dapat melihat daftar akun dan seluruh akses dalam mode hanya lihat.</p></div></div>
+            <div class="card-body"><p class="profiles-note" id="profilesAccessNote">Buat akun baru melalui Supabase Dashboard → Authentication → Users. Admin dapat mengubah peran dan cabang. Owner hanya dapat melihat daftar akun. Pembatasan baca/tulis berlaku pada tampilan web dan Supabase Row Level Security.</p><div class="table-wrap" id="profilesTable"></div></div>
           </article>
         </section>
       </div>
@@ -1016,7 +1016,7 @@
 
       const DATABASE_SQL = String.raw`-- Jalankan seluruh SQL ini di Supabase SQL Editor.
 -- Admin: akses penuh dan dapat mengubah data.
--- Owner: melihat seluruh rekapan semua cabang tanpa mengubah data.
+-- Owner: melihat seluruh halaman dan data semua cabang tanpa mengubah data.
 -- Karyawan: mengelola rekapan bahan hanya pada satu cabang yang ditetapkan.
 
 CREATE TABLE IF NOT EXISTS public.profiles (
@@ -1179,6 +1179,45 @@ GRANT EXECUTE ON FUNCTION public.current_user_branch() TO authenticated;
 GRANT EXECUTE ON FUNCTION public.can_access_store(text) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.can_manage_inventory(text) TO authenticated;
 
+CREATE OR REPLACE FUNCTION public.update_inventory_stock_after_closing(
+  target_inventory_id text,
+  new_stock numeric,
+  target_updated_at timestamptz DEFAULT now()
+)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  target_store text;
+BEGIN
+  IF new_stock IS NULL OR new_stock < 0 THEN
+    RAISE EXCEPTION 'Stok tidak valid';
+  END IF;
+
+  SELECT store INTO target_store
+  FROM public.inventory
+  WHERE id = target_inventory_id;
+
+  IF target_store IS NULL THEN
+    RAISE EXCEPTION 'Bahan tidak ditemukan';
+  END IF;
+
+  IF NOT public.can_manage_inventory(target_store) THEN
+    RAISE EXCEPTION 'Akses ditolak';
+  END IF;
+
+  UPDATE public.inventory
+  SET stock = new_stock,
+      updated_at = COALESCE(target_updated_at, now())
+  WHERE id = target_inventory_id;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.update_inventory_stock_after_closing(text, numeric, timestamptz) FROM public;
+GRANT EXECUTE ON FUNCTION public.update_inventory_stock_after_closing(text, numeric, timestamptz) TO authenticated;
+
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE assigned_role text;
@@ -1225,9 +1264,9 @@ ALTER TABLE public.inventory_daily ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Profiles readable by owner or admin" ON public.profiles;
 DROP POLICY IF EXISTS "Profiles readable by self or admin" ON public.profiles;
 DROP POLICY IF EXISTS "Profiles manageable by admin" ON public.profiles;
-CREATE POLICY "Profiles readable by self or admin"
+CREATE POLICY "Profiles readable by owner or admin"
 ON public.profiles FOR SELECT TO authenticated
-USING (user_id = auth.uid() OR public.is_admin());
+USING (user_id = auth.uid() OR public.can_view_all());
 CREATE POLICY "Profiles manageable by admin"
 ON public.profiles FOR UPDATE TO authenticated
 USING (public.is_admin()) WITH CHECK (public.is_admin());
@@ -1249,19 +1288,22 @@ DROP POLICY IF EXISTS "Inventory readable by access" ON public.inventory;
 DROP POLICY IF EXISTS "Inventory insert by manager" ON public.inventory;
 DROP POLICY IF EXISTS "Inventory update by manager" ON public.inventory;
 DROP POLICY IF EXISTS "Inventory delete by manager" ON public.inventory;
+DROP POLICY IF EXISTS "Inventory insert by admin" ON public.inventory;
+DROP POLICY IF EXISTS "Inventory update by admin" ON public.inventory;
+DROP POLICY IF EXISTS "Inventory delete by admin" ON public.inventory;
 CREATE POLICY "Inventory readable by access"
 ON public.inventory FOR SELECT TO authenticated
 USING (public.can_access_store(store));
-CREATE POLICY "Inventory insert by manager"
+CREATE POLICY "Inventory insert by admin"
 ON public.inventory FOR INSERT TO authenticated
-WITH CHECK (public.can_manage_inventory(store));
-CREATE POLICY "Inventory update by manager"
+WITH CHECK (public.is_admin());
+CREATE POLICY "Inventory update by admin"
 ON public.inventory FOR UPDATE TO authenticated
-USING (public.can_manage_inventory(store))
-WITH CHECK (public.can_manage_inventory(store));
-CREATE POLICY "Inventory delete by manager"
+USING (public.is_admin())
+WITH CHECK (public.is_admin());
+CREATE POLICY "Inventory delete by admin"
 ON public.inventory FOR DELETE TO authenticated
-USING (public.can_manage_inventory(store));
+USING (public.is_admin());
 
 DROP POLICY IF EXISTS "Daily inventory readable by access" ON public.inventory_daily;
 DROP POLICY IF EXISTS "Daily inventory insert by manager" ON public.inventory_daily;
@@ -1328,6 +1370,7 @@ NOTIFY pgrst, 'reload schema';`
       const isEmployee = () => state.profile?.role === 'employee';
       const canViewAll = () => isAdmin() || isOwner();
       const canEditInventory = () => isAdmin() || (isEmployee() && !!state.profile?.branch);
+      const canManageMaterials = () => isAdmin();
       const employeeBranch = () => isEmployee() ? (state.profile?.branch || '') : '';
       const canAccessStore = store => canViewAll() || (!!employeeBranch() && store === employeeBranch());
       const eventById = id => state.events.find(item => item.id === id);
@@ -1417,14 +1460,16 @@ NOTIFY pgrst, 'reload schema';`
         el('sidebarUserAccess').textContent=admin?'Admin · Semua cabang':owner?'Owner · Semua cabang · Hanya lihat':branch?`Karyawan · ${branch}`:'Karyawan · Cabang belum ditetapkan';
         el('transactionAccessText').textContent=owner?'Mode hanya lihat untuk seluruh transaksi semua cabang.':'Catat transaksi reguler maupun transaksi kegiatan event.';
         el('eventAccessText').textContent=owner?'Mode hanya lihat untuk seluruh rekapan kegiatan event.':'Kelola event dan lihat pemasukan, pengeluaran, saldo, serta bahan yang terhubung.';
+        if(el('settingsAccessText'))el('settingsAccessText').textContent=owner?'Mode Owner: seluruh informasi, cadangan, dan daftar akun dapat dilihat tanpa mengubah data atau pengaturan.':'Kelola koneksi, akun, cadangan, dan data online aplikasi.';
+        if(el('profilesAccessNote'))el('profilesAccessNote').textContent=owner?'Mode hanya lihat: daftar akun, peran, dan cabang dapat diperiksa, tetapi tidak dapat diubah.':'Buat akun baru melalui Supabase Dashboard → Authentication → Users. Admin dapat mengubah peran dan cabang. Pembatasan baca/tulis berlaku pada tampilan web dan Supabase Row Level Security.';
         applyStoreAccessUI();
 
         if(isEmployee()){
-          if(!['inventory','materials'].includes(activeView))activeView='inventory';
-          switchView(activeView);
-        }else if(owner&&activeView==='settings'){
-          activeView='dashboard';
-          switchView('dashboard');
+          if(activeView!=='inventory')activeView='inventory';
+          switchView('inventory');
+        }else if(!fullView&&(activeView==='materials'||activeView==='settings')){
+          activeView='inventory';
+          switchView('inventory');
         }else if(!['dashboard','transactions','inventory','materials','events','settings'].includes(activeView)){
           activeView='dashboard';
           switchView('dashboard');
@@ -1448,27 +1493,25 @@ NOTIFY pgrst, 'reload schema';`
           el('inventoryStoreFilter').disabled=false;
           el('materialsStoreFilter').disabled=false;
           el('inventoryStore').disabled=owner;
-          el('addInventoryBtn').hidden=owner;
-          el('addInventoryBtn').disabled=owner;
+          el('addInventoryBtn').hidden=!admin;
+          el('addInventoryBtn').disabled=!admin;
           el('closeDailyRecapBtn').hidden=owner;
           el('exportInventoryBtn').disabled=false;
           el('branchNotice').hidden=admin;
-          el('materialsBranchNotice').hidden=admin;
+          el('materialsBranchNotice').hidden=true;
           if(owner){
             el('branchNotice').className='branch-notice';
             el('branchNotice').textContent='Mode Owner aktif: Anda dapat melihat rekapan bahan semua cabang, tetapi tidak dapat menambah, mengubah, menghapus, atau memperbarui stok.';
-            el('materialsBranchNotice').className='branch-notice';
-            el('materialsBranchNotice').textContent='Mode Owner aktif: daftar nama bahan semua cabang dapat dilihat, tetapi tidak dapat diubah.';
             el('inventoryAccessText').textContent='Lihat hasil closing bahan harian seluruh cabang dalam mode hanya lihat.';
-            el('materialsAccessText').textContent='Lihat daftar nama bahan seluruh cabang dalam mode hanya lihat.';
+            el('materialsAccessText').textContent='Lihat nama bahan, stok terakhir, stok minimum, dan status seluruh cabang dalam mode hanya lihat.';
           }else{
             el('inventoryAccessText').textContent='Daftar nama bahan otomatis tampil setiap hari. Pilih cabang lalu lakukan closing.';
-            el('materialsAccessText').textContent='Pilih cabang lalu tambahkan nama bahan yang akan tampil otomatis pada closing harian.';
+            el('materialsAccessText').textContent='Halaman khusus Admin untuk mengelola nama bahan dan stok minimum seluruh cabang.';
           }
           return;
         }
 
-        el('addInventoryBtn').hidden=false;
+        el('addInventoryBtn').hidden=true;
         el('closeDailyRecapBtn').hidden=false;
         const fixedOptions=branch?`<option value="${escapeHtml(branch)}">${escapeHtml(branch)}</option>`:'<option value="">Cabang belum ditetapkan</option>';
         el('inventoryStoreFilter').innerHTML=fixedOptions;
@@ -1480,20 +1523,16 @@ NOTIFY pgrst, 'reload schema';`
         el('inventoryStoreFilter').disabled=true;
         el('materialsStoreFilter').disabled=true;
         el('inventoryStore').disabled=true;
-        el('addInventoryBtn').disabled=!branch;
+        el('addInventoryBtn').disabled=true;
         el('exportInventoryBtn').disabled=!branch;
         el('branchNotice').hidden=false;
-        el('materialsBranchNotice').hidden=false;
+        el('materialsBranchNotice').hidden=true;
         el('branchNotice').className=`branch-notice${branch?'':' warning'}`;
-        el('materialsBranchNotice').className=`branch-notice${branch?'':' warning'}`;
         el('branchNotice').textContent=branch
           ? `Akun ini hanya dapat mengakses dan memperbarui rekapan bahan cabang ${branch}. Data cabang lain tidak dapat dibuka.`
           : 'Akun ini belum ditetapkan ke cabang mana pun. Hubungi Admin agar cabang akses dipilih terlebih dahulu.';
-        el('materialsBranchNotice').textContent=branch
-          ? `Nama bahan yang ditambahkan di halaman ini hanya berlaku untuk cabang ${branch}.`
-          : 'Akun ini belum ditetapkan ke cabang mana pun. Hubungi Admin agar cabang akses dipilih terlebih dahulu.';
         el('inventoryAccessText').textContent=branch?`Daftar bahan cabang ${branch} otomatis tampil setiap hari untuk closing.`:'Cabang akses belum ditetapkan oleh Admin.';
-        el('materialsAccessText').textContent=branch?`Kelola nama bahan khusus cabang ${branch}.`:'Cabang akses belum ditetapkan oleh Admin.';
+        el('materialsAccessText').textContent='Halaman khusus Admin untuk mengelola daftar bahan.';
       }
 
       function setGateMessage(node,message,type){node.hidden=!message;node.textContent=message||'';node.className=type==='success'?'gate-success':'gate-error';}
@@ -1538,7 +1577,7 @@ NOTIFY pgrst, 'reload schema';`
 
       async function logout(){if(db)await db.auth.signOut();}
       async function changeConnection(){if(!confirm('Ubah koneksi Supabase? Anda akan keluar dari sesi saat ini.'))return;forceSetupScreen=true;stopCloudRefresh();if(db)await db.auth.signOut();else showSetup();}
-      function switchView(view){if(isEmployee()&&!['inventory','materials'].includes(view))view='inventory';if(isOwner()&&view==='settings')view='dashboard';activeView=view;document.querySelectorAll('.view').forEach(v=>v.classList.toggle('active',v.id===`view-${view}`));document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('active',b.dataset.view===view));const headings={dashboard:'Dashboard',transactions:'Pemasukan & Pengeluaran',inventory:'Rekapan Bahan',materials:'Daftar Bahan',events:'Rekapan Event',settings:'Cloud & Pengaturan'};el('pageHeading').textContent=headings[view];if(window.innerWidth<=780)closeSidebar();if(view==='dashboard')renderDashboard();if(view==='transactions')renderTransactions();if(view==='inventory')renderInventory();if(view==='materials')renderMaterials();if(view==='events')renderEvents();if(view==='settings')renderProfiles();}
+      function switchView(view){if(isEmployee())view='inventory';if(!canViewAll()&&(view==='materials'||view==='settings'))view='inventory';activeView=view;document.querySelectorAll('.view').forEach(v=>v.classList.toggle('active',v.id===`view-${view}`));document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('active',b.dataset.view===view));const headings={dashboard:'Dashboard',transactions:'Pemasukan & Pengeluaran',inventory:'Rekapan Bahan',materials:'Daftar Bahan',events:'Rekapan Event',settings:'Cloud & Pengaturan'};el('pageHeading').textContent=headings[view];if(window.innerWidth<=780)closeSidebar();if(view==='dashboard')renderDashboard();if(view==='transactions')renderTransactions();if(view==='inventory')renderInventory();if(view==='materials')renderMaterials();if(view==='events')renderEvents();if(view==='settings')renderProfiles();}
       function toggleSidebar(){el('sidebar').classList.toggle('open');el('overlay').classList.toggle('open');}
       function closeSidebar(){el('sidebar').classList.remove('open');el('overlay').classList.remove('open');}
       function openModal(id){el(id).classList.add('open');}
@@ -1630,15 +1669,13 @@ NOTIFY pgrst, 'reload schema';`
           }
         }
         const button=event.submitter;setButtonBusy(button,true,'Menyimpan…');
-        try{await upsertInChunks('inventory_daily',updates);for(const item of stockUpdates){const {error}=await db.from('inventory').update({stock:item.stock,updated_at:now}).eq('id',item.id);if(error)throw error;}activeClosingRows=[];closeModal('dailyClosingModal');await loadCloudData(true);toast('Closing berhasil disimpan. Pemakaian bahan sudah dihitung otomatis.');}catch(error){showSyncError(error);}finally{setButtonBusy(button,false);}
+        try{await upsertInChunks('inventory_daily',updates);for(const item of stockUpdates){const {error}=await db.rpc('update_inventory_stock_after_closing',{target_inventory_id:item.id,new_stock:item.stock,target_updated_at:now});if(error)throw error;}activeClosingRows=[];closeModal('dailyClosingModal');await loadCloudData(true);toast('Closing berhasil disimpan. Pemakaian bahan sudah dihitung otomatis.');}catch(error){showSyncError(error);}finally{setButtonBusy(button,false);}
       }
 
       function openInventoryModal(id=null){
-        const branch=employeeBranch();
-        if(isOwner())return toast('Akun Owner hanya dapat melihat data dan tidak dapat mengubah daftar bahan.');
-        if(!isAdmin()&&!branch)return toast('Cabang akun belum ditetapkan. Hubungi Admin.');
+        if(!isAdmin())return toast('Hanya Admin yang dapat mengelola Daftar Bahan.');
         const existing=id?state.inventory.find(item=>item.id===id):null;
-        const assignedStore=existing?.store||(isAdmin()?selectedMaterialStore():branch);
+        const assignedStore=existing?.store||selectedMaterialStore();
         if(!assignedStore)return toast('Pilih satu toko pada halaman Daftar Bahan terlebih dahulu.');
         if(existing&&!canAccessStore(existing.store))return toast('Anda tidak memiliki akses ke data bahan ini.');
         el('inventoryForm').reset();
@@ -1657,10 +1694,10 @@ NOTIFY pgrst, 'reload schema';`
       }
       async function saveInventory(event){
         event.preventDefault();
-        if(!canEditInventory())return toast('Akun ini tidak memiliki izin untuk mengubah daftar bahan.');
+        if(!canManageMaterials())return toast('Hanya Admin yang dapat mengubah Daftar Bahan.');
         const itemId=el('inventoryId').value||uid();
         const existing=state.inventory.find(item=>item.id===itemId);
-        const assignedStore=existing?.store||(isAdmin()?selectedMaterialStore():employeeBranch());
+        const assignedStore=existing?.store||selectedMaterialStore();
         const name=el('inventoryName').value.trim();
         const minStock=Number(el('inventoryMin').value);
         if(!assignedStore)return toast('Pilih satu toko pada halaman Daftar Bahan terlebih dahulu.');
@@ -1705,7 +1742,7 @@ NOTIFY pgrst, 'reload schema';`
           let dailyQuery=db.from('inventory_daily').select('*').order('record_date',{ascending:false}).order('store',{ascending:true}).order('name',{ascending:true});
           if(!canViewAll()&&branch)dailyQuery=dailyQuery.eq('store',branch);
           const dailyPromise=branch||canViewAll()?dailyQuery:Promise.resolve({data:[],error:null});
-          const profilesPromise=isAdmin()?db.from('profiles').select('user_id,email,role,branch,created_at').order('created_at',{ascending:true}):Promise.resolve({data:[state.profile],error:null});
+          const profilesPromise=canViewAll()?db.from('profiles').select('user_id,email,role,branch,created_at').order('created_at',{ascending:true}):Promise.resolve({data:[state.profile],error:null});
           const [eventResult,inventoryResult,txResult,dailyResult,profilesResult]=await Promise.all([eventPromise,inventoryPromise,transactionPromise,dailyPromise,profilesPromise]);
           for(const result of [eventResult,inventoryResult,txResult,dailyResult,profilesResult])if(result.error)throw result.error;
           state.events=(eventResult.data||[]).map(rowToEvent);
@@ -1765,15 +1802,10 @@ NOTIFY pgrst, 'reload schema';`
       }
 
       function renderMaterials(){
-        const branch=employeeBranch();
-        if(isEmployee()&&!branch){
-          el('materialsTable').innerHTML=emptyState('Cabang belum ditetapkan','Admin harus menentukan cabang akun sebelum nama bahan dapat dikelola.');
-          el('addInventoryBtn').disabled=true;
-          return;
-        }
+        if(!canViewAll())return;
         const query=el('materialsSearch').value.toLowerCase().trim();
-        const store=canViewAll()?el('materialsStoreFilter').value:branch;
-        const editable=canEditInventory()&&!isOwner();
+        const store=el('materialsStoreFilter').value;
+        const editable=isAdmin();
         const exactStore=store&&store!=='all';
         const rows=state.inventory.filter(item=>{
           const matchesStore=store==='all'||!store||item.store===store;
@@ -1781,7 +1813,7 @@ NOTIFY pgrst, 'reload schema';`
           return matchesStore&&matchesQuery;
         }).sort((a,b)=>a.store.localeCompare(b.store)||a.name.localeCompare(b.name));
 
-        el('addInventoryBtn').hidden=isOwner();
+        el('addInventoryBtn').hidden=!editable;
         el('addInventoryBtn').disabled=!editable||!exactStore;
         el('addInventoryBtn').title=!editable?'Akun ini hanya dapat melihat daftar bahan':!exactStore?'Pilih satu toko terlebih dahulu':'Tambahkan nama bahan untuk toko ini';
 
@@ -1818,22 +1850,28 @@ NOTIFY pgrst, 'reload schema';`
       function renderEvents(){if(!canViewAll())return;const allEventTx=state.transactions.filter(t=>t.eventId);const eventIncome=sumByType(allEventTx,'income');const eventExpense=sumByType(allEventTx,'expense');el('statEventCount').textContent=number(state.events.length);el('statEventActive').textContent=number(state.events.filter(e=>getEventStatus(e).key!=='completed').length);el('statEventIncome').textContent=money(eventIncome);el('statEventProfit').textContent=money(eventIncome-eventExpense);const query=el('eventSearch').value.toLowerCase().trim();const statusFilter=el('eventStatusFilter').value;const rows=state.events.filter(item=>{const status=getEventStatus(item);return(!query||`${item.name} ${item.location} ${item.organizer} ${item.note}`.toLowerCase().includes(query))&&(statusFilter==='all'||status.key===statusFilter);}).sort((a,b)=>b.eventDate.localeCompare(a.eventDate));if(!rows.length){el('eventsTable').innerHTML=emptyState('Belum ada event','Tambahkan kegiatan event untuk mulai membuat rekapan.');return;}el('eventsTable').innerHTML=`<table><thead><tr><th>Event</th><th>Tanggal</th><th>Status</th><th>Pemasukan</th><th>Pengeluaran</th><th>Saldo</th><th>Bahan</th><th>Target</th><th>Aksi</th></tr></thead><tbody>${rows.map(item=>{const tx=state.transactions.filter(t=>t.eventId===item.id);const income=sumByType(tx,'income');const expense=sumByType(tx,'expense');const materials=state.inventory.filter(i=>i.eventId===item.id);const status=getEventStatus(item);return`<tr><td><div class="event-title"><strong>${escapeHtml(item.name)}</strong><small>${escapeHtml(item.location)}${item.organizer?` • ${escapeHtml(item.organizer)}`:''}</small></div></td><td>${formatDate(item.eventDate)}${item.endDate!==item.eventDate?`<br><small class="muted">s.d. ${formatDate(item.endDate)}</small>`:''}</td><td><span class="badge ${status.className}">${status.label}</span></td><td class="amount-income">${money(income)}</td><td class="amount-expense">${money(expense)}</td><td><strong>${money(income-expense)}</strong></td><td><div class="mini-summary"><strong>${materials.length} bahan</strong></div></td><td>${money(item.targetSales)}</td><td><div class="actions"><button class="icon-btn" data-event-transactions="${item.id}" title="Lihat transaksi">⇄</button><button class="icon-btn" data-event-materials="${item.id}" title="Lihat bahan">▤</button>${isAdmin()?`<button class="icon-btn" data-edit-event="${item.id}" title="Edit">✎</button><button class="icon-btn danger" data-delete-event="${item.id}" title="Hapus">🗑</button>`:''}</div></td></tr>`;}).join('')}</tbody></table>`;}
 
       function renderProfiles(){
-        if(!isAdmin()||!el('profilesTable'))return;
+        if(!canViewAll()||!el('profilesTable'))return;
         if(!state.profiles.length){el('profilesTable').innerHTML=emptyState('Belum ada profil akun','Sinkronkan ulang setelah membuat pengguna di Supabase Authentication.');return;}
-        el('profilesTable').innerHTML=`<table><thead><tr><th>Email</th><th>Peran</th><th>Toko yang Dapat Diakses</th><th>Dibuat</th><th>Aksi</th></tr></thead><tbody>${state.profiles.map(profile=>{
+        const editable=isAdmin();
+        el('profilesTable').innerHTML=`<table><thead><tr><th>Email</th><th>Peran</th><th>Toko yang Dapat Diakses</th><th>Dibuat</th>${editable?'<th>Aksi</th>':''}</tr></thead><tbody>${state.profiles.map(profile=>{
           const role=profile.role||'employee';
           const isProfileAdmin=role==='admin';
           const isProfileOwner=role==='owner';
           const isProfileEmployee=role==='employee';
+          const roleLabel=isProfileAdmin?'Admin':isProfileOwner?'Owner':'Karyawan';
+          const accessLabel=isProfileEmployee?(profile.branch||'Cabang belum ditetapkan'):'Semua cabang';
           const branchOptions=`<option value="">Pilih satu toko</option>`+STORES.map(store=>`<option value="${escapeHtml(store)}" ${profile.branch===store?'selected':''}>${escapeHtml(store)}</option>`).join('');
-          const helpText=isProfileAdmin?'Admin dapat membuka dan mengubah semua data.':isProfileOwner?'Owner dapat melihat semua rekapan tanpa mengubah data.':profile.branch?`Karyawan hanya dapat mengelola bahan ${escapeHtml(profile.branch)}.`:'Pilih tepat satu toko untuk akun Karyawan.';
+          const helpText=isProfileAdmin?'Admin dapat membuka dan mengubah semua data.':isProfileOwner?'Owner dapat melihat semua halaman dan data tanpa mengubahnya.':profile.branch?`Karyawan hanya dapat membuka Rekapan Bahan cabang ${escapeHtml(profile.branch)}.`:'Pilih tepat satu toko untuk akun Karyawan.';
+          if(!editable){
+            return`<tr><td><strong>${escapeHtml(profile.email||'-')}</strong>${profile.user_id===state.profile?.user_id?'<br><small class="muted">Akun Anda</small>':''}</td><td><span class="role-badge ${isProfileAdmin?'role-admin':isProfileOwner?'role-owner':'role-employee'}">${roleLabel}</span></td><td><strong>${escapeHtml(accessLabel)}</strong><br><small class="muted">${helpText}</small></td><td>${profile.created_at?new Intl.DateTimeFormat('id-ID',{day:'2-digit',month:'short',year:'numeric'}).format(new Date(profile.created_at)):'-'}</td></tr>`;
+          }
           return`<tr data-access-row="${profile.user_id}"><td><strong>${escapeHtml(profile.email||'-')}</strong>${profile.user_id===state.profile?.user_id?'<br><small class="muted">Akun Anda</small>':''}</td><td><select class="select role-select" data-role-user="${profile.user_id}" data-original-role="${role}"><option value="admin" ${isProfileAdmin?'selected':''}>Admin</option><option value="owner" ${isProfileOwner?'selected':''}>Owner</option><option value="employee" ${isProfileEmployee?'selected':''}>Karyawan</option></select></td><td><select class="select branch-select" data-branch-user="${profile.user_id}" data-original-branch="${escapeHtml(profile.branch||'')}" ${!isProfileEmployee?'disabled':''}>${branchOptions}</select><br><small class="${isProfileEmployee&&!profile.branch?'danger-text':'muted'}" data-access-help>${helpText}</small></td><td>${profile.created_at?new Intl.DateTimeFormat('id-ID',{day:'2-digit',month:'short',year:'numeric'}).format(new Date(profile.created_at)):'-'}</td><td><button class="btn btn-primary" type="button" data-save-access="${profile.user_id}">Simpan Akses</button></td></tr>`;
         }).join('')}</tbody></table>`;
       }
 
       async function handleTransactionTableClick(event){if(!isAdmin())return;const edit=event.target.closest('[data-edit-transaction]');const remove=event.target.closest('[data-delete-transaction]');if(edit)openTransactionModal(edit.dataset.editTransaction);if(remove&&confirm('Hapus transaksi ini dari database online?')){try{const {error}=await db.from('transactions').delete().eq('id',remove.dataset.deleteTransaction);if(error)throw error;await loadCloudData(true);toast('Transaksi berhasil dihapus.');}catch(error){showSyncError(error);}}}
       async function handleInventoryTableClick(event){
-        if(!canEditInventory())return;
+        if(!canManageMaterials())return;
         const edit=event.target.closest('[data-edit-inventory]');
         const remove=event.target.closest('[data-delete-inventory]');
         const targetId=edit?.dataset.editInventory||remove?.dataset.deleteInventory;
