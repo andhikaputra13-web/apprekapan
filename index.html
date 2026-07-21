@@ -804,7 +804,6 @@
             <input class="input" id="transactionSearch" placeholder="Cari kategori, event, atau keterangan..." />
             <select class="select" id="transactionTypeFilter"><option value="all">Semua Jenis</option><option value="income">Pemasukan</option><option value="expense">Pengeluaran</option></select>
             <input class="input" type="month" id="transactionMonthFilter" />
-            <select class="select" id="transactionStoreFilter"></select>
             <select class="select" id="transactionEventFilter"></select>
           </div>
           <article class="card table-card"><div class="table-wrap" id="transactionsTable"></div></article>
@@ -1381,7 +1380,7 @@ NOTIFY pgrst, 'reload schema';`
       function saveConfig(config){ localStorage.setItem(CONFIG_KEY,JSON.stringify(config)); }
 
       function initStaticUI(){
-        [el('globalStore'),el('transactionStoreFilter'),el('inventoryStoreFilter')].forEach(s=>populateStoreSelect(s,true));
+        [el('globalStore'),el('inventoryStoreFilter')].forEach(s=>populateStoreSelect(s,true));
         [el('transactionStore'),el('inventoryStore')].forEach(s=>populateStoreSelect(s,false));
         el('transactionMonthFilter').value=currentMonth();
         el('inventoryDateFilter').value=todayISO();
@@ -1485,7 +1484,6 @@ NOTIFY pgrst, 'reload schema';`
 
         if(fullView){
           populateStoreSelect(el('globalStore'),true);
-          populateStoreSelect(el('transactionStoreFilter'),true);
           populateStoreSelect(el('inventoryStoreFilter'),true);
           populateStoreSelect(el('materialsStoreFilter'),true);
           populateStoreSelect(el('transactionStore'),false);
@@ -1556,10 +1554,10 @@ NOTIFY pgrst, 'reload schema';`
         el('nav').addEventListener('click',event=>{const button=event.target.closest('button[data-view]');if(button)switchView(button.dataset.view);});
         document.addEventListener('click',event=>{const go=event.target.closest('[data-go]');if(go)switchView(go.dataset.go);const close=event.target.closest('[data-close]');if(close)closeModal(close.dataset.close);});
         el('menuBtn').addEventListener('click',toggleSidebar);el('overlay').addEventListener('click',toggleSidebar);
-        el('globalStore').addEventListener('change',event=>{selectedGlobalStore=event.target.value;const inventoryStore=el('inventoryStoreFilter');const materialsStore=el('materialsStoreFilter');if(inventoryStore&&[...inventoryStore.options].some(option=>option.value===event.target.value))inventoryStore.value=event.target.value;if(materialsStore&&[...materialsStore.options].some(option=>option.value===event.target.value))materialsStore.value=event.target.value;renderDashboard();renderInventory();renderMaterials();});
+        el('globalStore').addEventListener('change',event=>{selectedGlobalStore=event.target.value;const inventoryStore=el('inventoryStoreFilter');const materialsStore=el('materialsStoreFilter');if(inventoryStore&&[...inventoryStore.options].some(option=>option.value===event.target.value))inventoryStore.value=event.target.value;if(materialsStore&&[...materialsStore.options].some(option=>option.value===event.target.value))materialsStore.value=event.target.value;renderDashboard();renderTransactions();renderInventory();renderMaterials();});
         el('addTransactionBtn').addEventListener('click',()=>openTransactionModal());el('addInventoryBtn').addEventListener('click',()=>openInventoryModal());el('closeDailyRecapBtn').addEventListener('click',openDailyClosingModal);el('fillNoUsageBtn').addEventListener('click',fillClosingWithAvailableStock);el('addEventBtn').addEventListener('click',()=>openEventModal());
         el('transactionForm').addEventListener('submit',saveTransaction);el('transactionRows').addEventListener('click',handleTransactionRowClick);el('transactionRows').addEventListener('input',updateTransactionTotal);el('inventoryForm').addEventListener('submit',saveInventory);el('dailyClosingForm').addEventListener('submit',saveDailyClosing);el('dailyClosingRows').addEventListener('input',updateClosingUsagePreview);el('eventForm').addEventListener('submit',saveEvent);
-        ['transactionSearch','transactionTypeFilter','transactionMonthFilter','transactionStoreFilter','transactionEventFilter'].forEach(id=>el(id).addEventListener('input',renderTransactions));
+        ['transactionSearch','transactionTypeFilter','transactionMonthFilter','transactionEventFilter'].forEach(id=>el(id).addEventListener('input',renderTransactions));
         ['inventorySearch','inventoryStatusFilter','inventoryStoreFilter','inventoryEventFilter'].forEach(id=>el(id).addEventListener('input',renderInventory));
         el('materialsSearch').addEventListener('input',renderMaterials);
         el('inventoryDateFilter').addEventListener('change',()=>loadCloudData(true));
@@ -1769,7 +1767,7 @@ NOTIFY pgrst, 'reload schema';`
       function renderStoreSummary(month){el('storeSummary').innerHTML=STORES.map(store=>{const tx=state.transactions.filter(t=>t.store===store&&t.date.startsWith(month));const balance=sumByType(tx,'income')-sumByType(tx,'expense');return`<div class="store-row"><div><strong>${escapeHtml(store)}</strong><small>${tx.length} transaksi</small></div><div class="store-amount" style="color:${balance<0?'var(--red)':'var(--green)'}">${money(balance)}</div></div>`;}).join('');}
       function renderRecentTransactions(){const rows=filteredByGlobal(state.transactions).slice().sort((a,b)=>`${b.date}${b.createdAt||''}`.localeCompare(`${a.date}${a.createdAt||''}`)).slice(0,10);el('recentTransactions').innerHTML=rows.length?transactionTableMarkup(rows,false):emptyState('Belum ada transaksi','Tambahkan transaksi pertama untuk melihat ringkasan.');}
 
-      function renderTransactions(){if(!canViewAll())return;const query=el('transactionSearch').value.toLowerCase().trim();const type=el('transactionTypeFilter').value;const month=el('transactionMonthFilter').value;const store=el('transactionStoreFilter').value;const eventFilter=el('transactionEventFilter').value;const rows=state.transactions.filter(t=>{const eName=eventName(t.eventId);const matchesQuery=!query||`${t.category} ${t.note||''} ${t.store} ${eName}`.toLowerCase().includes(query);const matchesType=type==='all'||t.type===type;const matchesMonth=!month||t.date.startsWith(month);const matchesStore=store==='all'||t.store===store;const matchesEvent=eventFilter==='all'||(eventFilter==='none'?!t.eventId:t.eventId===eventFilter);return matchesQuery&&matchesType&&matchesMonth&&matchesStore&&matchesEvent;}).sort((a,b)=>`${b.date}${b.createdAt||''}`.localeCompare(`${a.date}${a.createdAt||''}`));el('transactionsTable').innerHTML=rows.length?transactionTableMarkup(rows,isAdmin()):emptyState('Transaksi tidak ditemukan','Ubah filter atau tambahkan transaksi baru.');}
+      function renderTransactions(){if(!canViewAll())return;const query=el('transactionSearch').value.toLowerCase().trim();const type=el('transactionTypeFilter').value;const month=el('transactionMonthFilter').value;const store=selectedGlobalStore;const eventFilter=el('transactionEventFilter').value;const rows=state.transactions.filter(t=>{const eName=eventName(t.eventId);const matchesQuery=!query||`${t.category} ${t.note||''} ${t.store} ${eName}`.toLowerCase().includes(query);const matchesType=type==='all'||t.type===type;const matchesMonth=!month||t.date.startsWith(month);const matchesStore=store==='all'||t.store===store;const matchesEvent=eventFilter==='all'||(eventFilter==='none'?!t.eventId:t.eventId===eventFilter);return matchesQuery&&matchesType&&matchesMonth&&matchesStore&&matchesEvent;}).sort((a,b)=>`${b.date}${b.createdAt||''}`.localeCompare(`${a.date}${a.createdAt||''}`));el('transactionsTable').innerHTML=rows.length?transactionTableMarkup(rows,isAdmin()):emptyState('Transaksi tidak ditemukan','Ubah filter atau tambahkan transaksi baru.');}
       function transactionTableMarkup(rows,editable){return`<table><thead><tr><th>Tanggal</th><th>Toko</th><th>Event</th><th>Jenis</th><th>Kategori</th><th>Keterangan</th><th class="text-right">Nominal</th>${editable?'<th>Aksi</th>':''}</tr></thead><tbody>${rows.map(t=>`<tr><td>${formatDate(t.date)}</td><td><strong>${escapeHtml(t.store)}</strong></td><td><span class="event-tag ${t.eventId?'':'none'}">${escapeHtml(eventName(t.eventId))}</span></td><td><span class="badge ${t.type==='income'?'badge-income':'badge-expense'}">${t.type==='income'?'Pemasukan':'Pengeluaran'}</span></td><td>${escapeHtml(t.category)}</td><td class="muted">${escapeHtml(t.note||'-')}</td><td class="text-right ${t.type==='income'?'amount-income':'amount-expense'}">${t.type==='income'?'+':'-'} ${money(t.amount)}</td>${editable?`<td><div class="actions"><button class="icon-btn" data-edit-transaction="${t.id}" title="Edit">✎</button><button class="icon-btn danger" data-delete-transaction="${t.id}" title="Hapus">🗑</button></div></td>`:''}</tr>`).join('')}</tbody></table>`;}
 
       function renderInventory(){
