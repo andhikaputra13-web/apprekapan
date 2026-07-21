@@ -607,7 +607,7 @@
     <aside class="sidebar" id="sidebar">
       <div class="brand">
         <div class="brand-mark">RT</div>
-          <div><h1>Rekap Toko</h1></div>
+        <div><h1>Rekap Toko</h1><small>Operasional 5 Cabang</small></div>
       </div>
 
       <nav class="nav" id="nav">
@@ -637,7 +637,6 @@
           <span class="role-badge role-employee" id="roleBadge">Karyawan</span>
           <span class="user-chip" id="userEmail"></span>
           <select class="store-select" id="globalStore" aria-label="Pilih toko"></select>
-          <button class="btn btn-primary admin-only" data-admin-only id="quickAddBtn">＋ <span>Tambah Transaksi</span></button>
           <button class="btn btn-light btn-sm" id="logoutBtn" title="Keluar">Keluar</button>
         </div>
       </header>
@@ -1178,7 +1177,7 @@ NOTIFY pgrst, 'reload schema';`;
         document.addEventListener('click',event=>{const go=event.target.closest('[data-go]');if(go)switchView(go.dataset.go);const close=event.target.closest('[data-close]');if(close)closeModal(close.dataset.close);});
         el('menuBtn').addEventListener('click',toggleSidebar);el('overlay').addEventListener('click',toggleSidebar);
         el('globalStore').addEventListener('change',event=>{selectedGlobalStore=event.target.value;renderDashboard();});
-        el('quickAddBtn').addEventListener('click',()=>openTransactionModal());el('addTransactionBtn').addEventListener('click',()=>openTransactionModal());el('addInventoryBtn').addEventListener('click',()=>openInventoryModal());el('addEventBtn').addEventListener('click',()=>openEventModal());
+        el('addTransactionBtn').addEventListener('click',()=>openTransactionModal());el('addInventoryBtn').addEventListener('click',()=>openInventoryModal());el('addEventBtn').addEventListener('click',()=>openEventModal());
         el('transactionForm').addEventListener('submit',saveTransaction);el('inventoryForm').addEventListener('submit',saveInventory);el('eventForm').addEventListener('submit',saveEvent);
         ['transactionSearch','transactionTypeFilter','transactionMonthFilter','transactionStoreFilter','transactionEventFilter'].forEach(id=>el(id).addEventListener('input',renderTransactions));
         ['inventorySearch','inventoryStatusFilter','inventoryStoreFilter','inventoryEventFilter'].forEach(id=>el(id).addEventListener('input',renderInventory));
