@@ -355,6 +355,58 @@
     .textarea { min-height: 92px; resize: vertical; }
     .modal-foot { display: flex; justify-content: flex-end; gap: 10px; padding: 16px 20px; border-top: 1px solid var(--line); }
 
+    .transaction-modal-panel { width: min(900px, 100%); }
+    .transaction-list-head { margin-bottom: 12px; }
+    .transaction-list-head strong { display: block; font-size: 14px; }
+    .transaction-list-head small { display: block; margin-top: 3px; color: var(--muted); line-height: 1.45; }
+    .transaction-add-wrap {
+      display: flex;
+      justify-content: flex-start;
+      margin-top: 10px;
+    }
+    .transaction-add-small { padding: 7px 10px; font-size: 11px; white-space: nowrap; }
+    .transaction-batch-list { display: grid; gap: 12px; }
+    .transaction-entry {
+      border: 1px solid var(--line);
+      background: #f8fafc;
+      border-radius: 15px;
+      padding: 14px;
+    }
+    .transaction-entry-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+    .transaction-entry-title { font-size: 13px; color: var(--navy); }
+    .transaction-remove-btn {
+      border: 0;
+      background: #fee2e2;
+      color: #b91c1c;
+      border-radius: 9px;
+      padding: 6px 9px;
+      font-size: 11px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+    .transaction-entry .textarea { min-height: 70px; }
+    .transaction-entry.transaction-extra-entry { background: #fff; }
+    .transaction-total-box {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-top: 14px;
+      padding: 13px 15px;
+      border: 1px solid #bfdbfe;
+      background: #eff6ff;
+      border-radius: 13px;
+    }
+    .transaction-total-box span { color: #475569; font-size: 12px; font-weight: 700; }
+    .transaction-total-box strong { color: var(--navy); font-size: 17px; }
+    .transaction-batch-note { margin: 10px 0 0; color: var(--muted); font-size: 12px; line-height: 1.55; }
+
     .settings-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .setting-box { padding: 20px; }
     .setting-box h3 { margin: 0 0 7px; }
@@ -862,16 +914,34 @@
   </div>
 
   <div class="modal" id="transactionModal" role="dialog" aria-modal="true">
-    <div class="modal-panel"><div class="modal-head"><h3 id="transactionModalTitle">Tambah Transaksi</h3><button class="close-btn" data-close="transactionModal">✕</button></div>
-      <form id="transactionForm"><div class="modal-body"><input type="hidden" id="transactionId" /><div class="form-grid">
-        <div class="field"><label for="transactionDate">Tanggal</label><input class="input" type="date" id="transactionDate" required /></div>
-        <div class="field"><label for="transactionStore">Toko/Brand Penanggung Jawab</label><select class="select" id="transactionStore" required></select></div>
-        <div class="field"><label for="transactionEvent">Kegiatan Event</label><select class="select" id="transactionEvent"></select></div>
-        <div class="field"><label for="transactionType">Jenis Transaksi</label><select class="select" id="transactionType" required><option value="income">Pemasukan</option><option value="expense">Pengeluaran</option></select></div>
-        <div class="field full"><label for="transactionCategory">Kategori</label><input class="input" id="transactionCategory" list="categoryList" placeholder="Contoh: Penjualan Event" required /><datalist id="categoryList"><option value="Penjualan Harian"></option><option value="Penjualan Event"></option><option value="Sewa Booth Event"></option><option value="Transportasi Event"></option><option value="Belanja Bahan"></option><option value="Gaji Karyawan"></option><option value="Sewa Tempat"></option><option value="Listrik dan Air"></option><option value="Lain-lain"></option></datalist></div>
-        <div class="field full"><label for="transactionAmount">Nominal (Rp)</label><input class="input" type="number" id="transactionAmount" min="0" step="1" required /></div>
-        <div class="field full"><label for="transactionNote">Keterangan</label><textarea class="textarea" id="transactionNote"></textarea></div>
-      </div></div><div class="modal-foot"><button type="button" class="btn btn-light" data-close="transactionModal">Batal</button><button type="submit" class="btn btn-primary">Simpan Transaksi</button></div></form>
+    <div class="modal-panel transaction-modal-panel"><div class="modal-head"><h3 id="transactionModalTitle">Tambah Transaksi</h3><button class="close-btn" data-close="transactionModal">✕</button></div>
+      <form id="transactionForm">
+        <div class="modal-body">
+          <input type="hidden" id="transactionId" />
+          <div class="transaction-list-head">
+            <div><strong>Detail transaksi</strong><small>Isi data utama satu kali. Baris tambahan hanya membutuhkan keterangan dan nominal.</small></div>
+          </div>
+          <div class="transaction-batch-list" id="transactionRows">
+            <div class="transaction-entry" data-transaction-entry data-main-transaction-entry>
+              <div class="transaction-entry-head"><strong class="transaction-entry-title">Transaksi 1</strong><button type="button" class="transaction-remove-btn" data-remove-transaction-row hidden>Hapus</button></div>
+              <div class="form-grid">
+                <div class="field"><label for="transactionDate">Tanggal</label><input class="input transaction-row-date" type="date" id="transactionDate" required /></div>
+                <div class="field"><label for="transactionStore">Toko/Brand Penanggung Jawab</label><select class="select transaction-row-store" id="transactionStore" required></select></div>
+                <div class="field"><label for="transactionEvent">Kegiatan Event</label><select class="select transaction-row-event" id="transactionEvent"></select></div>
+                <div class="field"><label for="transactionType">Jenis Transaksi</label><select class="select transaction-row-type" id="transactionType" required><option value="income">Pemasukan</option><option value="expense">Pengeluaran</option></select></div>
+                <div class="field full"><label for="transactionCategory">Kategori</label><input class="input transaction-row-category" id="transactionCategory" list="categoryList" placeholder="Contoh: Penjualan Harian" required /></div>
+                <div class="field full"><label for="transactionNote">Keterangan</label><textarea class="textarea transaction-row-note" id="transactionNote" placeholder="Contoh: Penjualan menu reguler"></textarea></div>
+                <div class="field full"><label for="transactionAmount">Nominal (Rp)</label><input class="input transaction-row-amount" type="number" id="transactionAmount" min="0" step="1" placeholder="0" required /></div>
+              </div>
+              <div class="transaction-add-wrap"><button type="button" class="btn btn-light transaction-add-small" id="addTransactionRowBtn" data-add-transaction-row>＋ Tambah Baris</button></div>
+            </div>
+          </div>
+          <datalist id="categoryList"><option value="Penjualan Harian"></option><option value="Penjualan Event"></option><option value="Sewa Booth Event"></option><option value="Transportasi Event"></option><option value="Belanja Bahan"></option><option value="Gaji Karyawan"></option><option value="Sewa Tempat"></option><option value="Listrik dan Air"></option><option value="Lain-lain"></option></datalist>
+          <p class="transaction-batch-note" id="transactionBatchNote">Setiap baris tambahan memakai tanggal, toko, event, jenis, dan kategori yang sama dengan transaksi utama.</p>
+          <div class="transaction-total-box" id="transactionTotalBox"><span id="transactionTotalLabel">Total nominal 1 baris</span><strong id="transactionTotalAmount">Rp0</strong></div>
+        </div>
+        <div class="modal-foot"><button type="button" class="btn btn-light" data-close="transactionModal">Batal</button><button type="submit" class="btn btn-primary" id="transactionSubmitBtn">Simpan Semua Transaksi</button></div>
+      </form>
     </div>
   </div>
 
@@ -1432,7 +1502,7 @@ NOTIFY pgrst, 'reload schema';`
         if([...select.options].some(option=>option.value===old))select.value=old;
       }
       function populateEventSelect(select,{includeAll=false,includeNone=true}={}){const old=select.value;select.innerHTML=`${includeAll?'<option value="all">Semua Event</option>':''}${includeNone?'<option value="none">Non-Event</option>':''}`+state.events.slice().sort((a,b)=>b.eventDate.localeCompare(a.eventDate)).map(item=>`<option value="${item.id}">${escapeHtml(item.name)} — ${formatDate(item.eventDate)}</option>`).join('');if([...select.options].some(o=>o.value===old))select.value=old;}
-      function refreshEventSelects(){populateEventSelect(el('transactionEventFilter'),{includeAll:true,includeNone:true});populateEventSelect(el('inventoryEventFilter'),{includeAll:true,includeNone:true});populateEventSelect(el('transactionEvent'),{includeNone:true});populateEventSelect(el('inventoryEvent'),{includeNone:true});}
+      function refreshEventSelects(){populateEventSelect(el('transactionEventFilter'),{includeAll:true,includeNone:true});populateEventSelect(el('inventoryEventFilter'),{includeAll:true,includeNone:true});document.querySelectorAll('#transactionRows .transaction-row-event').forEach(select=>populateEventSelect(select,{includeNone:true}));populateEventSelect(el('inventoryEvent'),{includeNone:true});}
 
       function bindEvents(){
         el('setupForm').addEventListener('submit',handleSetupSubmit);el('copySqlBtn').addEventListener('click',copyDatabaseSql);el('loginForm').addEventListener('submit',handleLogin);el('signupBtn').addEventListener('click',handleSignup);el('authChangeConfigBtn').addEventListener('click',()=>showSetup());
@@ -1442,7 +1512,7 @@ NOTIFY pgrst, 'reload schema';`
         el('menuBtn').addEventListener('click',toggleSidebar);el('overlay').addEventListener('click',toggleSidebar);
         el('globalStore').addEventListener('change',event=>{selectedGlobalStore=event.target.value;renderDashboard();});
         el('addTransactionBtn').addEventListener('click',()=>openTransactionModal());el('addInventoryBtn').addEventListener('click',()=>openInventoryModal());el('closeDailyRecapBtn').addEventListener('click',openDailyClosingModal);el('fillNoUsageBtn').addEventListener('click',fillClosingWithAvailableStock);el('addEventBtn').addEventListener('click',()=>openEventModal());
-        el('transactionForm').addEventListener('submit',saveTransaction);el('inventoryForm').addEventListener('submit',saveInventory);el('dailyClosingForm').addEventListener('submit',saveDailyClosing);el('dailyClosingRows').addEventListener('input',updateClosingUsagePreview);el('eventForm').addEventListener('submit',saveEvent);
+        el('transactionForm').addEventListener('submit',saveTransaction);el('transactionRows').addEventListener('click',handleTransactionRowClick);el('transactionRows').addEventListener('input',updateTransactionTotal);el('inventoryForm').addEventListener('submit',saveInventory);el('dailyClosingForm').addEventListener('submit',saveDailyClosing);el('dailyClosingRows').addEventListener('input',updateClosingUsagePreview);el('eventForm').addEventListener('submit',saveEvent);
         ['transactionSearch','transactionTypeFilter','transactionMonthFilter','transactionStoreFilter','transactionEventFilter'].forEach(id=>el(id).addEventListener('input',renderTransactions));
         ['inventorySearch','inventoryStatusFilter','inventoryStoreFilter','inventoryEventFilter'].forEach(id=>el(id).addEventListener('input',renderInventory));
         ['materialsSearch','materialsStoreFilter'].forEach(id=>el(id).addEventListener('input',renderMaterials));
@@ -1467,8 +1537,14 @@ NOTIFY pgrst, 'reload schema';`
       function openModal(id){el(id).classList.add('open');}
       function closeModal(id){el(id).classList.remove('open');}
 
-      function openTransactionModal(id=null){if(!isAdmin())return toast('Fitur transaksi hanya untuk Admin.');el('transactionForm').reset();el('transactionId').value='';el('transactionDate').value=todayISO();el('transactionType').value='income';el('transactionStore').value=selectedGlobalStore==='all'?STORES[0]:selectedGlobalStore;el('transactionEvent').value='none';el('transactionModalTitle').textContent='Tambah Transaksi';if(id){const item=state.transactions.find(t=>t.id===id);if(!item)return;el('transactionId').value=item.id;el('transactionDate').value=item.date;el('transactionStore').value=item.store;el('transactionEvent').value=item.eventId||'none';el('transactionType').value=item.type;el('transactionCategory').value=item.category;el('transactionAmount').value=item.amount;el('transactionNote').value=item.note||'';el('transactionModalTitle').textContent='Edit Transaksi';}openModal('transactionModal');setTimeout(()=>el('transactionCategory').focus(),80);}
-      async function saveTransaction(event){event.preventDefault();if(!isAdmin())return;const existing=state.transactions.find(t=>t.id===el('transactionId').value);const item={id:el('transactionId').value||uid(),date:el('transactionDate').value,store:el('transactionStore').value,eventId:el('transactionEvent').value==='none'?null:el('transactionEvent').value,type:el('transactionType').value,category:el('transactionCategory').value.trim(),amount:Number(el('transactionAmount').value),note:el('transactionNote').value.trim(),createdAt:existing?.createdAt||new Date().toISOString()};if(!item.date||!item.store||!item.category||!Number.isFinite(item.amount)||item.amount<0)return toast('Mohon lengkapi data transaksi.');const button=event.submitter;setButtonBusy(button,true,'Menyimpan…');try{const {error}=await db.from('transactions').upsert(transactionToRow(item));if(error)throw error;closeModal('transactionModal');await loadCloudData(true);toast(existing?'Transaksi berhasil diperbarui.':'Transaksi berhasil ditambahkan.');}catch(error){showSyncError(error);}finally{setButtonBusy(button,false);}}
+      function transactionEntries(){return[...el('transactionRows').querySelectorAll('[data-transaction-entry]')];}
+      function transactionTotalAmount(){return transactionEntries().reduce((total,entry)=>{const amount=Number(entry.querySelector('.transaction-row-amount')?.value||0);return total+(Number.isFinite(amount)&&amount>0?amount:0);},0);}
+      function updateTransactionTotal(){const entries=transactionEntries();const total=transactionTotalAmount();el('transactionTotalLabel').textContent=`Total nominal ${entries.length} baris`;el('transactionTotalAmount').textContent=rawMoney(total);const editing=!!el('transactionId').value;el('transactionSubmitBtn').textContent=editing?`Simpan Perubahan · ${rawMoney(total)}`:`Simpan ${entries.length} Transaksi · ${rawMoney(total)}`;}
+      function refreshTransactionEntryControls(){const entries=transactionEntries();const editing=!!el('transactionId').value;entries.forEach((entry,index)=>{entry.querySelector('.transaction-entry-title').textContent=editing?'Detail Transaksi':index===0?'Transaksi Utama':`Baris Tambahan ${index+1}`;const remove=entry.querySelector('[data-remove-transaction-row]');if(remove)remove.hidden=editing||index===0;const add=entry.querySelector('[data-add-transaction-row]');if(add)add.hidden=editing;});el('transactionBatchNote').hidden=editing;updateTransactionTotal();}
+      function addTransactionRow(afterEntry=null){if(el('transactionId').value)return;const entry=document.createElement('div');entry.className='transaction-entry transaction-extra-entry';entry.dataset.transactionEntry='';entry.innerHTML=`<div class="transaction-entry-head"><strong class="transaction-entry-title"></strong><button type="button" class="transaction-remove-btn" data-remove-transaction-row>Hapus</button></div><div class="form-grid"><div class="field full"><label>Keterangan</label><textarea class="textarea transaction-row-note" placeholder="Contoh: Penjualan menu tambahan"></textarea></div><div class="field full"><label>Nominal (Rp)</label><input class="input transaction-row-amount" type="number" min="0" step="1" placeholder="0" required /></div></div><div class="transaction-add-wrap"><button type="button" class="btn btn-light transaction-add-small" data-add-transaction-row>＋ Tambah Baris</button></div>`;if(afterEntry&&afterEntry.parentElement===el('transactionRows'))afterEntry.insertAdjacentElement('afterend',entry);else el('transactionRows').appendChild(entry);refreshTransactionEntryControls();setTimeout(()=>entry.querySelector('.transaction-row-note').focus(),60);}
+      function handleTransactionRowClick(event){const add=event.target.closest('[data-add-transaction-row]');if(add){addTransactionRow(add.closest('[data-transaction-entry]'));return;}const remove=event.target.closest('[data-remove-transaction-row]');if(!remove)return;const entry=remove.closest('[data-transaction-entry]');if(entry&&!entry.hasAttribute('data-main-transaction-entry')){entry.remove();refreshTransactionEntryControls();}}
+      function openTransactionModal(id=null){if(!isAdmin())return toast('Fitur transaksi hanya untuk Admin.');el('transactionForm').reset();transactionEntries().slice(1).forEach(entry=>entry.remove());el('transactionId').value='';el('transactionDate').value=todayISO();el('transactionType').value='income';el('transactionStore').value=selectedGlobalStore==='all'?STORES[0]:selectedGlobalStore;el('transactionEvent').value='none';el('transactionCategory').value='';el('transactionAmount').value='';el('transactionNote').value='';el('transactionModalTitle').textContent='Tambah Transaksi';if(id){const item=state.transactions.find(t=>t.id===id);if(!item)return;el('transactionId').value=item.id;el('transactionDate').value=item.date;el('transactionStore').value=item.store;el('transactionEvent').value=item.eventId||'none';el('transactionType').value=item.type;el('transactionCategory').value=item.category;el('transactionAmount').value=item.amount;el('transactionNote').value=item.note||'';el('transactionModalTitle').textContent='Edit Transaksi';}refreshTransactionEntryControls();openModal('transactionModal');setTimeout(()=>el('transactionCategory').focus(),80);}
+      async function saveTransaction(event){event.preventDefault();if(!isAdmin())return;const editId=el('transactionId').value;const existing=state.transactions.find(t=>t.id===editId);const entries=transactionEntries();const main=entries[0];const eventValue=main.querySelector('.transaction-row-event').value;const common={date:main.querySelector('.transaction-row-date').value,store:main.querySelector('.transaction-row-store').value,eventId:eventValue==='none'?null:eventValue,type:main.querySelector('.transaction-row-type').value,category:main.querySelector('.transaction-row-category').value.trim()};if(!common.date||!common.store||!common.category){main.scrollIntoView({behavior:'smooth',block:'center'});main.querySelector('.transaction-row-category').focus();return toast('Mohon lengkapi tanggal, toko, jenis, dan kategori transaksi.');}const createdBase=Date.now();const items=entries.map((entry,index)=>({id:editId&&index===0?editId:uid(),...common,amount:Number(entry.querySelector('.transaction-row-amount').value),note:entry.querySelector('.transaction-row-note').value.trim(),createdAt:existing?.createdAt||new Date(createdBase+index).toISOString()}));const invalidIndex=items.findIndex(item=>!Number.isFinite(item.amount)||item.amount<0);if(invalidIndex>=0){const target=entries[invalidIndex];target.scrollIntoView({behavior:'smooth',block:'center'});target.querySelector('.transaction-row-amount').focus();return toast(`Isi nominal yang valid pada baris ${invalidIndex+1}.`);}const totalAmount=items.reduce((sum,item)=>sum+item.amount,0);const button=event.submitter;setButtonBusy(button,true,`Menyimpan ${rawMoney(totalAmount)}…`);try{const {error}=await db.from('transactions').upsert(items.map(transactionToRow));if(error)throw error;closeModal('transactionModal');await loadCloudData(true);toast(existing?`Transaksi berhasil diperbarui. Total ${rawMoney(totalAmount)}.`:`${items.length} transaksi berhasil ditambahkan. Total ${rawMoney(totalAmount)}.`);}catch(error){showSyncError(error);}finally{setButtonBusy(button,false);refreshTransactionEntryControls();}}
 
       function selectedInventoryDate(){return el('inventoryDateFilter').value||todayISO();}
       function selectedInventoryStore(){if(isEmployee())return employeeBranch();const value=el('inventoryStoreFilter').value;return value&&value!=='all'?value:'';}
