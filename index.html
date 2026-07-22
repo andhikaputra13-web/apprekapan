@@ -704,6 +704,21 @@
     @media (max-width:780px) { .daily-stats, .monthly-stats, .transaction-cash-summary, .transaction-filters { grid-template-columns:1fr; } .role-badge { display:none; } }
 
 
+
+    /* Gaji karyawan */
+    .payroll-stats { grid-template-columns: repeat(4, minmax(0,1fr)); margin-bottom:18px; }
+    .payroll-filters { grid-template-columns: 1.2fr repeat(3,minmax(150px,.7fr)); }
+    .payroll-net { font-weight:900; color:var(--green); }
+    .payroll-status-paid { background:#dcfce7; color:#166534; }
+    .payroll-status-pending { background:#fef3c7; color:#92400e; }
+    .payroll-status-draft { background:#f1f5f9; color:#475569; }
+    .payroll-form-summary { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; margin-top:14px; }
+    .payroll-form-summary > div { padding:12px 14px; border:1px solid var(--line); border-radius:12px; background:var(--surface-soft,#f8fafc); }
+    .payroll-form-summary span { display:block; color:var(--muted); font-size:11px; font-weight:800; text-transform:uppercase; }
+    .payroll-form-summary strong { display:block; margin-top:5px; font-size:15px; }
+    @media(max-width:1100px){.payroll-stats{grid-template-columns:repeat(2,minmax(0,1fr));}.payroll-filters{grid-template-columns:repeat(2,minmax(0,1fr));}}
+    @media(max-width:780px){.payroll-stats,.payroll-filters,.payroll-form-summary{grid-template-columns:1fr;}}
+
     /* Rekapan bahan harian */
     .date-slicer { display:flex; align-items:center; gap:8px; min-width:260px; }
     .date-slicer .input { min-width:155px; }
@@ -1069,6 +1084,7 @@
         <button data-view="inventory"><span class="icon">▤</span> Rekapan Bahan</button>
         <button data-full-view data-view="materials"><span class="icon">＋</span> Daftar Bahan</button>
         <button data-full-view data-view="events"><span class="icon">★</span> Event</button>
+        <button data-full-view data-view="payroll"><span class="icon">Rp</span> Gaji Karyawan</button>
         <button data-full-view data-view="settings"><span class="icon">⚙</span> Data & Pengaturan</button>
       </nav>
 
@@ -1347,6 +1363,27 @@
           </article>
         </section>
 
+
+        <section class="view" data-full-view id="view-payroll">
+          <div class="toolbar">
+            <div><h3>Gaji Karyawan</h3></div>
+            <div class="toolbar-actions"><button class="btn btn-light" id="exportPayrollBtn">⇩ Ekspor CSV</button><button class="btn btn-primary" id="addPayrollBtn" data-admin-write>＋ Tambah Gaji</button></div>
+          </div>
+          <div class="grid stats payroll-stats">
+            <article class="card stat-card"><div class="stat-label">Total Karyawan</div><div class="stat-value" id="payrollEmployeeCount">0</div></article>
+            <article class="card stat-card income"><div class="stat-label">Total Gaji Bersih</div><div class="stat-value" id="payrollNetTotal">Rp0</div></article>
+            <article class="card stat-card profit"><div class="stat-label">Sudah Dibayar</div><div class="stat-value" id="payrollPaidTotal">Rp0</div></article>
+            <article class="card stat-card expense"><div class="stat-label">Belum Dibayar</div><div class="stat-value" id="payrollPendingTotal">Rp0</div></article>
+          </div>
+          <div class="card filters payroll-filters">
+            <input class="input" id="payrollSearch" placeholder="Cari nama atau jabatan..." />
+            <input class="input" id="payrollMonthFilter" type="month" />
+            <select class="select" id="payrollStoreFilter"></select>
+            <select class="select" id="payrollStatusFilter"><option value="all">Semua Status</option><option value="draft">Draft</option><option value="pending">Belum Dibayar</option><option value="paid">Sudah Dibayar</option></select>
+          </div>
+          <article class="card table-card"><div class="table-wrap" id="payrollTable"></div></article>
+        </section>
+
         <section class="view" data-full-view id="view-settings">
           <div class="toolbar"><div><h3>Cloud & Pengaturan</h3><p id="settingsAccessText">Admin dapat mengelola pengaturan. Owner dapat melihat informasi akun dan data toko yang ditetapkan dalam mode hanya lihat.</p></div></div>
           <div class="grid settings-grid">
@@ -1445,6 +1482,29 @@
         <div class="field"><label for="eventOrganizer">Penyelenggara/PIC</label><input class="input" id="eventOrganizer" placeholder="Masukkan nama penyelenggara atau PIC" /></div>
         <div class="field full"><label for="eventNote">Keterangan</label><textarea class="textarea" id="eventNote" placeholder="Masukkan keterangan event"></textarea></div>
       </div></div><div class="modal-foot"><button type="button" class="btn btn-light" data-close="eventModal">Batal</button><button type="submit" class="btn btn-primary">Simpan Event</button></div></form>
+    </div>
+  </div>
+
+
+  <div class="modal" id="payrollModal" role="dialog" aria-modal="true">
+    <div class="modal-panel transaction-modal-panel"><div class="modal-head"><h3 id="payrollModalTitle">Tambah Gaji Karyawan</h3><button class="close-btn" data-close="payrollModal">✕</button></div>
+      <form id="payrollForm" novalidate><div class="modal-body">
+        <input type="hidden" id="payrollId" />
+        <div class="form-grid">
+          <div class="field"><label for="payrollMonth">Periode Gaji</label><input class="input" type="month" id="payrollMonth" required /></div>
+          <div class="field"><label for="payrollStore">Toko</label><select class="select" id="payrollStore" required></select></div>
+          <div class="field"><label for="payrollEmployeeName">Nama Karyawan</label><input class="input" id="payrollEmployeeName" placeholder="Masukkan nama karyawan" required /></div>
+          <div class="field"><label for="payrollPosition">Jabatan</label><input class="input" id="payrollPosition" placeholder="Contoh: Kasir" required /></div>
+          <div class="field"><label for="payrollBaseSalary">Gaji Pokok</label><input class="input payroll-calc" type="number" id="payrollBaseSalary" min="0" step="1" placeholder="0" required /></div>
+          <div class="field"><label for="payrollAllowance">Tunjangan</label><input class="input payroll-calc" type="number" id="payrollAllowance" min="0" step="1" placeholder="0" /></div>
+          <div class="field"><label for="payrollBonus">Bonus</label><input class="input payroll-calc" type="number" id="payrollBonus" min="0" step="1" placeholder="0" /></div>
+          <div class="field"><label for="payrollDeduction">Potongan</label><input class="input payroll-calc" type="number" id="payrollDeduction" min="0" step="1" placeholder="0" /></div>
+          <div class="field"><label for="payrollStatus">Status Pembayaran</label><select class="select" id="payrollStatus" required><option value="" disabled selected>Pilih status</option><option value="draft">Draft</option><option value="pending">Belum Dibayar</option><option value="paid">Sudah Dibayar</option></select></div>
+          <div class="field"><label for="payrollPaidDate">Tanggal Pembayaran</label><input class="input" type="date" id="payrollPaidDate" /></div>
+          <div class="field full"><label for="payrollNote">Keterangan</label><textarea class="textarea" id="payrollNote" placeholder="Catatan tambahan"></textarea></div>
+        </div>
+        <div class="payroll-form-summary"><div><span>Pendapatan</span><strong id="payrollGrossPreview">Rp0</strong></div><div><span>Potongan</span><strong id="payrollDeductionPreview">Rp0</strong></div><div><span>Gaji Bersih</span><strong id="payrollNetPreview">Rp0</strong></div></div>
+      </div><div class="modal-foot"><button type="button" class="btn btn-light" data-close="payrollModal">Batal</button><button type="submit" class="btn btn-primary">Simpan Gaji</button></div></form>
     </div>
   </div>
 
@@ -1889,9 +1949,35 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON public.transactions TO authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.inventory TO authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.inventory_daily TO authenticated;
 
+
+CREATE TABLE IF NOT EXISTS public.payroll (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  payroll_month text NOT NULL,
+  store text NOT NULL,
+  employee_name text NOT NULL,
+  position text NOT NULL,
+  base_salary numeric NOT NULL DEFAULT 0,
+  allowance numeric NOT NULL DEFAULT 0,
+  bonus numeric NOT NULL DEFAULT 0,
+  deduction numeric NOT NULL DEFAULT 0,
+  status text NOT NULL DEFAULT 'draft',
+  paid_date date,
+  note text NOT NULL DEFAULT '',
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT payroll_status_check CHECK (status IN ('draft','pending','paid'))
+);
+CREATE INDEX IF NOT EXISTS payroll_month_store_idx ON public.payroll(payroll_month,store);
+ALTER TABLE public.payroll ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Payroll readable by access" ON public.payroll;
+DROP POLICY IF EXISTS "Payroll manageable by admin" ON public.payroll;
+CREATE POLICY "Payroll readable by access" ON public.payroll FOR SELECT TO authenticated USING (public.can_access_store(store));
+CREATE POLICY "Payroll manageable by admin" ON public.payroll FOR ALL TO authenticated USING (public.is_admin()) WITH CHECK (public.is_admin());
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.payroll TO authenticated;
+
 NOTIFY pgrst, 'reload schema';`
 
-      const state = { transactions: [], inventory: [], inventoryDaily: [], events: [], profiles: [], profile: null, updatedAt: null };
+      const state = { transactions: [], inventory: [], inventoryDaily: [], events: [], payroll: [], profiles: [], profile: null, updatedAt: null };
       let activeView = 'dashboard';
       let activeEventTab = 'transactions';
       let selectedGlobalStore = 'all';
@@ -1959,11 +2045,12 @@ NOTIFY pgrst, 'reload schema';`
       }
 
       function initStaticUI(){
-        [el('globalStore'),el('inventoryStoreFilter')].forEach(s=>populateStoreSelect(s,true));
-        [el('transactionStore'),el('inventoryStore')].forEach(s=>populateStoreSelect(s,false));
+        [el('globalStore'),el('inventoryStoreFilter'),el('payrollStoreFilter')].forEach(s=>populateStoreSelect(s,true));
+        [el('transactionStore'),el('inventoryStore'),el('payrollStore')].forEach(s=>populateStoreSelect(s,false));
         el('transactionDateFilter').value=todayISO();
         el('transactionDateFilter').max=todayISO();
         el('eventTransactionMonthFilter').value=currentMonth();
+        el('payrollMonthFilter').value=currentMonth();
         el('inventoryDateFilter').value=todayISO();
         el('eventInventoryDateFilter').value=todayISO();
         el('todayText').textContent=new Intl.DateTimeFormat('id-ID',{timeZone:'Asia/Jakarta',weekday:'long',day:'numeric',month:'long',year:'numeric'}).format(new Date());
@@ -1991,7 +2078,7 @@ NOTIFY pgrst, 'reload schema';`
       }
 
       async function handleAuthState(event,session){
-        if(event==='SIGNED_OUT'||!session){stopCloudRefresh();currentSession=null;state.transactions=[];state.inventory=[];state.events=[];state.profiles=[];state.profile=null;renderAll();if(forceSetupScreen){forceSetupScreen=false;showSetup();}else showAuth();return;}
+        if(event==='SIGNED_OUT'||!session){stopCloudRefresh();currentSession=null;state.transactions=[];state.inventory=[];state.events=[];state.payroll=[];state.profiles=[];state.profile=null;renderAll();if(forceSetupScreen){forceSetupScreen=false;showSetup();}else showAuth();return;}
         if(event==='SIGNED_IN'||event==='INITIAL_SESSION'||event==='TOKEN_REFRESHED') await showApp(session);
       }
 
@@ -2256,11 +2343,11 @@ NOTIFY pgrst, 'reload schema';`
         document.addEventListener('click',event=>{const go=event.target.closest('[data-go]');if(go)switchView(go.dataset.go);const close=event.target.closest('[data-close]');if(close)closeModal(close.dataset.close);});
         el('menuBtn').addEventListener('click',toggleSidebar);el('overlay').addEventListener('click',toggleSidebar);
         el('globalStore').addEventListener('change',event=>{selectedGlobalStore=event.target.value;const inventoryStore=el('inventoryStoreFilter');const materialsStore=el('materialsStoreFilter');if(inventoryStore&&[...inventoryStore.options].some(option=>option.value===event.target.value))inventoryStore.value=event.target.value;if(materialsStore&&[...materialsStore.options].some(option=>option.value===event.target.value))materialsStore.value=event.target.value;renderDashboard();renderTransactions();renderInventory();renderMaterials();});
-        el('addTransactionBtn').addEventListener('click',()=>openTransactionModal(null,'store'));el('addInventoryBtn').addEventListener('click',()=>openInventoryModal(null,'store'));el('closeDailyRecapBtn').addEventListener('click',()=>openDailyClosingModal('store'));el('fillNoUsageBtn').addEventListener('click',fillClosingWithAvailableStock);el('addEventBtn').addEventListener('click',()=>openEventModal());
+        el('addTransactionBtn').addEventListener('click',()=>openTransactionModal(null,'store'));el('addInventoryBtn').addEventListener('click',()=>openInventoryModal(null,'store'));el('closeDailyRecapBtn').addEventListener('click',()=>openDailyClosingModal('store'));el('fillNoUsageBtn').addEventListener('click',fillClosingWithAvailableStock);el('addEventBtn').addEventListener('click',()=>openEventModal());el('addPayrollBtn').addEventListener('click',()=>openPayrollModal());
         el('addEventTransactionBtn').addEventListener('click',()=>openTransactionModal(null,'event',selectedEventWorkspaceId()));
         el('addEventInventoryBtn').addEventListener('click',()=>openInventoryModal(null,'event',selectedEventWorkspaceId()));
         el('closeEventDailyRecapBtn').addEventListener('click',()=>openDailyClosingModal('event'));
-        el('transactionForm').addEventListener('submit',saveTransaction);el('transactionRows').addEventListener('click',handleTransactionRowClick);el('transactionRows').addEventListener('input',updateTransactionTotal);el('inventoryForm').addEventListener('submit',saveInventory);el('dailyClosingForm').addEventListener('submit',saveDailyClosing);el('dailyClosingRows').addEventListener('input',updateClosingUsagePreview);el('eventForm').addEventListener('submit',saveEvent);
+        el('transactionForm').addEventListener('submit',saveTransaction);el('transactionRows').addEventListener('click',handleTransactionRowClick);el('transactionRows').addEventListener('input',updateTransactionTotal);el('inventoryForm').addEventListener('submit',saveInventory);el('dailyClosingForm').addEventListener('submit',saveDailyClosing);el('dailyClosingRows').addEventListener('input',updateClosingUsagePreview);el('eventForm').addEventListener('submit',saveEvent);el('payrollForm').addEventListener('submit',savePayroll);document.querySelectorAll('.payroll-calc').forEach(node=>node.addEventListener('input',updatePayrollPreview));el('payrollStatus').addEventListener('change',syncPayrollPaidDate);
         ['transactionSearch','transactionTypeFilter','transactionPaymentFilter','transactionDateFilter'].forEach(id=>el(id).addEventListener('input',renderTransactions));
         ['inventorySearch','inventoryStatusFilter','inventoryStoreFilter'].forEach(id=>el(id).addEventListener('input',renderInventory));
         el('materialsSearch').addEventListener('input',renderMaterials);
@@ -2269,7 +2356,7 @@ NOTIFY pgrst, 'reload schema';`
         el('inventoryPrevDateBtn').addEventListener('click',()=>shiftInventoryDate(-1));
         el('inventoryNextDateBtn').addEventListener('click',()=>shiftInventoryDate(1));
         el('inventoryStoreFilter').addEventListener('change',renderInventory);
-        ['eventSearch','eventStatusFilter'].forEach(id=>el(id).addEventListener('input',renderEvents));
+        ['eventSearch','eventStatusFilter'].forEach(id=>el(id).addEventListener('input',renderEvents));['payrollSearch','payrollMonthFilter','payrollStoreFilter','payrollStatusFilter'].forEach(id=>el(id).addEventListener('input',renderPayroll));
         el('eventWorkspaceSelect').addEventListener('change',renderEvents);
         el('eventTabs').addEventListener('click',event=>{const button=event.target.closest('[data-event-tab]');if(button)switchEventTab(button.dataset.eventTab);});
         ['eventTransactionSearch','eventTransactionTypeFilter','eventTransactionPaymentFilter','eventTransactionMonthFilter'].forEach(id=>el(id).addEventListener('input',renderEventTransactions));
@@ -2281,8 +2368,8 @@ NOTIFY pgrst, 'reload schema';`
         el('eventInventoryNextDateBtn').addEventListener('click',()=>shiftEventInventoryDate(1));
         el('transactionsTable').addEventListener('click',handleTransactionTableClick);el('eventTransactionsTable').addEventListener('click',handleTransactionTableClick);
         el('materialsTable').addEventListener('click',handleInventoryTableClick);el('eventMaterialsTable').addEventListener('click',handleInventoryTableClick);
-        el('eventsTable').addEventListener('click',handleEventsTableClick);el('profilesTable').addEventListener('change',handleProfileAccessDraftChange);el('profilesTable').addEventListener('click',handleProfileAccessSave);
-        el('exportTransactionsBtn').addEventListener('click',exportTransactionsCSV);el('exportInventoryBtn').addEventListener('click',exportInventoryCSV);el('exportEventsBtn').addEventListener('click',exportEventsCSV);el('exportEventTransactionsBtn').addEventListener('click',exportEventTransactionsCSV);el('exportEventInventoryBtn').addEventListener('click',exportEventInventoryCSV);
+        el('eventsTable').addEventListener('click',handleEventsTableClick);el('payrollTable').addEventListener('click',handlePayrollTableClick);el('profilesTable').addEventListener('change',handleProfileAccessDraftChange);el('profilesTable').addEventListener('click',handleProfileAccessSave);
+        el('exportTransactionsBtn').addEventListener('click',exportTransactionsCSV);el('exportPayrollBtn').addEventListener('click',exportPayrollCSV);el('exportInventoryBtn').addEventListener('click',exportInventoryCSV);el('exportEventsBtn').addEventListener('click',exportEventsCSV);el('exportEventTransactionsBtn').addEventListener('click',exportEventTransactionsCSV);el('exportEventInventoryBtn').addEventListener('click',exportEventInventoryCSV);
         el('backupBtn').addEventListener('click',backupJSON);el('restoreBtn').addEventListener('click',()=>el('restoreInput').click());el('restoreInput').addEventListener('change',restoreJSON);el('demoBtn').addEventListener('click',loadDemoData);el('clearBtn').addEventListener('click',clearAllData);
         window.addEventListener('resize',renderChart);window.addEventListener('online',()=>loadCloudData(true));window.addEventListener('offline',()=>setCloudStatus('error','Offline'));
         document.querySelectorAll('.modal').forEach(modal=>modal.addEventListener('click',event=>{if(event.target===modal)closeModal(modal.id);}));
@@ -2297,15 +2384,16 @@ NOTIFY pgrst, 'reload schema';`
         activeView=view;
         document.querySelectorAll('.view').forEach(v=>v.classList.toggle('active',v.id===`view-${view}`));
         document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('active',b.dataset.view===view));
-        const headings={dashboard:'Dashboard',transactions:'Pemasukan & Pengeluaran Toko',inventory:'Rekapan Bahan Toko',materials:'Daftar Bahan Toko',events:'Event',settings:'Cloud & Pengaturan'};
+        const headings={dashboard:'Dashboard',transactions:'Pemasukan & Pengeluaran Toko',inventory:'Rekapan Bahan Toko',materials:'Daftar Bahan Toko',events:'Event',payroll:'Gaji Karyawan',settings:'Cloud & Pengaturan'};
         el('pageHeading').textContent=headings[view];
-        el('globalStore').hidden=!canViewAll()||view==='events'||view==='settings';
+        el('globalStore').hidden=!canViewAll()||view==='events'||view==='payroll'||view==='settings';
         if(window.innerWidth<=780)closeSidebar();
         if(view==='dashboard')renderDashboard();
         if(view==='transactions')renderTransactions();
         if(view==='inventory')renderInventory();
         if(view==='materials')renderMaterials();
         if(view==='events')renderEvents();
+        if(view==='payroll')renderPayroll();
         if(view==='settings')renderProfiles();
       }
       function toggleSidebar(){el('sidebar').classList.toggle('open');el('overlay').classList.toggle('open');}
@@ -2571,6 +2659,8 @@ NOTIFY pgrst, 'reload schema';`
       function rowToTransaction(row){return{id:row.id,date:row.transaction_date,store:row.store,eventId:row.event_id||null,type:row.type,paymentMethod:normalizePaymentMethod(row.payment_method),category:row.category,amount:Number(row.amount),note:row.note||'',createdAt:row.created_at};}
       function rowToInventory(row){return{id:row.id,store:row.store,eventId:row.event_id||null,name:row.name,unit:row.unit,stock:Number(row.stock),min:Number(row.min_stock),price:Number(row.price),note:row.note||'',updatedAt:row.updated_at};}
       function rowToEvent(row){return{id:row.id,name:row.name,eventDate:row.event_date,endDate:row.end_date,location:row.location||'',organizer:row.organizer||'',note:row.note||'',createdAt:row.created_at};}
+      function payrollToRow(item){return{id:item.id,payroll_month:item.month,store:item.store,employee_name:item.employeeName,position:item.position,base_salary:item.baseSalary,allowance:item.allowance,bonus:item.bonus,deduction:item.deduction,status:item.status,paid_date:item.paidDate||null,note:item.note||'',updated_at:new Date().toISOString()};}
+      function rowToPayroll(row){return{id:row.id,month:row.payroll_month,store:row.store,employeeName:row.employee_name,position:row.position,baseSalary:Number(row.base_salary||0),allowance:Number(row.allowance||0),bonus:Number(row.bonus||0),deduction:Number(row.deduction||0),status:row.status||'draft',paidDate:row.paid_date||'',note:row.note||'',createdAt:row.created_at,updatedAt:row.updated_at};}
 
       async function manualRefreshData(){
         if(dataLoading){toast('Sinkronisasi data sedang berjalan.');return;}
@@ -2611,13 +2701,15 @@ NOTIFY pgrst, 'reload schema';`
           let dailyQuery=db.from('inventory_daily').select('*').order('record_date',{ascending:false}).order('store',{ascending:true}).order('name',{ascending:true});
           if(!isAdmin()&&stores.length)dailyQuery=dailyQuery.in('store',stores);
           const dailyPromise=stores.length||isAdmin()?dailyQuery:Promise.resolve({data:[],error:null});
+          const payrollPromise=stores.length||isAdmin()?db.from('payroll').select('*').in('store',stores.length?stores:STORES).order('payroll_month',{ascending:false}).order('employee_name',{ascending:true}):Promise.resolve({data:[],error:null});
           const profilesPromise=isAdmin()?db.from('profiles').select('user_id,email,role,branch,branches,created_at').order('created_at',{ascending:true}):Promise.resolve({data:[state.profile],error:null});
-          const [eventResult,inventoryResult,txResult,dailyResult,profilesResult]=await Promise.all([eventPromise,inventoryPromise,transactionPromise,dailyPromise,profilesPromise]);
-          for(const result of [eventResult,inventoryResult,txResult,dailyResult,profilesResult])if(result.error)throw result.error;
+          const [eventResult,inventoryResult,txResult,dailyResult,payrollResult,profilesResult]=await Promise.all([eventPromise,inventoryPromise,transactionPromise,dailyPromise,payrollPromise,profilesPromise]);
+          for(const result of [eventResult,inventoryResult,txResult,dailyResult,payrollResult,profilesResult])if(result.error)throw result.error;
           state.events=(eventResult.data||[]).map(rowToEvent);
           state.inventory=(inventoryResult.data||[]).map(rowToInventory).filter(item=>canAccessStore(item.store));
           state.inventoryDaily=(dailyResult.data||[]).map(rowToDailyRecord).filter(item=>canAccessStore(item.store));
           state.transactions=(txResult.data||[]).map(rowToTransaction).filter(item=>item.eventId?isAdmin():canAccessStore(item.store));
+          state.payroll=(payrollResult.data||[]).map(rowToPayroll).filter(item=>canAccessStore(item.store));
           state.profiles=profilesResult.data||[];
           state.updatedAt=new Date().toISOString();
           refreshEventSelects();
@@ -2627,11 +2719,11 @@ NOTIFY pgrst, 'reload schema';`
         }catch(error){showSyncError(error);return false;}finally{dataLoading=false;}
       }
 
-      function startCloudRefresh(){stopCloudRefresh();refreshTimer=setInterval(()=>loadCloudData(true),30000);try{cloudChannel=db.channel('rekap-toko-cloud-v6').on('postgres_changes',{event:'*',schema:'public',table:'transactions'},scheduleRealtimeRefresh).on('postgres_changes',{event:'*',schema:'public',table:'inventory'},scheduleRealtimeRefresh).on('postgres_changes',{event:'*',schema:'public',table:'inventory_daily'},scheduleRealtimeRefresh).on('postgres_changes',{event:'*',schema:'public',table:'events'},scheduleRealtimeRefresh).on('postgres_changes',{event:'*',schema:'public',table:'profiles'},scheduleRealtimeRefresh).subscribe();}catch(error){console.warn('Realtime tidak aktif, polling tetap berjalan.',error);}}
+      function startCloudRefresh(){stopCloudRefresh();refreshTimer=setInterval(()=>loadCloudData(true),30000);try{cloudChannel=db.channel('rekap-toko-cloud-v6').on('postgres_changes',{event:'*',schema:'public',table:'transactions'},scheduleRealtimeRefresh).on('postgres_changes',{event:'*',schema:'public',table:'inventory'},scheduleRealtimeRefresh).on('postgres_changes',{event:'*',schema:'public',table:'inventory_daily'},scheduleRealtimeRefresh).on('postgres_changes',{event:'*',schema:'public',table:'events'},scheduleRealtimeRefresh).on('postgres_changes',{event:'*',schema:'public',table:'payroll'},scheduleRealtimeRefresh).on('postgres_changes',{event:'*',schema:'public',table:'profiles'},scheduleRealtimeRefresh).subscribe();}catch(error){console.warn('Realtime tidak aktif, polling tetap berjalan.',error);}}
       function scheduleRealtimeRefresh(){clearTimeout(realtimeDebounce);realtimeDebounce=setTimeout(async()=>{if(currentSession)await loadCurrentProfile(currentSession.user);applyRoleUI();loadCloudData(true);},400);}
       function stopCloudRefresh(){clearInterval(refreshTimer);clearTimeout(realtimeDebounce);refreshTimer=null;if(cloudChannel&&db)db.removeChannel(cloudChannel);cloudChannel=null;}
 
-      function renderAll(){renderDashboard();renderTransactions();renderInventory();renderMaterials();renderEvents();renderProfiles();}
+      function renderAll(){renderDashboard();renderTransactions();renderInventory();renderMaterials();renderEvents();renderPayroll();renderProfiles();}
       function filteredByGlobal(items){const storeItems=items.filter(item=>!item.eventId&&canAccessStore(item.store));const activeStore=isEmployee()?employeeBranch():selectedGlobalStore;return activeStore==='all'||!activeStore?storeItems:storeItems.filter(item=>item.store===activeStore);}
       function sumByType(rows,type){return rows.filter(t=>t.type===type).reduce((sum,t)=>sum+t.amount,0);}
       function normalizePaymentMethod(value){return value==='cash'?'cash':'qris';}
@@ -2952,6 +3044,71 @@ NOTIFY pgrst, 'reload schema';`
         el('closeEventDailyRecapBtn').title=!eventId?'Pilih event terlebih dahulu':!allowedDate?'Closing belum tersedia untuk tanggal mendatang':!masterCount?'Tambahkan bahan melalui tab Daftar Bahan Event terlebih dahulu':'Isi atau perbarui closing bahan event';
       }
 
+
+      function payrollNet(item){return Number(item.baseSalary||0)+Number(item.allowance||0)+Number(item.bonus||0)-Number(item.deduction||0);}
+      function payrollStatusLabel(value){return value==='paid'?'Sudah Dibayar':value==='pending'?'Belum Dibayar':'Draft';}
+      function payrollStatusBadge(value){return `<span class="badge payroll-status-${escapeHtml(value)}">${payrollStatusLabel(value)}</span>`;}
+      function filteredPayroll(){
+        const search=el('payrollSearch')?.value.trim().toLowerCase()||'';
+        const month=el('payrollMonthFilter')?.value||currentMonth();
+        const store=el('payrollStoreFilter')?.value||'all';
+        const status=el('payrollStatusFilter')?.value||'all';
+        return state.payroll.filter(item=>canAccessStore(item.store)&&item.month===month&&(store==='all'||item.store===store)&&(status==='all'||item.status===status)&&(!search||`${item.employeeName} ${item.position} ${item.store}`.toLowerCase().includes(search)));
+      }
+      function renderPayroll(){
+        if(!el('payrollTable'))return;
+        const rows=filteredPayroll();
+        const allNames=new Set(rows.map(item=>`${item.store}|${item.employeeName.toLowerCase()}`));
+        const total=rows.reduce((sum,item)=>sum+payrollNet(item),0);
+        const paid=rows.filter(item=>item.status==='paid').reduce((sum,item)=>sum+payrollNet(item),0);
+        const pending=rows.filter(item=>item.status!=='paid').reduce((sum,item)=>sum+payrollNet(item),0);
+        el('payrollEmployeeCount').textContent=number(allNames.size);
+        el('payrollNetTotal').textContent=money(total);
+        el('payrollPaidTotal').textContent=money(paid);
+        el('payrollPendingTotal').textContent=money(pending);
+        el('payrollTable').innerHTML=rows.length?`<table><thead><tr><th>Karyawan</th><th>Toko</th><th>Periode</th><th>Gaji Pokok</th><th>Tunjangan + Bonus</th><th>Potongan</th><th>Gaji Bersih</th><th>Status</th><th>Tanggal Bayar</th><th>Aksi</th></tr></thead><tbody>${rows.map(item=>`<tr><td><strong>${escapeHtml(item.employeeName)}</strong><small>${escapeHtml(item.position)}</small></td><td>${escapeHtml(item.store)}</td><td>${escapeHtml(item.month)}</td><td>${money(item.baseSalary)}</td><td>${money(item.allowance+item.bonus)}</td><td>${money(item.deduction)}</td><td class="payroll-net">${money(payrollNet(item))}</td><td>${payrollStatusBadge(item.status)}</td><td>${item.paidDate?formatDate(item.paidDate):'-'}</td><td><div class="table-actions">${isAdmin()?`<button class="icon-btn" data-payroll-edit="${item.id}" title="Edit">✎</button><button class="icon-btn danger" data-payroll-delete="${item.id}" title="Hapus">⌫</button>`:'-'}</div></td></tr>`).join('')}</tbody></table>`:emptyState('Belum ada data gaji','Tambahkan data gaji karyawan untuk periode yang dipilih.');
+      }
+      function openPayrollModal(item=null){
+        if(!isAdmin())return;
+        clearFormWarnings(el('payrollForm'));
+        el('payrollId').value=item?.id||'';
+        el('payrollModalTitle').textContent=item?'Ubah Gaji Karyawan':'Tambah Gaji Karyawan';
+        el('payrollMonth').value=item?.month||currentMonth();
+        el('payrollStore').value=item?.store||'';
+        el('payrollEmployeeName').value=item?.employeeName||'';
+        el('payrollPosition').value=item?.position||'';
+        el('payrollBaseSalary').value=item?.baseSalary??'';
+        el('payrollAllowance').value=item?.allowance??'';
+        el('payrollBonus').value=item?.bonus??'';
+        el('payrollDeduction').value=item?.deduction??'';
+        el('payrollStatus').value=item?.status||'';
+        el('payrollPaidDate').value=item?.paidDate||'';
+        el('payrollNote').value=item?.note||'';
+        syncPayrollPaidDate();updatePayrollPreview();openModal('payrollModal');
+      }
+      function updatePayrollPreview(){
+        const base=Number(el('payrollBaseSalary')?.value||0),allowance=Number(el('payrollAllowance')?.value||0),bonus=Number(el('payrollBonus')?.value||0),deduction=Number(el('payrollDeduction')?.value||0);
+        el('payrollGrossPreview').textContent=rawMoney(base+allowance+bonus);el('payrollDeductionPreview').textContent=rawMoney(deduction);el('payrollNetPreview').textContent=rawMoney(base+allowance+bonus-deduction);
+      }
+      function syncPayrollPaidDate(){const paid=el('payrollStatus').value==='paid';el('payrollPaidDate').required=paid;if(paid&&!el('payrollPaidDate').value)el('payrollPaidDate').value=todayISO();if(!paid)el('payrollPaidDate').value='';}
+      async function savePayroll(event){
+        event.preventDefault();if(!isAdmin())return;
+        if(!validateRequiredFields(el('payrollForm')))return;
+        const id=el('payrollId').value||uid();
+        const item={id,month:el('payrollMonth').value,store:el('payrollStore').value,employeeName:el('payrollEmployeeName').value.trim(),position:el('payrollPosition').value.trim(),baseSalary:Number(el('payrollBaseSalary').value||0),allowance:Number(el('payrollAllowance').value||0),bonus:Number(el('payrollBonus').value||0),deduction:Number(el('payrollDeduction').value||0),status:el('payrollStatus').value,paidDate:el('payrollPaidDate').value,note:el('payrollNote').value.trim()};
+        if(payrollNet(item)<0){toast('Gaji bersih tidak boleh negatif.');return;}
+        const button=event.submitter;setButtonBusy(button,true,'Menyimpan...');
+        try{const {error}=await db.from('payroll').upsert(payrollToRow(item),{onConflict:'id'});if(error)throw error;closeModal('payrollModal');await loadCloudData(true);toast('Data gaji berhasil disimpan.');}catch(error){showSyncError(error);}finally{setButtonBusy(button,false);}
+      }
+      async function handlePayrollTableClick(event){
+        const edit=event.target.closest('[data-payroll-edit]');if(edit){openPayrollModal(state.payroll.find(item=>item.id===edit.dataset.payrollEdit));return;}
+        const del=event.target.closest('[data-payroll-delete]');if(del&&confirm('Hapus data gaji ini?')){const {error}=await db.from('payroll').delete().eq('id',del.dataset.payrollDelete);if(error){showSyncError(error);return;}await loadCloudData(true);toast('Data gaji dihapus.');}
+      }
+      function exportPayrollCSV(){
+        const rows=filteredPayroll();if(!rows.length){toast('Tidak ada data gaji untuk diekspor.');return;}
+        const csvRows=[['Periode','Toko','Nama','Jabatan','Gaji Pokok','Tunjangan','Bonus','Potongan','Gaji Bersih','Status','Tanggal Bayar','Keterangan'],...rows.map(item=>[item.month,item.store,item.employeeName,item.position,item.baseSalary,item.allowance,item.bonus,item.deduction,payrollNet(item),payrollStatusLabel(item.status),item.paidDate||'',item.note||''])];downloadFile(`gaji-karyawan-${el('payrollMonthFilter').value||currentMonth()}.csv`,'\ufeff'+toCSV(csvRows),'text/csv;charset=utf-8');toast('Data gaji berhasil diekspor.');
+      }
+
       function renderProfiles(){
         if(!canViewAll()||!el('profilesTable'))return;
         if(!state.profiles.length){el('profilesTable').innerHTML=emptyState('Belum ada profil akun','Sinkronkan ulang setelah membuat pengguna di Supabase Authentication.');return;}
@@ -3130,11 +3287,11 @@ NOTIFY pgrst, 'reload schema';`
       }
 
       function exportEventsCSV(){if(!canViewAll())return;const rows=[['Nama Event','Tanggal Mulai','Tanggal Selesai','Lokasi','Penyelenggara','Status','Pemasukan','Pengeluaran','Pengeluaran Cash','Cash Bersih','Saldo','Jumlah Bahan','Keterangan']];state.events.forEach(e=>{const tx=state.transactions.filter(t=>t.eventId===e.id),materials=state.inventory.filter(i=>i.eventId===e.id),income=sumByType(tx,'income'),expense=sumByType(tx,'expense'),cash=cashSummary(tx);rows.push([e.name,e.eventDate,e.endDate,e.location,e.organizer,getEventStatus(e).label,income,expense,cash.cashExpense,cash.net,income-expense,materials.length,e.note||'']);});downloadFile(`rekap-event-${todayISO()}.csv`,'\ufeff'+toCSV(rows),'text/csv;charset=utf-8');toast('File event berhasil diekspor.');}
-      function backupJSON(){if(!isAdmin())return;downloadFile(`cadangan-rekap-toko-cloud-${todayISO()}.json`,JSON.stringify({version:8,exportedAt:new Date().toISOString(),stores:STORES,transactions:state.transactions,inventory:state.inventory,inventoryDaily:state.inventoryDaily,events:state.events},null,2),'application/json');toast('Cadangan data berhasil diunduh.');}
+      function backupJSON(){if(!isAdmin())return;downloadFile(`cadangan-rekap-toko-cloud-${todayISO()}.json`,JSON.stringify({version:9,exportedAt:new Date().toISOString(),stores:STORES,transactions:state.transactions,inventory:state.inventory,inventoryDaily:state.inventoryDaily,events:state.events,payroll:state.payroll},null,2),'application/json');toast('Cadangan data berhasil diunduh.');}
 
-      async function restoreJSON(event){if(!isAdmin())return;const file=event.target.files[0];if(!file)return;try{const data=JSON.parse(await file.text());if(!Array.isArray(data.transactions)||!Array.isArray(data.inventory))throw new Error('Format file tidak sesuai.');if(!confirm('Ganti seluruh data cloud dengan isi file cadangan ini?'))return;el('loadingCover').hidden=false;await deleteAllCloudRows();await upsertInChunks('events',(data.events||[]).map(item=>eventToRow({...item,id:item.id||uid()})));await upsertInChunks('transactions',data.transactions.map(item=>transactionToRow({...item,id:item.id||uid()})));await upsertInChunks('inventory',data.inventory.map(item=>inventoryToRow({...item,id:item.id||uid()})));await upsertInChunks('inventory_daily',(data.inventoryDaily||[]).map(item=>dailyRecordToRow({...item,id:item.id||uid()})));await loadCloudData(true);toast('Data cloud berhasil dipulihkan.');}catch(error){showSyncError(error);}finally{event.target.value='';el('loadingCover').hidden=true;}}
+      async function restoreJSON(event){if(!isAdmin())return;const file=event.target.files[0];if(!file)return;try{const data=JSON.parse(await file.text());if(!Array.isArray(data.transactions)||!Array.isArray(data.inventory))throw new Error('Format file tidak sesuai.');if(!confirm('Ganti seluruh data cloud dengan isi file cadangan ini?'))return;el('loadingCover').hidden=false;await deleteAllCloudRows();await upsertInChunks('events',(data.events||[]).map(item=>eventToRow({...item,id:item.id||uid()})));await upsertInChunks('transactions',data.transactions.map(item=>transactionToRow({...item,id:item.id||uid()})));await upsertInChunks('inventory',data.inventory.map(item=>inventoryToRow({...item,id:item.id||uid()})));await upsertInChunks('inventory_daily',(data.inventoryDaily||[]).map(item=>dailyRecordToRow({...item,id:item.id||uid()})));await upsertInChunks('payroll',(data.payroll||[]).map(item=>payrollToRow({...item,id:item.id||uid()})));await loadCloudData(true);toast('Data cloud berhasil dipulihkan.');}catch(error){showSyncError(error);}finally{event.target.value='';el('loadingCover').hidden=true;}}
       async function clearAllData(){if(!isAdmin())return;if(!confirm('Yakin menghapus SEMUA transaksi, bahan, dan event dari Supabase?'))return;if(!confirm('Konfirmasi terakhir: tindakan ini tidak dapat dibatalkan.'))return;try{el('loadingCover').hidden=false;await deleteAllCloudRows();await loadCloudData(true);toast('Semua data cloud berhasil dihapus.');}catch(error){showSyncError(error);}finally{el('loadingCover').hidden=true;}}
-      async function deleteAllCloudRows(){const daily=await db.from('inventory_daily').delete().neq('id','');if(daily.error)throw daily.error;const [tx,inventory,events]=await Promise.all([db.from('transactions').delete().neq('id',''),db.from('inventory').delete().neq('id',''),db.from('events').delete().neq('id','')]);if(tx.error)throw tx.error;if(inventory.error)throw inventory.error;if(events.error)throw events.error;}
+      async function deleteAllCloudRows(){const daily=await db.from('inventory_daily').delete().neq('id','');if(daily.error)throw daily.error;const [tx,inventory,payroll,events]=await Promise.all([db.from('transactions').delete().neq('id',''),db.from('inventory').delete().neq('id',''),db.from('payroll').delete().neq('id',''),db.from('events').delete().neq('id','')]);if(tx.error)throw tx.error;if(inventory.error)throw inventory.error;if(payroll.error)throw payroll.error;if(events.error)throw events.error;}
       async function upsertInChunks(table,rows){for(let i=0;i<rows.length;i+=500){const {error}=await db.from(table).upsert(rows.slice(i,i+500));if(error)throw error;}}
 
       async function loadDemoData(){if(!isAdmin())return;if((state.transactions.length||state.inventory.length||state.events.length)&&!confirm('Data contoh akan ditambahkan ke data yang sudah ada. Lanjutkan?'))return;const start=todayISO();const endDate=new Date();endDate.setDate(endDate.getDate()+2);const demoEvent={id:uid(),name:'Festival Kuliner Contoh',eventDate:start,endDate:jakartaDate(endDate),location:'Jakarta',organizer:'Tim Event',note:'Contoh rekapan event',createdAt:new Date().toISOString()};const tx=[{id:uid(),date:start,store:'Chickumbar Blok M',eventId:null,type:'income',paymentMethod:'cash',category:'Penjualan Harian',amount:2850000,note:'Penjualan outlet',createdAt:new Date().toISOString()},{id:uid(),date:start,store:EVENT_STORE,eventId:demoEvent.id,type:'income',paymentMethod:'cash',category:'Penjualan Event',amount:4200000,note:'Penjualan hari pertama event',createdAt:new Date().toISOString()},{id:uid(),date:start,store:EVENT_STORE,eventId:demoEvent.id,type:'expense',paymentMethod:'cash',category:'Sewa Booth Event',amount:1200000,note:'Biaya booth',createdAt:new Date().toISOString()}].map(transactionToRow);const inv=[{id:uid(),store:'Chickumbar Blok M',eventId:null,name:'Ayam fillet',unit:'kg',stock:18,min:10,price:42000,note:'Supplier utama',updatedAt:new Date().toISOString()},{id:uid(),store:EVENT_STORE,eventId:demoEvent.id,name:'Mangga',unit:'kg',stock:12,min:5,price:28000,note:'Kebutuhan event',updatedAt:new Date().toISOString()}].map(inventoryToRow);try{el('loadingCover').hidden=false;await upsertInChunks('events',[eventToRow(demoEvent)]);await upsertInChunks('transactions',tx);await upsertInChunks('inventory',inv);await loadCloudData(true);toast('Data contoh berhasil ditambahkan.');}catch(error){showSyncError(error);}finally{el('loadingCover').hidden=true;}}
