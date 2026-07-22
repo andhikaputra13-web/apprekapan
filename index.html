@@ -549,9 +549,8 @@
     }
     .cloud-dot { width: 8px; height: 8px; border-radius: 50%; background: #94a3b8; }
     .cloud-pill.online .cloud-dot { background: var(--green); box-shadow: 0 0 0 4px rgba(22,163,74,.12); }
-    .cloud-pill.syncing .cloud-dot { background: var(--primary); animation: pulse 1s infinite; }
+    .cloud-pill.syncing .cloud-dot { background: var(--primary); }
     .cloud-pill.error .cloud-dot { background: var(--red); }
-    @keyframes pulse { 50% { opacity: .35; } }
     .user-chip { font-size: 11px; color: var(--muted); max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .sync-banner {
       margin-bottom: 16px; padding: 13px 15px; border-radius: 13px;
@@ -1032,7 +1031,7 @@
     </div>
   </section>
 
-  <div class="loading-cover" id="loadingCover" hidden><div class="loading-box">Menyinkronkan data…</div></div>
+  <div class="loading-cover" id="loadingCover" hidden><div class="loading-box">Memproses data…</div></div>
 
 
   <div class="app" id="appShell" hidden>
@@ -1986,7 +1985,6 @@ NOTIFY pgrst, 'reload schema';`
       async function showApp(session){
         try{
           currentSession=session;
-          el('loadingCover').hidden=false;
           await loadCurrentProfile(session.user);
           applyRoleUI();
           el('setupScreen').hidden=true;el('authScreen').hidden=true;el('appShell').hidden=false;
@@ -1997,7 +1995,6 @@ NOTIFY pgrst, 'reload schema';`
           await loadCloudData(true);
           startCloudRefresh();
         }catch(error){showSetup(friendlyError(error));}
-        finally{el('loadingCover').hidden=true;}
       }
 
       async function loadCurrentProfile(user){
@@ -2561,7 +2558,7 @@ NOTIFY pgrst, 'reload schema';`
 
       async function loadCloudData(silent=false){
         if(!db||dataLoading||!navigator.onLine){if(!navigator.onLine)setCloudStatus('error','Offline');return;}
-        dataLoading=true;if(!silent)el('loadingCover').hidden=false;setCloudStatus('syncing','Menyinkronkan');
+        dataLoading=true;setCloudStatus('syncing','Menyinkronkan');
         try{
           if(currentSession?.user){
             const {data:profileData,error:profileError}=await db.from('profiles').select('user_id,email,role,branch,branches,created_at').eq('user_id',currentSession.user.id).single();
@@ -2596,7 +2593,7 @@ NOTIFY pgrst, 'reload schema';`
           refreshEventSelects();
           el('lastSyncText').textContent=new Intl.DateTimeFormat('id-ID',{timeZone:'Asia/Jakarta',hour:'2-digit',minute:'2-digit',second:'2-digit'}).format(new Date());
           hideSyncError();renderAll();setCloudStatus('online','Tersinkron');
-        }catch(error){showSyncError(error);}finally{dataLoading=false;el('loadingCover').hidden=true;}
+        }catch(error){showSyncError(error);}finally{dataLoading=false;}
       }
 
       function startCloudRefresh(){stopCloudRefresh();refreshTimer=setInterval(()=>loadCloudData(true),30000);try{cloudChannel=db.channel('rekap-toko-cloud-v6').on('postgres_changes',{event:'*',schema:'public',table:'transactions'},scheduleRealtimeRefresh).on('postgres_changes',{event:'*',schema:'public',table:'inventory'},scheduleRealtimeRefresh).on('postgres_changes',{event:'*',schema:'public',table:'inventory_daily'},scheduleRealtimeRefresh).on('postgres_changes',{event:'*',schema:'public',table:'events'},scheduleRealtimeRefresh).on('postgres_changes',{event:'*',schema:'public',table:'profiles'},scheduleRealtimeRefresh).subscribe();}catch(error){console.warn('Realtime tidak aktif, polling tetap berjalan.',error);}}
