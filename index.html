@@ -711,12 +711,23 @@
     .event-panel { padding:18px 20px 22px; }
     .event-panel[hidden] { display:none !important; }
     .event-panel .toolbar { margin-bottom:14px; }
+    .event-main-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .event-recap-heading { display:flex; align-items:flex-end; justify-content:space-between; gap:16px; margin:24px 2px 12px; }
+    .event-recap-heading-copy { min-width:0; }
+    .event-recap-heading h3 { margin: 0; font-size: 18px; }
+    .event-recap-heading p { margin: 5px 0 0; color: var(--muted); font-size: 13px; }
+    .event-recap-heading .event-selector-wrap { min-width:300px; }
+    .event-recap-stats { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    @media (max-width:1100px){ .event-recap-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    @media (max-width:560px){ .event-recap-stats { grid-template-columns: 1fr; } }
+    .event-transaction-stats { margin:14px 0 16px; }
     .event-scope-note { margin:0 0 14px; padding:11px 13px; border:1px solid #fed7aa; border-radius:10px; background:#fff7ed; color:#9a3412; font-size:12px; line-height:1.5; }
     .event-panel .daily-recap-summary { margin-top:14px; }
     .event-panel .table-card { margin-top:14px; }
     .scope-hidden { display:none !important; }
     @media (max-width:780px){
       .event-workspace-head { align-items:stretch; flex-direction:column; }
+      .event-recap-heading { align-items:stretch; flex-direction:column; }
       .event-selector-wrap { min-width:0; width:100%; }
       .event-panel { padding:14px; }
       .event-tabs { padding:10px 14px; }
@@ -987,11 +998,26 @@
 
         <section class="view" data-full-view id="view-events">
           <div class="toolbar"><div><h3>Event</h3><p id="eventAccessText">Event berdiri sendiri dan tidak digabungkan dengan transaksi maupun bahan operasional toko.</p></div><div class="toolbar-actions"><button class="btn btn-light" id="exportEventsBtn">⇩ Ekspor Daftar Event</button><button class="btn btn-primary" id="addEventBtn" data-admin-write>＋ Tambah Event</button></div></div>
-          <div class="grid stats">
+          <div class="grid stats event-main-stats">
             <article class="card stat-card"><div class="stat-label">Total Event</div><div class="stat-value" id="statEventCount">0</div><div class="stat-sub">Seluruh kegiatan tercatat</div></article>
             <article class="card stat-card income"><div class="stat-label">Event Aktif/Mendatang</div><div class="stat-value" id="statEventActive">0</div><div class="stat-sub">Belum selesai</div></article>
+          </div>
+
+          <div class="event-recap-heading">
+            <div class="event-recap-heading-copy">
+              <h3>Rekapan Event</h3>
+              <p id="eventRecapSubtitle">Pilih event untuk melihat ringkasan keuangannya.</p>
+            </div>
+            <div class="event-selector-wrap">
+              <label for="eventWorkspaceSelect">Pilih Event</label>
+              <select class="select" id="eventWorkspaceSelect"></select>
+            </div>
+          </div>
+          <div class="grid stats event-recap-stats">
             <article class="card stat-card income"><div class="stat-label">Pemasukan Event</div><div class="stat-value" id="statEventIncome">Rp0</div><div class="stat-sub">Tidak masuk ke rekapan toko</div></article>
-            <article class="card stat-card profit"><div class="stat-label">Saldo Bersih Event</div><div class="stat-value" id="statEventProfit">Rp0</div><div class="stat-sub">Pemasukan dikurangi pengeluaran</div></article>
+            <article class="card stat-card expense"><div class="stat-label">Pengeluaran Event</div><div class="stat-value" id="statEventExpense">Rp0</div><div class="stat-sub">Total seluruh pengeluaran event terpilih</div></article>
+            <article class="card stat-card cash-net"><div class="stat-label">Cash Bersih Event</div><div class="stat-value" id="statEventCashNet">Rp0</div><div class="stat-sub">Pemasukan Cash dikurangi pengeluaran Cash</div></article>
+            <article class="card stat-card profit"><div class="stat-label">Saldo Bersih Event</div><div class="stat-value" id="statEventProfit">Rp0</div><div class="stat-sub">Pemasukan dikurangi seluruh pengeluaran</div></article>
           </div>
           <div class="card filters" style="margin-top:18px">
             <input class="input" id="eventSearch" placeholder="Cari nama, lokasi, atau penyelenggara..." />
@@ -1002,10 +1028,6 @@
           <article class="card event-workspace" id="eventWorkspace">
             <div class="event-workspace-head">
               <div><h3>Operasional Event</h3><p id="eventWorkspaceSubtitle">Pilih event untuk membuka data operasional khusus event.</p></div>
-              <div class="event-selector-wrap">
-                <label for="eventWorkspaceSelect">Event yang Dibuka</label>
-                <select class="select" id="eventWorkspaceSelect"></select>
-              </div>
             </div>
             <div class="event-tabs" id="eventTabs">
               <button class="event-tab-btn active" type="button" data-event-tab="transactions">Pemasukan & Pengeluaran</button>
@@ -1014,12 +1036,18 @@
             </div>
 
             <section class="event-panel" id="eventPanelTransactions" data-event-panel="transactions">
-              <p class="event-scope-note">Transaksi di bagian ini hanya menjadi milik event yang dipilih dan tidak dihitung sebagai pemasukan atau pengeluaran toko.</p>
-              <div class="toolbar"><div><h3>Pemasukan & Pengeluaran Event</h3><p>Catat penjualan, sewa lokasi, transportasi, dan biaya event lainnya.</p></div><div class="toolbar-actions"><button class="btn btn-light" id="exportEventTransactionsBtn">⇩ Ekspor CSV</button><button class="btn btn-primary" id="addEventTransactionBtn" data-admin-write>＋ Tambah Transaksi Event</button></div></div>
-              <div class="card filters">
+              <p class="event-scope-note">Transaksi di bagian ini hanya menjadi milik event yang dipilih dan tidak dihitung sebagai pemasukan atau pengeluaran toko. Form, tambah baris, metode pembayaran, filter, tabel, edit, dan hapus menggunakan alur yang sama seperti transaksi toko.</p>
+              <div class="toolbar"><div><h3>Pemasukan & Pengeluaran Event</h3><p>Catat transaksi Event dengan alur yang sama seperti transaksi toko. Metode pembayaran tersedia dalam Cash dan QRIS.</p></div><div class="toolbar-actions"><button class="btn btn-light" id="exportEventTransactionsBtn">⇩ Ekspor CSV</button><button class="btn btn-primary" id="addEventTransactionBtn" data-admin-write>＋ Tambah Transaksi Event</button></div></div>
+              <div class="card filters transaction-filters">
                 <input class="input" id="eventTransactionSearch" placeholder="Cari kategori atau keterangan..." />
                 <select class="select" id="eventTransactionTypeFilter"><option value="all">Semua Jenis</option><option value="income">Pemasukan</option><option value="expense">Pengeluaran</option></select>
+                <select class="select" id="eventTransactionPaymentFilter"><option value="all">Semua Pembayaran</option><option value="cash">Cash</option><option value="qris">QRIS</option></select>
                 <input class="input" type="month" id="eventTransactionMonthFilter" />
+              </div>
+              <div class="grid stats event-transaction-stats transaction-cash-summary">
+                <article class="card stat-card income"><div class="stat-label">Pemasukan Event</div><div class="stat-value" id="eventTransactionIncome">Rp0</div><div class="stat-sub" id="eventTransactionIncomeSub">Total pemasukan periode terpilih</div></article>
+                <article class="card stat-card expense"><div class="stat-label">Pengeluaran Event</div><div class="stat-value" id="eventTransactionExpense">Rp0</div><div class="stat-sub" id="eventTransactionExpenseSub">Total pengeluaran periode terpilih</div></article>
+                <article class="card stat-card cash-net"><div class="stat-label">Cash Bersih Event</div><div class="stat-value" id="eventTransactionCashNet">Rp0</div><div class="stat-sub" id="eventTransactionCashNetSub">Pemasukan Cash dikurangi pengeluaran Cash</div></article>
               </div>
               <article class="card table-card"><div class="table-wrap" id="eventTransactionsTable"></div></article>
             </section>
@@ -1090,7 +1118,7 @@
         <div class="modal-body">
           <input type="hidden" id="transactionId" /><input type="hidden" id="transactionContext" value="store" />
           <div class="transaction-list-head">
-            <div><strong>Detail transaksi</strong><small>Isi data utama satu kali. Baris tambahan hanya membutuhkan keterangan dan nominal.</small></div>
+            <div><strong>Detail transaksi</strong><small id="transactionListDescription">Isi data utama satu kali. Baris tambahan hanya membutuhkan keterangan dan nominal.</small></div>
           </div>
           <div class="transaction-batch-list" id="transactionRows">
             <div class="transaction-entry" data-transaction-entry data-main-transaction-entry>
@@ -1161,7 +1189,6 @@
         <div class="field"><label for="eventEndDate">Tanggal Selesai</label><input class="input" type="date" id="eventEndDate" required /></div>
         <div class="field"><label for="eventLocation">Lokasi</label><input class="input" id="eventLocation" required /></div>
         <div class="field"><label for="eventOrganizer">Penyelenggara/PIC</label><input class="input" id="eventOrganizer" /></div>
-        <div class="field full"><label for="eventTargetSales">Target Penjualan (Rp)</label><input class="input" type="number" id="eventTargetSales" min="0" step="1" value="0" /></div>
         <div class="field full"><label for="eventNote">Keterangan</label><textarea class="textarea" id="eventNote"></textarea></div>
       </div></div><div class="modal-foot"><button type="button" class="btn btn-light" data-close="eventModal">Batal</button><button type="submit" class="btn btn-primary">Simpan Event</button></div></form>
     </div>
@@ -1882,9 +1909,9 @@ NOTIFY pgrst, 'reload schema';`
         populateEventSelect(el('inventoryEvent'),{includeNone:true});
         const workspace=el('eventWorkspaceSelect');
         const previous=workspace.value;
-        populateEventSelect(workspace,{includeNone:false});
+        populateEventSelect(workspace,{includeAll:true,includeNone:false});
         if(previous&&[...workspace.options].some(option=>option.value===previous))workspace.value=previous;
-        else if(state.events.length)workspace.value=state.events[0].id;
+        else workspace.value='all';
       }
 
       function bindEvents(){
@@ -1912,9 +1939,9 @@ NOTIFY pgrst, 'reload schema';`
         el('inventoryNextDateBtn').addEventListener('click',()=>shiftInventoryDate(1));
         el('inventoryStoreFilter').addEventListener('change',renderInventory);
         ['eventSearch','eventStatusFilter'].forEach(id=>el(id).addEventListener('input',renderEvents));
-        el('eventWorkspaceSelect').addEventListener('change',renderEventWorkspace);
+        el('eventWorkspaceSelect').addEventListener('change',renderEvents);
         el('eventTabs').addEventListener('click',event=>{const button=event.target.closest('[data-event-tab]');if(button)switchEventTab(button.dataset.eventTab);});
-        ['eventTransactionSearch','eventTransactionTypeFilter','eventTransactionMonthFilter'].forEach(id=>el(id).addEventListener('input',renderEventTransactions));
+        ['eventTransactionSearch','eventTransactionTypeFilter','eventTransactionPaymentFilter','eventTransactionMonthFilter'].forEach(id=>el(id).addEventListener('input',renderEventTransactions));
         ['eventInventorySearch','eventInventoryStatusFilter'].forEach(id=>el(id).addEventListener('input',renderEventInventory));
         el('eventMaterialsSearch').addEventListener('input',renderEventMaterials);
         el('eventInventoryDateFilter').addEventListener('change',renderEventInventory);
@@ -1957,7 +1984,7 @@ NOTIFY pgrst, 'reload schema';`
 
       function transactionEntries(){return[...el('transactionRows').querySelectorAll('[data-transaction-entry]')];}
       function transactionTotalAmount(){return transactionEntries().reduce((total,entry)=>{const amount=Number(entry.querySelector('.transaction-row-amount')?.value||0);return total+(Number.isFinite(amount)&&amount>0?amount:0);},0);}
-      function updateTransactionTotal(){const entries=transactionEntries();const total=transactionTotalAmount();el('transactionTotalLabel').textContent=`Total nominal ${entries.length} baris`;el('transactionTotalAmount').textContent=rawMoney(total);const editing=!!el('transactionId').value;el('transactionSubmitBtn').textContent=editing?`Simpan Perubahan · ${rawMoney(total)}`:`Simpan ${entries.length} Transaksi · ${rawMoney(total)}`;}
+      function updateTransactionTotal(){const entries=transactionEntries();const total=transactionTotalAmount();const eventMode=el('transactionContext').value==='event';const scopeLabel=eventMode?'Event':'Toko';el('transactionTotalLabel').textContent=`Total nominal ${entries.length} baris`;el('transactionTotalAmount').textContent=rawMoney(total);const editing=!!el('transactionId').value;el('transactionSubmitBtn').textContent=editing?`Simpan Perubahan Transaksi ${scopeLabel} · ${rawMoney(total)}`:`Simpan ${entries.length} Transaksi ${scopeLabel} · ${rawMoney(total)}`;}
       function refreshTransactionEntryControls(){const entries=transactionEntries();const editing=!!el('transactionId').value;entries.forEach((entry,index)=>{entry.querySelector('.transaction-entry-title').textContent=editing?'Detail Transaksi':index===0?'Transaksi Utama':`Baris Tambahan ${index+1}`;const remove=entry.querySelector('[data-remove-transaction-row]');if(remove)remove.hidden=editing||index===0;const add=entry.querySelector('[data-add-transaction-row]');if(add)add.hidden=editing;});el('transactionBatchNote').hidden=editing;updateTransactionTotal();}
       function addTransactionRow(afterEntry=null){if(el('transactionId').value)return;const entry=document.createElement('div');entry.className='transaction-entry transaction-extra-entry';entry.dataset.transactionEntry='';entry.innerHTML=`<div class="transaction-entry-head"><strong class="transaction-entry-title"></strong><button type="button" class="transaction-remove-btn" data-remove-transaction-row>Hapus</button></div><div class="form-grid"><div class="field full"><label>Keterangan</label><textarea class="textarea transaction-row-note" placeholder="Contoh: Penjualan menu tambahan"></textarea></div><div class="field full"><label>Nominal (Rp)</label><input class="input transaction-row-amount" type="number" min="0" step="1" placeholder="0" required /></div></div><div class="transaction-add-wrap"><button type="button" class="btn btn-light transaction-add-small" data-add-transaction-row>＋ Tambah Baris</button></div>`;if(afterEntry&&afterEntry.parentElement===el('transactionRows'))afterEntry.insertAdjacentElement('afterend',entry);else el('transactionRows').appendChild(entry);refreshTransactionEntryControls();setTimeout(()=>entry.querySelector('.transaction-row-note').focus(),60);}
       function handleTransactionRowClick(event){const add=event.target.closest('[data-add-transaction-row]');if(add){addTransactionRow(add.closest('[data-transaction-entry]'));return;}const remove=event.target.closest('[data-remove-transaction-row]');if(!remove)return;const entry=remove.closest('[data-transaction-entry]');if(entry&&!entry.hasAttribute('data-main-transaction-entry')){entry.remove();refreshTransactionEntryControls();}}
@@ -1981,8 +2008,10 @@ NOTIFY pgrst, 'reload schema';`
         el('transactionNote').value='';
         el('transactionStoreField').classList.toggle('scope-hidden',eventMode);
         el('transactionEventField').classList.toggle('scope-hidden',!eventMode);
-        el('transactionPaymentField').classList.toggle('scope-hidden',eventMode);
+        el('transactionPaymentField').classList.remove('scope-hidden');
         el('transactionModalTitle').textContent=eventMode?'Tambah Transaksi Event':'Tambah Transaksi Toko';
+        el('transactionListDescription').textContent=eventMode?'Isi tanggal, Event, jenis, metode pembayaran, dan kategori satu kali. Baris tambahan hanya membutuhkan keterangan dan nominal.':'Isi tanggal, toko, jenis, metode pembayaran, dan kategori satu kali. Baris tambahan hanya membutuhkan keterangan dan nominal.';
+        el('transactionBatchNote').textContent=eventMode?'Setiap baris tambahan memakai tanggal, Event, jenis, metode pembayaran, dan kategori yang sama dengan transaksi utama.':'Setiap baris tambahan memakai tanggal, toko, jenis, metode pembayaran, dan kategori yang sama dengan transaksi utama.';
         if(existing){
           el('transactionId').value=existing.id;
           el('transactionDate').value=existing.date;
@@ -2013,7 +2042,7 @@ NOTIFY pgrst, 'reload schema';`
           store:eventMode?EVENT_STORE:main.querySelector('.transaction-row-store').value,
           eventId:eventMode&&eventValue!=='none'?eventValue:null,
           type:main.querySelector('.transaction-row-type').value,
-          paymentMethod:eventMode?'cash':main.querySelector('.transaction-row-payment').value,
+          paymentMethod:main.querySelector('.transaction-row-payment').value,
           category:main.querySelector('.transaction-row-category').value.trim()
         };
         if(!common.date||!common.store||!common.category||(eventMode&&!common.eventId)){
@@ -2026,13 +2055,14 @@ NOTIFY pgrst, 'reload schema';`
         const invalidIndex=items.findIndex(item=>!Number.isFinite(item.amount)||item.amount<0);
         if(invalidIndex>=0){const target=entries[invalidIndex];target.scrollIntoView({behavior:'smooth',block:'center'});target.querySelector('.transaction-row-amount').focus();return toast(`Isi nominal yang valid pada baris ${invalidIndex+1}.`);}
         const totalAmount=items.reduce((sum,item)=>sum+item.amount,0);
-        const button=event.submitter;setButtonBusy(button,true,`Menyimpan ${rawMoney(totalAmount)}…`);
+        const scopeLabel=eventMode?'Event':'Toko';
+        const button=event.submitter;setButtonBusy(button,true,`Menyimpan Transaksi ${scopeLabel} ${rawMoney(totalAmount)}…`);
         try{
           const {error}=await db.from('transactions').upsert(items.map(transactionToRow));
           if(error)throw error;
           closeModal('transactionModal');
           await loadCloudData(true);
-          toast(existing?`Transaksi berhasil diperbarui. Total ${rawMoney(totalAmount)}.`:`${items.length} transaksi berhasil ditambahkan. Total ${rawMoney(totalAmount)}.`);
+          toast(existing?`Transaksi ${scopeLabel} berhasil diperbarui. Total ${rawMoney(totalAmount)}.`:`${items.length} transaksi ${scopeLabel} berhasil ditambahkan. Total ${rawMoney(totalAmount)}.`);
         }catch(error){showSyncError(error);}finally{setButtonBusy(button,false);refreshTransactionEntryControls();}
       }
 
@@ -2043,7 +2073,7 @@ NOTIFY pgrst, 'reload schema';`
       function selectedEventInventoryDate(){return el('eventInventoryDateFilter').value||todayISO();}
       function shiftEventInventoryDate(days){const current=new Date(`${selectedEventInventoryDate()}T12:00:00`);current.setDate(current.getDate()+days);changeEventInventoryDate(jakartaDate(current));}
       function changeEventInventoryDate(date){el('eventInventoryDateFilter').value=date;renderEventInventory();}
-      function selectEventWorkspace(eventId,tab='transactions'){if(eventId&&[...el('eventWorkspaceSelect').options].some(option=>option.value===eventId))el('eventWorkspaceSelect').value=eventId;switchEventTab(tab);renderEventWorkspace();setTimeout(()=>el('eventWorkspace').scrollIntoView({behavior:'smooth',block:'start'}),40);}
+      function selectEventWorkspace(eventId,tab='transactions'){if(eventId&&[...el('eventWorkspaceSelect').options].some(option=>option.value===eventId))el('eventWorkspaceSelect').value=eventId;activeEventTab=['transactions','inventory','materials'].includes(tab)?tab:'transactions';renderEvents();setTimeout(()=>el('eventWorkspace').scrollIntoView({behavior:'smooth',block:'start'}),40);}
       function switchEventTab(tab){activeEventTab=['transactions','inventory','materials'].includes(tab)?tab:'transactions';document.querySelectorAll('[data-event-tab]').forEach(button=>button.classList.toggle('active',button.dataset.eventTab===activeEventTab));document.querySelectorAll('[data-event-panel]').forEach(panel=>panel.hidden=panel.dataset.eventPanel!==activeEventTab);if(activeEventTab==='transactions')renderEventTransactions();if(activeEventTab==='inventory')renderEventInventory();if(activeEventTab==='materials')renderEventMaterials();}
 
       function shiftInventoryDate(days){const current=new Date(`${selectedInventoryDate()}T12:00:00`);current.setDate(current.getDate()+days);changeInventoryDate(jakartaDate(current));}
@@ -2188,15 +2218,15 @@ NOTIFY pgrst, 'reload schema';`
         try{const {error}=await db.from('inventory').upsert(inventoryToRow(item));if(error)throw error;closeModal('inventoryModal');await loadCloudData(true);toast(existing?'Bahan, satuan, dan stok minimum berhasil diperbarui.':eventMode?'Bahan event beserta satuannya berhasil ditambahkan.':'Bahan toko beserta satuannya berhasil ditambahkan dan akan tampil setiap hari.');}catch(error){showSyncError(error);}finally{setButtonBusy(button,false);}
       }
 
-      function openEventModal(id=null){if(!isAdmin())return;el('eventForm').reset();el('eventId').value='';el('eventDate').value=todayISO();el('eventEndDate').value=todayISO();el('eventTargetSales').value=0;el('eventModalTitle').textContent='Tambah Event';if(id){const item=state.events.find(e=>e.id===id);if(!item)return;el('eventId').value=item.id;el('eventName').value=item.name;el('eventDate').value=item.eventDate;el('eventEndDate').value=item.endDate;el('eventLocation').value=item.location;el('eventOrganizer').value=item.organizer;el('eventTargetSales').value=item.targetSales;el('eventNote').value=item.note||'';el('eventModalTitle').textContent='Edit Event';}openModal('eventModal');setTimeout(()=>el('eventName').focus(),80);}
-      async function saveEvent(event){event.preventDefault();if(!isAdmin())return;const existing=state.events.find(e=>e.id===el('eventId').value);const item={id:el('eventId').value||uid(),name:el('eventName').value.trim(),eventDate:el('eventDate').value,endDate:el('eventEndDate').value,location:el('eventLocation').value.trim(),organizer:el('eventOrganizer').value.trim(),targetSales:Number(el('eventTargetSales').value||0),note:el('eventNote').value.trim(),createdAt:existing?.createdAt||new Date().toISOString()};if(!item.name||!item.eventDate||!item.endDate||!item.location||item.endDate<item.eventDate||item.targetSales<0)return toast('Mohon periksa data event dan rentang tanggal.');const button=event.submitter;setButtonBusy(button,true,'Menyimpan…');try{const {error}=await db.from('events').upsert(eventToRow(item));if(error)throw error;closeModal('eventModal');await loadCloudData(true);toast(existing?'Event berhasil diperbarui.':'Event berhasil ditambahkan.');}catch(error){showSyncError(error);}finally{setButtonBusy(button,false);}}
+      function openEventModal(id=null){if(!isAdmin())return;el('eventForm').reset();el('eventId').value='';el('eventDate').value=todayISO();el('eventEndDate').value=todayISO();el('eventModalTitle').textContent='Tambah Event';if(id){const item=state.events.find(e=>e.id===id);if(!item)return;el('eventId').value=item.id;el('eventName').value=item.name;el('eventDate').value=item.eventDate;el('eventEndDate').value=item.endDate;el('eventLocation').value=item.location;el('eventOrganizer').value=item.organizer;el('eventNote').value=item.note||'';el('eventModalTitle').textContent='Edit Event';}openModal('eventModal');setTimeout(()=>el('eventName').focus(),80);}
+      async function saveEvent(event){event.preventDefault();if(!isAdmin())return;const existing=state.events.find(e=>e.id===el('eventId').value);const item={id:el('eventId').value||uid(),name:el('eventName').value.trim(),eventDate:el('eventDate').value,endDate:el('eventEndDate').value,location:el('eventLocation').value.trim(),organizer:el('eventOrganizer').value.trim(),note:el('eventNote').value.trim(),createdAt:existing?.createdAt||new Date().toISOString()};if(!item.name||!item.eventDate||!item.endDate||!item.location||item.endDate<item.eventDate)return toast('Mohon periksa data event dan rentang tanggal.');const button=event.submitter;setButtonBusy(button,true,'Menyimpan…');try{const {error}=await db.from('events').upsert(eventToRow(item));if(error)throw error;closeModal('eventModal');await loadCloudData(true);toast(existing?'Event berhasil diperbarui.':'Event berhasil ditambahkan.');}catch(error){showSyncError(error);}finally{setButtonBusy(button,false);}}
 
       function transactionToRow(item){return{id:item.id,transaction_date:item.date,store:item.store,event_id:item.eventId||null,type:item.type,payment_method:normalizePaymentMethod(item.paymentMethod),category:item.category,amount:item.amount,note:item.note||'',created_at:item.createdAt||new Date().toISOString()};}
       function inventoryToRow(item){return{id:item.id,store:item.store,event_id:item.eventId||null,name:item.name,unit:item.unit,stock:item.stock,min_stock:item.min,price:item.price,note:item.note||'',updated_at:item.updatedAt||new Date().toISOString()};}
-      function eventToRow(item){return{id:item.id,name:item.name,event_date:item.eventDate,end_date:item.endDate,location:item.location,organizer:item.organizer||'',target_sales:item.targetSales||0,note:item.note||'',created_at:item.createdAt||new Date().toISOString()};}
+      function eventToRow(item){return{id:item.id,name:item.name,event_date:item.eventDate,end_date:item.endDate,location:item.location,organizer:item.organizer||'',note:item.note||'',created_at:item.createdAt||new Date().toISOString()};}
       function rowToTransaction(row){return{id:row.id,date:row.transaction_date,store:row.store,eventId:row.event_id||null,type:row.type,paymentMethod:normalizePaymentMethod(row.payment_method),category:row.category,amount:Number(row.amount),note:row.note||'',createdAt:row.created_at};}
       function rowToInventory(row){return{id:row.id,store:row.store,eventId:row.event_id||null,name:row.name,unit:row.unit,stock:Number(row.stock),min:Number(row.min_stock),price:Number(row.price),note:row.note||'',updatedAt:row.updated_at};}
-      function rowToEvent(row){return{id:row.id,name:row.name,eventDate:row.event_date,endDate:row.end_date,location:row.location||'',organizer:row.organizer||'',targetSales:Number(row.target_sales||0),note:row.note||'',createdAt:row.created_at};}
+      function rowToEvent(row){return{id:row.id,name:row.name,eventDate:row.event_date,endDate:row.end_date,location:row.location||'',organizer:row.organizer||'',note:row.note||'',createdAt:row.created_at};}
 
       async function loadCloudData(silent=false){
         if(!db||dataLoading||!navigator.onLine){if(!navigator.onLine)setCloudStatus('error','Offline');return;}
@@ -2346,7 +2376,7 @@ NOTIFY pgrst, 'reload schema';`
       }
       function transactionTableMarkup(rows,editable,context='store'){
         const eventMode=context==='event';
-        return`<table><thead><tr><th>Tanggal</th>${eventMode?'':'<th>Toko</th>'}<th>Jenis</th>${eventMode?'':'<th>Pembayaran</th>'}<th>Kategori</th><th>Keterangan</th><th class="text-right">Nominal</th>${editable?'<th>Aksi</th>':''}</tr></thead><tbody>${rows.map(t=>`<tr><td>${formatDate(t.date)}</td>${eventMode?'':`<td><strong>${escapeHtml(t.store)}</strong></td>`}<td><span class="badge ${t.type==='income'?'badge-income':'badge-expense'}">${t.type==='income'?'Pemasukan':'Pengeluaran'}</span></td>${eventMode?'':`<td><span class="badge ${normalizePaymentMethod(t.paymentMethod)==='cash'?'badge-low':'badge-not-started'}">${escapeHtml(paymentMethodLabel(t.paymentMethod))}</span></td>`}<td>${escapeHtml(t.category)}</td><td class="muted">${escapeHtml(t.note||'-')}</td><td class="text-right ${t.type==='income'?'amount-income':'amount-expense'}">${t.type==='income'?'+':'-'} ${money(t.amount)}</td>${editable?`<td><div class="actions"><button class="icon-btn" data-edit-transaction="${t.id}" title="Edit">✎</button><button class="icon-btn danger" data-delete-transaction="${t.id}" title="Hapus">🗑</button></div></td>`:''}</tr>`).join('')}</tbody></table>`;
+        return`<table><thead><tr><th>Tanggal</th>${eventMode?'':'<th>Toko</th>'}<th>Jenis</th><th>Pembayaran</th><th>Kategori</th><th>Keterangan</th><th class="text-right">Nominal</th>${editable?'<th>Aksi</th>':''}</tr></thead><tbody>${rows.map(t=>`<tr><td>${formatDate(t.date)}</td>${eventMode?'':`<td><strong>${escapeHtml(t.store)}</strong></td>`}<td><span class="badge ${t.type==='income'?'badge-income':'badge-expense'}">${t.type==='income'?'Pemasukan':'Pengeluaran'}</span></td><td><span class="badge ${normalizePaymentMethod(t.paymentMethod)==='cash'?'badge-low':'badge-not-started'}">${escapeHtml(paymentMethodLabel(t.paymentMethod))}</span></td><td>${escapeHtml(t.category)}</td><td class="muted">${escapeHtml(t.note||'-')}</td><td class="text-right ${t.type==='income'?'amount-income':'amount-expense'}">${t.type==='income'?'+':'-'} ${money(t.amount)}</td>${editable?`<td><div class="actions"><button class="icon-btn" data-edit-transaction="${t.id}" title="Edit">✎</button><button class="icon-btn danger" data-delete-transaction="${t.id}" title="Hapus">🗑</button></div></td>`:''}</tr>`).join('')}</tbody></table>`;
       }
 
       function renderInventory(){
@@ -2428,18 +2458,30 @@ NOTIFY pgrst, 'reload schema';`
       function getEventStatus(item){const today=todayISO();if(item.eventDate>today)return{key:'upcoming',label:'Akan Datang',className:'event-status-upcoming'};if(item.endDate<today)return{key:'completed',label:'Selesai',className:'event-status-completed'};return{key:'ongoing',label:'Berlangsung',className:'event-status-ongoing'};}
       function renderEvents(){
         if(!canViewAll())return;
-        const allEventTx=state.transactions.filter(t=>t.eventId);
-        const eventIncome=sumByType(allEventTx,'income');
-        const eventExpense=sumByType(allEventTx,'expense');
+        const selectedEventId=selectedEventWorkspaceId();
+        const showAllEvents=selectedEventId==='all';
+        const recapEvent=showAllEvents?null:eventById(selectedEventId);
+        const validEventIds=new Set(state.events.map(event=>event.id));
+        const recapTx=showAllEvents
+          ? state.transactions.filter(transaction=>transaction.eventId&&validEventIds.has(transaction.eventId))
+          : recapEvent?state.transactions.filter(transaction=>transaction.eventId===recapEvent.id):[];
+        const eventIncome=sumByType(recapTx,'income');
+        const eventExpense=sumByType(recapTx,'expense');
+        const eventCash=cashSummary(recapTx);
         el('statEventCount').textContent=number(state.events.length);
         el('statEventActive').textContent=number(state.events.filter(e=>getEventStatus(e).key!=='completed').length);
         el('statEventIncome').textContent=money(eventIncome);
+        el('statEventExpense').textContent=money(eventExpense);
+        el('statEventCashNet').textContent=money(eventCash.net);
         el('statEventProfit').textContent=money(eventIncome-eventExpense);
+        el('eventRecapSubtitle').textContent=showAllEvents
+          ? `Ringkasan gabungan seluruh event • ${number(state.events.length)} event.`
+          : recapEvent?`Ringkasan keuangan ${recapEvent.name} • ${formatDate(recapEvent.eventDate)}${recapEvent.endDate!==recapEvent.eventDate?`–${formatDate(recapEvent.endDate)}`:''}.`:'Pilih event untuk melihat ringkasan keuangannya.';
         const query=el('eventSearch').value.toLowerCase().trim();
         const statusFilter=el('eventStatusFilter').value;
         const rows=state.events.filter(item=>{const status=getEventStatus(item);return(!query||`${item.name} ${item.location} ${item.organizer} ${item.note}`.toLowerCase().includes(query))&&(statusFilter==='all'||status.key===statusFilter);}).sort((a,b)=>b.eventDate.localeCompare(a.eventDate));
         if(!rows.length)el('eventsTable').innerHTML=emptyState('Belum ada event','Tambahkan event untuk membuat ruang transaksi dan bahan yang terpisah dari toko.');
-        else el('eventsTable').innerHTML=`<table><thead><tr><th>Event</th><th>Tanggal</th><th>Status</th><th>Pemasukan</th><th>Pengeluaran</th><th>Saldo</th><th>Bahan</th><th>Target</th><th>Aksi</th></tr></thead><tbody>${rows.map(item=>{const tx=state.transactions.filter(t=>t.eventId===item.id);const income=sumByType(tx,'income');const expense=sumByType(tx,'expense');const materials=state.inventory.filter(i=>i.eventId===item.id);const status=getEventStatus(item);return`<tr><td><div class="event-title"><strong>${escapeHtml(item.name)}</strong><small>${escapeHtml(item.location)}${item.organizer?` • ${escapeHtml(item.organizer)}`:''}</small></div></td><td>${formatDate(item.eventDate)}${item.endDate!==item.eventDate?`<br><small class="muted">s.d. ${formatDate(item.endDate)}</small>`:''}</td><td><span class="badge ${status.className}">${status.label}</span></td><td class="amount-income">${money(income)}</td><td class="amount-expense">${money(expense)}</td><td><strong>${money(income-expense)}</strong></td><td><div class="mini-summary"><strong>${materials.length} bahan</strong></div></td><td>${money(item.targetSales)}</td><td><div class="actions"><button class="icon-btn" data-event-transactions="${item.id}" title="Pemasukan & Pengeluaran Event">⇄</button><button class="icon-btn" data-event-inventory="${item.id}" title="Rekapan Bahan Event">▤</button><button class="icon-btn" data-event-materials="${item.id}" title="Daftar Bahan Event">＋</button>${isAdmin()?`<button class="icon-btn" data-edit-event="${item.id}" title="Edit Event">✎</button><button class="icon-btn danger" data-delete-event="${item.id}" title="Hapus Event">🗑</button>`:''}</div></td></tr>`;}).join('')}</tbody></table>`;
+        else el('eventsTable').innerHTML=`<table><thead><tr><th>Event</th><th>Tanggal</th><th>Status</th><th>Pemasukan</th><th>Pengeluaran</th><th>Cash Bersih</th><th>Saldo</th><th>Bahan</th><th>Aksi</th></tr></thead><tbody>${rows.map(item=>{const tx=state.transactions.filter(t=>t.eventId===item.id);const income=sumByType(tx,'income');const expense=sumByType(tx,'expense');const cash=cashSummary(tx);const materials=state.inventory.filter(i=>i.eventId===item.id);const status=getEventStatus(item);return`<tr><td><div class="event-title"><strong>${escapeHtml(item.name)}</strong><small>${escapeHtml(item.location)}${item.organizer?` • ${escapeHtml(item.organizer)}`:''}</small></div></td><td>${formatDate(item.eventDate)}${item.endDate!==item.eventDate?`<br><small class="muted">s.d. ${formatDate(item.endDate)}</small>`:''}</td><td><span class="badge ${status.className}">${status.label}</span></td><td class="amount-income">${money(income)}</td><td class="amount-expense">${money(expense)}</td><td><strong>${money(cash.net)}</strong></td><td><strong>${money(income-expense)}</strong></td><td><div class="mini-summary"><strong>${materials.length} bahan</strong></div></td><td><div class="actions"><button class="icon-btn" data-event-transactions="${item.id}" title="Pemasukan & Pengeluaran Event">⇄</button><button class="icon-btn" data-event-inventory="${item.id}" title="Rekapan Bahan Event">▤</button><button class="icon-btn" data-event-materials="${item.id}" title="Daftar Bahan Event">＋</button>${isAdmin()?`<button class="icon-btn" data-edit-event="${item.id}" title="Edit Event">✎</button><button class="icon-btn danger" data-delete-event="${item.id}" title="Hapus Event">🗑</button>`:''}</div></td></tr>`;}).join('')}</tbody></table>`;
         renderEventWorkspace();
       }
 
@@ -2447,9 +2489,12 @@ NOTIFY pgrst, 'reload schema';`
       function renderEventWorkspace(){
         if(!canViewAll())return;
         const eventId=selectedEventWorkspaceId();
-        const selected=eventById(eventId);
+        const showAllEvents=eventId==='all';
+        const selected=showAllEvents?null:eventById(eventId);
         const disabled=!selected;
-        el('eventWorkspaceSubtitle').textContent=selected?`${selected.name} • ${formatDate(selected.eventDate)}${selected.endDate!==selected.eventDate?`–${formatDate(selected.endDate)}`:''} • data tidak terhubung ke toko.`:'Pilih atau tambahkan event untuk membuka data operasional khusus event.';
+        el('eventWorkspaceSubtitle').textContent=showAllEvents
+          ? 'Semua Event sedang dipilih untuk Rekapan Event. Pilih satu event tertentu untuk membuka dan mengelola data operasionalnya.'
+          : selected?`${selected.name} • ${formatDate(selected.eventDate)}${selected.endDate!==selected.eventDate?`–${formatDate(selected.endDate)}`:''} • data tidak terhubung ke toko.`:'Pilih atau tambahkan event untuk membuka data operasional khusus event.';
         ['addEventTransactionBtn','addEventInventoryBtn','closeEventDailyRecapBtn','exportEventTransactionsBtn','exportEventInventoryBtn'].forEach(id=>{if(el(id))el(id).disabled=disabled||(id.startsWith('add')||id.startsWith('close')?!isAdmin():false);});
         switchEventTab(activeEventTab);
       }
@@ -2457,22 +2502,49 @@ NOTIFY pgrst, 'reload schema';`
       function renderEventTransactions(){
         if(!canViewAll())return;
         const eventId=selectedEventWorkspaceId();
-        if(!eventId){el('eventTransactionsTable').innerHTML=emptyState('Belum ada event yang dipilih','Pilih event pada slicer Event yang Dibuka.');return;}
+        const month=el('eventTransactionMonthFilter').value;
+        const periodLabel=month?new Intl.DateTimeFormat('id-ID',{month:'long',year:'numeric',timeZone:'Asia/Jakarta'}).format(new Date(`${month}-01T12:00:00`)):'seluruh periode';
+        if(!eventId||eventId==='all'){
+          ['eventTransactionIncome','eventTransactionExpense','eventTransactionCashNet'].forEach(id=>el(id).textContent=money(0));
+          const selectMessage=eventId==='all'?'Pilih satu event untuk data operasional':'Pilih event terlebih dahulu';
+          el('eventTransactionIncomeSub').textContent=selectMessage;
+          el('eventTransactionExpenseSub').textContent=selectMessage;
+          el('eventTransactionCashNetSub').textContent=selectMessage;
+          el('eventTransactionsTable').innerHTML=emptyState(eventId==='all'?'Semua Event dipilih untuk rekapan':'Belum ada event yang dipilih',eventId==='all'?'Pilih satu event tertentu pada slicer untuk melihat dan mengelola transaksinya.':'Pilih event pada slicer Rekapan Event.');
+          return;
+        }
         const query=el('eventTransactionSearch').value.toLowerCase().trim();
         const type=el('eventTransactionTypeFilter').value;
-        const month=el('eventTransactionMonthFilter').value;
-        const rows=state.transactions.filter(t=>t.eventId===eventId&&(!query||`${t.category} ${t.note||''}`.toLowerCase().includes(query))&&(type==='all'||t.type===type)&&(!month||t.date.startsWith(month))).sort((a,b)=>`${b.date}${b.createdAt||''}`.localeCompare(`${a.date}${a.createdAt||''}`));
-        el('eventTransactionsTable').innerHTML=rows.length?transactionTableMarkup(rows,isAdmin(),'event'):emptyState('Belum ada transaksi event','Tambahkan pemasukan atau pengeluaran khusus untuk event ini.');
+        const payment=el('eventTransactionPaymentFilter').value;
+        const periodRows=state.transactions.filter(t=>t.eventId===eventId&&(!month||t.date.startsWith(month)));
+        const income=sumByType(periodRows,'income');
+        const expense=sumByType(periodRows,'expense');
+        const cash=cashSummary(periodRows);
+        el('eventTransactionIncome').textContent=money(income);
+        el('eventTransactionExpense').textContent=money(expense);
+        el('eventTransactionCashNet').textContent=money(cash.net);
+        el('eventTransactionIncomeSub').textContent=`Total pemasukan ${periodLabel}`;
+        el('eventTransactionExpenseSub').textContent=`Total pengeluaran ${periodLabel}`;
+        el('eventTransactionCashNetSub').textContent=`Dikurangi pengeluaran Cash ${money(cash.cashExpense)}`;
+        const rows=periodRows.filter(t=>{
+          const matchesQuery=!query||`${t.category} ${t.note||''} ${paymentMethodLabel(t.paymentMethod)}`.toLowerCase().includes(query);
+          const matchesType=type==='all'||t.type===type;
+          const matchesPayment=payment==='all'||normalizePaymentMethod(t.paymentMethod)===payment;
+          return matchesQuery&&matchesType&&matchesPayment;
+        }).sort((a,b)=>`${b.date}${b.createdAt||''}`.localeCompare(`${a.date}${a.createdAt||''}`));
+        el('eventTransactionsTable').innerHTML=rows.length?transactionTableMarkup(rows,isAdmin(),'event'):emptyState('Transaksi event tidak ditemukan','Ubah filter atau tambahkan transaksi khusus untuk event ini.');
       }
 
       function renderEventInventory(){
         if(!canViewAll())return;
         const eventId=selectedEventWorkspaceId();
         const date=selectedEventInventoryDate();
-        if(!eventId){
+        if(!eventId||eventId==='all'){
           el('eventDailyRecapSummary').innerHTML='';
-          el('eventInventoryTable').innerHTML=emptyState('Belum ada event yang dipilih','Pilih event untuk melihat rekapan bahan.');
-          el('eventInventoryClosingDetails').innerHTML=emptyState('Belum ada event yang dipilih','Pilih event untuk melihat detail closing.');
+          const title=eventId==='all'?'Semua Event dipilih untuk rekapan':'Belum ada event yang dipilih';
+          const detail=eventId==='all'?'Pilih satu event tertentu untuk melihat rekapan bahan dan melakukan closing.':'Pilih event untuk melihat rekapan bahan.';
+          el('eventInventoryTable').innerHTML=emptyState(title,detail);
+          el('eventInventoryClosingDetails').innerHTML=emptyState(title,eventId==='all'?'Pilih satu event tertentu untuk melihat detail closing.':'Pilih event untuk melihat detail closing.');
           el('closeEventDailyRecapBtn').disabled=true;
           return;
         }
@@ -2495,7 +2567,7 @@ NOTIFY pgrst, 'reload schema';`
       function renderEventMaterials(){
         if(!canViewAll())return;
         const eventId=selectedEventWorkspaceId();
-        if(!eventId){el('eventMaterialsTable').innerHTML=emptyState('Belum ada event yang dipilih','Pilih event untuk membuka daftar bahan khusus event.');el('addEventInventoryBtn').disabled=true;return;}
+        if(!eventId||eventId==='all'){el('eventMaterialsTable').innerHTML=emptyState(eventId==='all'?'Semua Event dipilih untuk rekapan':'Belum ada event yang dipilih',eventId==='all'?'Pilih satu event tertentu untuk membuka daftar bahan khusus event.':'Pilih event untuk membuka daftar bahan khusus event.');el('addEventInventoryBtn').disabled=true;return;}
         const query=el('eventMaterialsSearch').value.toLowerCase().trim();
         const rows=state.inventory.filter(item=>item.eventId===eventId&&(!query||item.name.toLowerCase().includes(query))).sort((a,b)=>a.name.localeCompare(b.name));
         el('addEventInventoryBtn').hidden=!isAdmin();
@@ -2688,8 +2760,8 @@ NOTIFY pgrst, 'reload schema';`
         if(!canViewAll())return;
         const eventId=selectedEventWorkspaceId();
         if(!eventId)return toast('Pilih event terlebih dahulu.');
-        const rows=[['Tanggal','Event','Jenis','Kategori','Keterangan','Nominal']];
-        state.transactions.filter(t=>t.eventId===eventId).slice().sort((a,b)=>b.date.localeCompare(a.date)).forEach(t=>rows.push([t.date,eventName(eventId),t.type==='income'?'Pemasukan':'Pengeluaran',t.category,t.note||'',t.amount]));
+        const rows=[['Tanggal','Event','Jenis','Metode Pembayaran','Kategori','Keterangan','Nominal']];
+        state.transactions.filter(t=>t.eventId===eventId).slice().sort((a,b)=>b.date.localeCompare(a.date)).forEach(t=>rows.push([t.date,eventName(eventId),t.type==='income'?'Pemasukan':'Pengeluaran',paymentMethodLabel(t.paymentMethod),t.category,t.note||'',t.amount]));
         downloadFile(`transaksi-event-${eventName(eventId).replace(/[^a-z0-9]+/gi,'-').toLowerCase()}-${todayISO()}.csv`,'\ufeff'+toCSV(rows),'text/csv;charset=utf-8');toast('Transaksi event berhasil diekspor.');
       }
 
@@ -2703,7 +2775,7 @@ NOTIFY pgrst, 'reload schema';`
         downloadFile(`rekap-bahan-event-${eventName(eventId).replace(/[^a-z0-9]+/gi,'-').toLowerCase()}-${date}.csv`,'\ufeff'+toCSV(rows),'text/csv;charset=utf-8');toast('Rekapan bahan event berhasil diekspor.');
       }
 
-      function exportEventsCSV(){if(!canViewAll())return;const rows=[['Nama Event','Tanggal Mulai','Tanggal Selesai','Lokasi','Penyelenggara','Status','Pemasukan','Pengeluaran','Saldo','Jumlah Bahan','Target Penjualan','Keterangan']];state.events.forEach(e=>{const tx=state.transactions.filter(t=>t.eventId===e.id),materials=state.inventory.filter(i=>i.eventId===e.id),income=sumByType(tx,'income'),expense=sumByType(tx,'expense');rows.push([e.name,e.eventDate,e.endDate,e.location,e.organizer,getEventStatus(e).label,income,expense,income-expense,materials.length,e.targetSales,e.note||'']);});downloadFile(`rekap-event-${todayISO()}.csv`,'\ufeff'+toCSV(rows),'text/csv;charset=utf-8');toast('File event berhasil diekspor.');}
+      function exportEventsCSV(){if(!canViewAll())return;const rows=[['Nama Event','Tanggal Mulai','Tanggal Selesai','Lokasi','Penyelenggara','Status','Pemasukan','Pengeluaran','Pengeluaran Cash','Cash Bersih','Saldo','Jumlah Bahan','Keterangan']];state.events.forEach(e=>{const tx=state.transactions.filter(t=>t.eventId===e.id),materials=state.inventory.filter(i=>i.eventId===e.id),income=sumByType(tx,'income'),expense=sumByType(tx,'expense'),cash=cashSummary(tx);rows.push([e.name,e.eventDate,e.endDate,e.location,e.organizer,getEventStatus(e).label,income,expense,cash.cashExpense,cash.net,income-expense,materials.length,e.note||'']);});downloadFile(`rekap-event-${todayISO()}.csv`,'\ufeff'+toCSV(rows),'text/csv;charset=utf-8');toast('File event berhasil diekspor.');}
       function backupJSON(){if(!isAdmin())return;downloadFile(`cadangan-rekap-toko-cloud-${todayISO()}.json`,JSON.stringify({version:8,exportedAt:new Date().toISOString(),stores:STORES,transactions:state.transactions,inventory:state.inventory,inventoryDaily:state.inventoryDaily,events:state.events},null,2),'application/json');toast('Cadangan data berhasil diunduh.');}
 
       async function restoreJSON(event){if(!isAdmin())return;const file=event.target.files[0];if(!file)return;try{const data=JSON.parse(await file.text());if(!Array.isArray(data.transactions)||!Array.isArray(data.inventory))throw new Error('Format file tidak sesuai.');if(!confirm('Ganti seluruh data cloud dengan isi file cadangan ini?'))return;el('loadingCover').hidden=false;await deleteAllCloudRows();await upsertInChunks('events',(data.events||[]).map(item=>eventToRow({...item,id:item.id||uid()})));await upsertInChunks('transactions',data.transactions.map(item=>transactionToRow({...item,id:item.id||uid()})));await upsertInChunks('inventory',data.inventory.map(item=>inventoryToRow({...item,id:item.id||uid()})));await upsertInChunks('inventory_daily',(data.inventoryDaily||[]).map(item=>dailyRecordToRow({...item,id:item.id||uid()})));await loadCloudData(true);toast('Data cloud berhasil dipulihkan.');}catch(error){showSyncError(error);}finally{event.target.value='';el('loadingCover').hidden=true;}}
@@ -2711,7 +2783,7 @@ NOTIFY pgrst, 'reload schema';`
       async function deleteAllCloudRows(){const daily=await db.from('inventory_daily').delete().neq('id','');if(daily.error)throw daily.error;const [tx,inventory,events]=await Promise.all([db.from('transactions').delete().neq('id',''),db.from('inventory').delete().neq('id',''),db.from('events').delete().neq('id','')]);if(tx.error)throw tx.error;if(inventory.error)throw inventory.error;if(events.error)throw events.error;}
       async function upsertInChunks(table,rows){for(let i=0;i<rows.length;i+=500){const {error}=await db.from(table).upsert(rows.slice(i,i+500));if(error)throw error;}}
 
-      async function loadDemoData(){if(!isAdmin())return;if((state.transactions.length||state.inventory.length||state.events.length)&&!confirm('Data contoh akan ditambahkan ke data yang sudah ada. Lanjutkan?'))return;const start=todayISO();const endDate=new Date();endDate.setDate(endDate.getDate()+2);const demoEvent={id:uid(),name:'Festival Kuliner Contoh',eventDate:start,endDate:jakartaDate(endDate),location:'Jakarta',organizer:'Tim Event',targetSales:15000000,note:'Contoh rekapan event',createdAt:new Date().toISOString()};const tx=[{id:uid(),date:start,store:'Chickumbar Blok M',eventId:null,type:'income',paymentMethod:'cash',category:'Penjualan Harian',amount:2850000,note:'Penjualan outlet',createdAt:new Date().toISOString()},{id:uid(),date:start,store:EVENT_STORE,eventId:demoEvent.id,type:'income',paymentMethod:'cash',category:'Penjualan Event',amount:4200000,note:'Penjualan hari pertama event',createdAt:new Date().toISOString()},{id:uid(),date:start,store:EVENT_STORE,eventId:demoEvent.id,type:'expense',paymentMethod:'cash',category:'Sewa Booth Event',amount:1200000,note:'Biaya booth',createdAt:new Date().toISOString()}].map(transactionToRow);const inv=[{id:uid(),store:'Chickumbar Blok M',eventId:null,name:'Ayam fillet',unit:'kg',stock:18,min:10,price:42000,note:'Supplier utama',updatedAt:new Date().toISOString()},{id:uid(),store:EVENT_STORE,eventId:demoEvent.id,name:'Mangga',unit:'kg',stock:12,min:5,price:28000,note:'Kebutuhan event',updatedAt:new Date().toISOString()}].map(inventoryToRow);try{el('loadingCover').hidden=false;await upsertInChunks('events',[eventToRow(demoEvent)]);await upsertInChunks('transactions',tx);await upsertInChunks('inventory',inv);await loadCloudData(true);toast('Data contoh berhasil ditambahkan.');}catch(error){showSyncError(error);}finally{el('loadingCover').hidden=true;}}
+      async function loadDemoData(){if(!isAdmin())return;if((state.transactions.length||state.inventory.length||state.events.length)&&!confirm('Data contoh akan ditambahkan ke data yang sudah ada. Lanjutkan?'))return;const start=todayISO();const endDate=new Date();endDate.setDate(endDate.getDate()+2);const demoEvent={id:uid(),name:'Festival Kuliner Contoh',eventDate:start,endDate:jakartaDate(endDate),location:'Jakarta',organizer:'Tim Event',note:'Contoh rekapan event',createdAt:new Date().toISOString()};const tx=[{id:uid(),date:start,store:'Chickumbar Blok M',eventId:null,type:'income',paymentMethod:'cash',category:'Penjualan Harian',amount:2850000,note:'Penjualan outlet',createdAt:new Date().toISOString()},{id:uid(),date:start,store:EVENT_STORE,eventId:demoEvent.id,type:'income',paymentMethod:'cash',category:'Penjualan Event',amount:4200000,note:'Penjualan hari pertama event',createdAt:new Date().toISOString()},{id:uid(),date:start,store:EVENT_STORE,eventId:demoEvent.id,type:'expense',paymentMethod:'cash',category:'Sewa Booth Event',amount:1200000,note:'Biaya booth',createdAt:new Date().toISOString()}].map(transactionToRow);const inv=[{id:uid(),store:'Chickumbar Blok M',eventId:null,name:'Ayam fillet',unit:'kg',stock:18,min:10,price:42000,note:'Supplier utama',updatedAt:new Date().toISOString()},{id:uid(),store:EVENT_STORE,eventId:demoEvent.id,name:'Mangga',unit:'kg',stock:12,min:5,price:28000,note:'Kebutuhan event',updatedAt:new Date().toISOString()}].map(inventoryToRow);try{el('loadingCover').hidden=false;await upsertInChunks('events',[eventToRow(demoEvent)]);await upsertInChunks('transactions',tx);await upsertInChunks('inventory',inv);await loadCloudData(true);toast('Data contoh berhasil ditambahkan.');}catch(error){showSyncError(error);}finally{el('loadingCover').hidden=true;}}
 
       async function copyDatabaseSql(){try{await navigator.clipboard.writeText(DATABASE_SQL);}catch(_){el('setupSql').select();document.execCommand('copy');}toast('SQL terbaru berhasil disalin.');}
 
