@@ -596,6 +596,21 @@
     .dashboard-section-toggle:focus-visible { outline:3px solid rgba(243,182,31,.25); outline-offset:2px; }
     .dashboard-section-content { margin-top:10px; }
     .dashboard-section-content[hidden] { display:none !important; }
+    .dashboard-period-card {
+      display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 16px;margin-bottom:18px;
+      border:1px solid var(--line);background:linear-gradient(135deg,#fff 0%,#fffdf5 100%);
+    }
+    .dashboard-period-copy { min-width:0; }
+    .dashboard-period-title { display:flex;align-items:center;gap:8px;font-size:14px;color:var(--text); }
+    .dashboard-period-title strong { font-size:15px; }
+    .dashboard-period-copy p { margin:4px 0 0;color:var(--muted);font-size:12px;line-height:1.45; }
+    .dashboard-live-dot { width:9px;height:9px;border-radius:50%;background:#16a34a;box-shadow:0 0 0 4px rgba(22,163,74,.12);flex:0 0 auto; }
+    .dashboard-live-dot[hidden] { display:none !important; }
+    .dashboard-period-actions { display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap; }
+    .dashboard-date-slicer { width:170px;min-width:170px; }
+    .dashboard-realtime-btn { white-space:nowrap; }
+    .dashboard-realtime-btn[disabled] { opacity:.55;cursor:default;box-shadow:none; }
+    @media (max-width:680px){.dashboard-period-card{align-items:stretch;flex-direction:column}.dashboard-period-actions{justify-content:stretch}.dashboard-date-slicer{width:auto;min-width:0;flex:1}.dashboard-realtime-btn{flex:0 0 auto}}
     .daily-stats { grid-template-columns: repeat(4, minmax(0, 1fr)); }
     .monthly-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
     .transaction-cash-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); margin-bottom: 16px; }
@@ -605,7 +620,8 @@
     .role-owner { background:#fef3c7; color:#92400e; }
     .role-employee { background:#dcfce7; color:#166534; }
     .balance-toggle { min-width:42px; }
-    .balance-toggle .privacy-icon { font-size:16px; line-height:1; }
+    .balance-toggle .privacy-icon { display:inline-flex; align-items:center; justify-content:center; line-height:1; }
+    .balance-toggle .privacy-icon svg { width:17px; height:17px; display:block; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
     .event-tag { display:inline-flex; align-items:center; gap:5px; border-radius:999px; padding:4px 8px; background:#fef3c7; color:#92400e; font-size:10px; font-weight:800; white-space:nowrap; }
     .event-tag.none { background:#f1f5f9; color:#64748b; }
     .event-status-upcoming { background:#dbeafe; color:#1d4ed8; }
@@ -815,7 +831,7 @@
         <div class="top-actions">
           <div class="cloud-pill" id="cloudPill"><span class="cloud-dot"></span><span id="cloudStatusText">Menghubungkan</span></div>
           <button class="btn btn-light btn-sm balance-toggle" id="balanceToggleBtn" type="button" aria-pressed="false" title="Sembunyikan nominal saldo">
-            <span class="privacy-icon" id="balanceToggleIcon">◉</span><span id="balanceToggleText">Sembunyikan Saldo</span>
+            <span class="privacy-icon" id="balanceToggleIcon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"></path><circle cx="12" cy="12" r="3"></circle></svg></span><span id="balanceToggleText">Sembunyikan Saldo</span>
           </button>
           <span class="role-badge role-employee" id="roleBadge">Karyawan</span>
           <span class="user-chip" id="userEmail"></span>
@@ -828,40 +844,51 @@
         <div class="sync-banner" id="syncBanner" hidden></div>
 
         <section class="view active" data-full-view id="view-dashboard">
+          <div class="card dashboard-period-card">
+            <div class="dashboard-period-copy">
+              <div class="dashboard-period-title"><span class="dashboard-live-dot" id="dashboardRealtimeDot"></span><strong id="dashboardPeriodTitle">Real Time</strong></div>
+              <p id="dashboardPeriodDescription">Menampilkan data hari ini dan diperbarui otomatis.</p>
+            </div>
+            <div class="dashboard-period-actions">
+              <input class="input dashboard-date-slicer" id="dashboardDateFilter" type="date" aria-label="Pilih tanggal rekapan dashboard" />
+              <button class="btn btn-light btn-sm dashboard-realtime-btn" id="dashboardRealtimeBtn" type="button">Real Time</button>
+            </div>
+          </div>
+
           <div class="dashboard-section-head">
-            <div class="section-kicker">Rekapan Hari Ini</div>
+            <div class="section-kicker" id="dailyRecapHeading">Rekapan Hari Ini</div>
             <button class="dashboard-section-toggle" id="dailyRecapToggle" type="button" aria-expanded="true" aria-controls="dailyRecapContent" aria-label="Sembunyikan Rekapan Hari Ini" title="Sembunyikan Rekapan Hari Ini"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"></path><circle cx="12" cy="12" r="3"></circle></svg></button>
           </div>
           <div class="dashboard-section-content" id="dailyRecapContent">
             <div class="grid stats daily-stats">
-              <article class="card stat-card income"><div class="stat-label">Pemasukan Hari Ini</div><div class="stat-value" id="statDailyIncome">Rp0</div><div class="stat-sub" id="statDailyIncomeCount">0 transaksi pemasukan</div></article>
-              <article class="card stat-card expense"><div class="stat-label">Pengeluaran Hari Ini</div><div class="stat-value" id="statDailyExpense">Rp0</div><div class="stat-sub" id="statDailyExpenseCount">0 transaksi pengeluaran</div></article>
-              <article class="card stat-card profit"><div class="stat-label">Saldo Bersih Hari Ini</div><div class="stat-value" id="statDailyProfit">Rp0</div><div class="stat-sub">Seluruh pemasukan dikurangi seluruh pengeluaran</div></article>
-              <article class="card stat-card cash-net"><div class="stat-label">Cash Bersih Hari Ini</div><div class="stat-value" id="statDailyCashNet">Rp0</div><div class="stat-sub" id="statDailyCashNetSub">Cash kotor dikurangi pengeluaran Cash</div></article>
+              <article class="card stat-card income"><div class="stat-label" id="statDailyIncomeLabel">Pemasukan Hari Ini</div><div class="stat-value" id="statDailyIncome">Rp0</div><div class="stat-sub" id="statDailyIncomeCount">0 transaksi pemasukan</div></article>
+              <article class="card stat-card expense"><div class="stat-label" id="statDailyExpenseLabel">Pengeluaran Hari Ini</div><div class="stat-value" id="statDailyExpense">Rp0</div><div class="stat-sub" id="statDailyExpenseCount">0 transaksi pengeluaran</div></article>
+              <article class="card stat-card profit"><div class="stat-label" id="statDailyProfitLabel">Saldo Bersih Hari Ini</div><div class="stat-value" id="statDailyProfit">Rp0</div><div class="stat-sub">Seluruh pemasukan dikurangi seluruh pengeluaran</div></article>
+              <article class="card stat-card cash-net"><div class="stat-label" id="statDailyCashNetLabel">Cash Bersih Hari Ini</div><div class="stat-value" id="statDailyCashNet">Rp0</div><div class="stat-sub" id="statDailyCashNetSub">Cash kotor dikurangi pengeluaran Cash</div></article>
             </div>
           </div>
 
           <div class="dashboard-section-head" style="margin-top:20px">
-            <div class="section-kicker">Rekapan Bulan Ini</div>
+            <div class="section-kicker" id="monthlyRecapHeading">Rekapan Bulan Ini</div>
             <button class="dashboard-section-toggle" id="monthlyRecapToggle" type="button" aria-expanded="true" aria-controls="monthlyRecapContent" aria-label="Sembunyikan Rekapan Bulan Ini" title="Sembunyikan Rekapan Bulan Ini"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"></path><circle cx="12" cy="12" r="3"></circle></svg></button>
           </div>
           <div class="dashboard-section-content" id="monthlyRecapContent">
             <div class="grid stats monthly-stats">
-              <article class="card stat-card income"><div class="stat-label">Pemasukan Bulan Ini</div><div class="stat-value" id="statIncome">Rp0</div><div class="stat-sub" id="statIncomeCount">0 transaksi pemasukan</div></article>
-              <article class="card stat-card expense"><div class="stat-label">Pengeluaran Bulan Ini</div><div class="stat-value" id="statExpense">Rp0</div><div class="stat-sub" id="statExpenseCount">0 transaksi pengeluaran</div></article>
-              <article class="card stat-card profit"><div class="stat-label">Saldo Bersih Bulan Ini</div><div class="stat-value" id="statProfit">Rp0</div><div class="stat-sub">Seluruh pemasukan dikurangi seluruh pengeluaran</div></article>
-              <article class="card stat-card cash-net"><div class="stat-label">Cash Bersih Bulan Ini</div><div class="stat-value" id="statCashNet">Rp0</div><div class="stat-sub" id="statCashNetSub">Cash kotor dikurangi pengeluaran Cash</div></article>
+              <article class="card stat-card income"><div class="stat-label" id="statIncomeLabel">Pemasukan Bulan Ini</div><div class="stat-value" id="statIncome">Rp0</div><div class="stat-sub" id="statIncomeCount">0 transaksi pemasukan</div></article>
+              <article class="card stat-card expense"><div class="stat-label" id="statExpenseLabel">Pengeluaran Bulan Ini</div><div class="stat-value" id="statExpense">Rp0</div><div class="stat-sub" id="statExpenseCount">0 transaksi pengeluaran</div></article>
+              <article class="card stat-card profit"><div class="stat-label" id="statProfitLabel">Saldo Bersih Bulan Ini</div><div class="stat-value" id="statProfit">Rp0</div><div class="stat-sub">Seluruh pemasukan dikurangi seluruh pengeluaran</div></article>
+              <article class="card stat-card cash-net"><div class="stat-label" id="statCashNetLabel">Cash Bersih Bulan Ini</div><div class="stat-value" id="statCashNet">Rp0</div><div class="stat-sub" id="statCashNetSub">Cash kotor dikurangi pengeluaran Cash</div></article>
               <article class="card stat-card stock-alert"><div class="stat-label">Bahan Perlu Restok</div><div class="stat-value" id="statLowStock">0</div><div class="stat-sub">Khusus bahan operasional toko</div></article>
             </div>
           </div>
 
           <div class="grid two-col" style="margin-top:18px">
-            <article class="card"><div class="card-head"><div><h3>Arus Kas 6 Bulan Terakhir</h3><p>Perbandingan pemasukan dan pengeluaran</p></div></div><div class="card-body"><div class="chart-wrap"><canvas id="cashChart"></canvas></div></div></article>
-            <article class="card"><div class="card-head"><div><h3>Ringkasan per Toko</h3><p>Saldo bulan berjalan</p></div></div><div class="card-body"><div class="store-list" id="storeSummary"></div></div></article>
+            <article class="card"><div class="card-head"><div><h3>Arus Kas 6 Bulan Terakhir</h3><p id="cashChartDescription">Perbandingan pemasukan dan pengeluaran sampai bulan berjalan</p></div></div><div class="card-body"><div class="chart-wrap"><canvas id="cashChart"></canvas></div></div></article>
+            <article class="card"><div class="card-head"><div><h3>Ringkasan per Toko</h3><p id="storeSummaryDescription">Saldo bulan berjalan</p></div></div><div class="card-body"><div class="store-list" id="storeSummary"></div></div></article>
           </div>
 
           <article class="card table-card" style="margin-top:18px">
-            <div class="card-head"><div><h3>Transaksi Terbaru</h3><p>10 transaksi operasional toko terakhir</p></div><button class="btn btn-light btn-sm" data-go="transactions">Lihat Semua</button></div>
+            <div class="card-head"><div><h3 id="recentTransactionsHeading">Transaksi Terbaru</h3><p id="recentTransactionsDescription">10 transaksi operasional toko terakhir</p></div><button class="btn btn-light btn-sm" data-go="transactions">Lihat Semua</button></div>
             <div class="table-wrap" id="recentTransactions"></div>
           </article>
         </section>
@@ -1161,6 +1188,30 @@
 -- Owner: melihat data pada satu atau beberapa toko yang ditetapkan, tanpa mengubah data.
 -- Karyawan: mengelola rekapan bahan hanya pada satu toko yang ditetapkan.
 
+-- PERBAIKAN PRIORITAS METODE PEMBAYARAN.
+-- Bagian ini ditempatkan paling awal agar kolom payment_method tersedia sebelum aplikasi menyimpan transaksi.
+ALTER TABLE IF EXISTS public.transactions
+  ADD COLUMN IF NOT EXISTS payment_method text DEFAULT 'cash';
+
+DO $$
+BEGIN
+  IF to_regclass('public.transactions') IS NOT NULL THEN
+    UPDATE public.transactions
+    SET payment_method = CASE
+      WHEN lower(coalesce(payment_method, '')) = 'cash' THEN 'cash'
+      ELSE 'qris'
+    END;
+
+    ALTER TABLE public.transactions ALTER COLUMN payment_method SET DEFAULT 'cash';
+    ALTER TABLE public.transactions ALTER COLUMN payment_method SET NOT NULL;
+    ALTER TABLE public.transactions DROP CONSTRAINT IF EXISTS transactions_payment_method_check;
+    ALTER TABLE public.transactions ADD CONSTRAINT transactions_payment_method_check
+      CHECK (payment_method IN ('cash','qris'));
+  END IF;
+END $$;
+
+NOTIFY pgrst, 'reload schema';
+
 CREATE TABLE IF NOT EXISTS public.profiles (
   user_id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   email text,
@@ -1226,7 +1277,7 @@ CREATE TABLE IF NOT EXISTS public.transactions (
   transaction_date date NOT NULL,
   store text NOT NULL CHECK (store IN ('Chickumbar Blok M','Susu Sore','Hi Fruit','Ngayamin','Chickumbar Barito','EVENT')),
   type text NOT NULL CHECK (type IN ('income','expense')),
-  payment_method text NOT NULL DEFAULT 'cash' CHECK (payment_method IN ('cash','qris','transfer','card','ewallet','other')),
+  payment_method text NOT NULL DEFAULT 'cash' CHECK (payment_method IN ('cash','qris')),
   category text NOT NULL,
   amount numeric(15,2) NOT NULL DEFAULT 0 CHECK (amount >= 0),
   note text NOT NULL DEFAULT '',
@@ -1272,15 +1323,17 @@ CREATE INDEX IF NOT EXISTS inventory_daily_store_date_idx
   ON public.inventory_daily(store, record_date);
 
 ALTER TABLE public.transactions ADD COLUMN IF NOT EXISTS event_id text REFERENCES public.events(id) ON DELETE SET NULL;
-ALTER TABLE public.transactions ADD COLUMN IF NOT EXISTS payment_method text;
+ALTER TABLE public.transactions ADD COLUMN IF NOT EXISTS payment_method text DEFAULT 'cash';
 UPDATE public.transactions
-SET payment_method = 'other'
-WHERE payment_method IS NULL OR payment_method NOT IN ('cash','qris','transfer','card','ewallet','other');
+SET payment_method = CASE
+  WHEN lower(coalesce(payment_method, '')) = 'cash' THEN 'cash'
+  ELSE 'qris'
+END;
 ALTER TABLE public.transactions ALTER COLUMN payment_method SET DEFAULT 'cash';
 ALTER TABLE public.transactions ALTER COLUMN payment_method SET NOT NULL;
 ALTER TABLE public.transactions DROP CONSTRAINT IF EXISTS transactions_payment_method_check;
 ALTER TABLE public.transactions ADD CONSTRAINT transactions_payment_method_check
-  CHECK (payment_method IN ('cash','qris','transfer','card','ewallet','other'));
+  CHECK (payment_method IN ('cash','qris'));
 ALTER TABLE public.inventory ADD COLUMN IF NOT EXISTS event_id text REFERENCES public.events(id) ON DELETE SET NULL;
 
 -- Event adalah ruang data mandiri, bukan bagian dari cabang toko.
@@ -1560,6 +1613,7 @@ NOTIFY pgrst, 'reload schema';`
       let activeView = 'dashboard';
       let activeEventTab = 'transactions';
       let selectedGlobalStore = 'all';
+      let selectedDashboardDate = 'realtime';
       let balanceHidden = localStorage.getItem(BALANCE_VISIBILITY_KEY) === '1';
       let dashboardRecapVisibility = (()=>{try{return{daily:true,monthly:true,...JSON.parse(localStorage.getItem(DASHBOARD_RECAP_VISIBILITY_KEY)||'{}')}}catch(_){return{daily:true,monthly:true}}})();
       let db = null;
@@ -1838,6 +1892,8 @@ NOTIFY pgrst, 'reload schema';`
         el('logoutBtn').addEventListener('click',logout);el('settingsLogoutBtn').addEventListener('click',logout);el('syncNowBtn').addEventListener('click',()=>loadCloudData(false));el('changeConfigBtn').addEventListener('click',changeConnection);el('balanceToggleBtn').addEventListener('click',toggleBalanceVisibility);
         el('dailyRecapToggle').addEventListener('click',()=>toggleDashboardRecap('daily'));
         el('monthlyRecapToggle').addEventListener('click',()=>toggleDashboardRecap('monthly'));
+        el('dashboardDateFilter').addEventListener('change',event=>{selectedDashboardDate=event.target.value||'realtime';renderDashboard();});
+        el('dashboardRealtimeBtn').addEventListener('click',()=>{selectedDashboardDate='realtime';el('dashboardDateFilter').value=todayISO();renderDashboard();});
         el('nav').addEventListener('click',event=>{const button=event.target.closest('button[data-view]');if(button)switchView(button.dataset.view);});
         document.addEventListener('click',event=>{const go=event.target.closest('[data-go]');if(go)switchView(go.dataset.go);const close=event.target.closest('[data-close]');if(close)closeModal(close.dataset.close);});
         el('menuBtn').addEventListener('click',toggleSidebar);el('overlay').addEventListener('click',toggleSidebar);
@@ -2199,9 +2255,9 @@ NOTIFY pgrst, 'reload schema';`
           : '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3l18 18"></path><path d="M10.6 10.7a2 2 0 0 0 2.7 2.7"></path><path d="M9.9 4.3A10.7 10.7 0 0 1 12 4c6.5 0 10 8 10 8a18 18 0 0 1-2.1 3.2"></path><path d="M6.6 6.6C3.7 8.5 2 12 2 12s3.5 8 10 8a10.7 10.7 0 0 0 5.4-1.5"></path></svg>';
       }
       function applyDashboardRecapVisibility(){
-        [['daily','dailyRecapContent','dailyRecapToggle','Rekapan Hari Ini'],['monthly','monthlyRecapContent','monthlyRecapToggle','Rekapan Bulan Ini']].forEach(([key,contentId,toggleId,label])=>{
+        [['daily','dailyRecapContent','dailyRecapToggle','dailyRecapHeading','Rekapan Harian'],['monthly','monthlyRecapContent','monthlyRecapToggle','monthlyRecapHeading','Rekapan Bulanan']].forEach(([key,contentId,toggleId,headingId,fallback])=>{
           const expanded=dashboardRecapVisibility[key]!==false;
-          const content=el(contentId);const button=el(toggleId);
+          const content=el(contentId);const button=el(toggleId);const label=el(headingId)?.textContent||fallback;
           content.hidden=!expanded;
           button.innerHTML=dashboardVisibilityIcon(expanded);
           button.setAttribute('aria-expanded',String(expanded));
@@ -2214,9 +2270,57 @@ NOTIFY pgrst, 'reload schema';`
         localStorage.setItem(DASHBOARD_RECAP_VISIBILITY_KEY,JSON.stringify(dashboardRecapVisibility));
         applyDashboardRecapVisibility();
       }
-      function renderDashboard(){if(!canViewAll())return;applyDashboardRecapVisibility();const today=todayISO();const month=currentMonth();const base=filteredByGlobal(state.transactions);const daily=base.filter(t=>t.date===today);const monthly=base.filter(t=>t.date.startsWith(month));const dailyIncome=sumByType(daily,'income');const dailyExpense=sumByType(daily,'expense');const monthlyIncome=sumByType(monthly,'income');const monthlyExpense=sumByType(monthly,'expense');const dailyCash=cashSummary(daily);const monthlyCash=cashSummary(monthly);const lowStock=filteredByGlobal(state.inventory).filter(i=>i.stock<=i.min).length;el('statDailyIncome').textContent=money(dailyIncome);el('statDailyExpense').textContent=money(dailyExpense);el('statDailyProfit').textContent=money(dailyIncome-dailyExpense);el('statDailyCashNet').textContent=money(dailyCash.net);el('statDailyCashNetSub').textContent=`Dikurangi pengeluaran Cash ${money(dailyCash.cashExpense)}`;el('statDailyIncomeCount').textContent=`${daily.filter(t=>t.type==='income').length} transaksi pemasukan`;el('statDailyExpenseCount').textContent=`${daily.filter(t=>t.type==='expense').length} transaksi pengeluaran`;el('statIncome').textContent=money(monthlyIncome);el('statExpense').textContent=money(monthlyExpense);el('statProfit').textContent=money(monthlyIncome-monthlyExpense);el('statCashNet').textContent=money(monthlyCash.net);el('statCashNetSub').textContent=`Dikurangi pengeluaran Cash ${money(monthlyCash.cashExpense)}`;el('statLowStock').textContent=number(lowStock);el('statIncomeCount').textContent=`${monthly.filter(t=>t.type==='income').length} transaksi pemasukan`;el('statExpenseCount').textContent=`${monthly.filter(t=>t.type==='expense').length} transaksi pengeluaran`;renderStoreSummary(month);renderRecentTransactions();renderChart();}
+      function dashboardSelectedDate(){return selectedDashboardDate==='realtime'?todayISO():selectedDashboardDate;}
+      function dashboardSelectedMonth(){return dashboardSelectedDate().slice(0,7);}
+      function refreshDashboardDateFilter(){
+        const input=el('dashboardDateFilter');if(!input)return;
+        const today=todayISO();
+        input.max=today;
+        input.value=selectedDashboardDate==='realtime'?today:selectedDashboardDate;
+      }
+      function updateDashboardPeriodLabels(date,isRealtime){
+        const month=date.slice(0,7);const shortDate=formatDate(date);const longDate=formatLongDate(date);const monthLabel=formatMonthYear(month);
+        el('dashboardRealtimeDot').hidden=!isRealtime;
+        const realtimeButton=el('dashboardRealtimeBtn');
+        if(realtimeButton){realtimeButton.disabled=isRealtime;realtimeButton.setAttribute('aria-pressed',String(isRealtime));realtimeButton.title=isRealtime?'Dashboard sudah menampilkan data real time':'Kembali ke dashboard hari ini secara real time';}
+        el('dashboardPeriodTitle').textContent=isRealtime?'Real Time':`Tanggal ${shortDate}`;
+        el('dashboardPeriodDescription').textContent=isRealtime?'Menampilkan data hari ini dan diperbarui otomatis setiap sinkronisasi.':`Menampilkan rekapan ${longDate} serta rekap bulanan ${monthLabel}.`;
+        el('dailyRecapHeading').textContent=isRealtime?'Rekapan Hari Ini':`Rekapan ${shortDate}`;
+        el('monthlyRecapHeading').textContent=isRealtime?'Rekapan Bulan Ini':`Rekapan ${monthLabel}`;
+        const dailySuffix=isRealtime?'Hari Ini':shortDate;const monthlySuffix=isRealtime?'Bulan Ini':monthLabel;
+        el('statDailyIncomeLabel').textContent=`Pemasukan ${dailySuffix}`;
+        el('statDailyExpenseLabel').textContent=`Pengeluaran ${dailySuffix}`;
+        el('statDailyProfitLabel').textContent=`Saldo Bersih ${dailySuffix}`;
+        el('statDailyCashNetLabel').textContent=`Cash Bersih ${dailySuffix}`;
+        el('statIncomeLabel').textContent=`Pemasukan ${monthlySuffix}`;
+        el('statExpenseLabel').textContent=`Pengeluaran ${monthlySuffix}`;
+        el('statProfitLabel').textContent=`Saldo Bersih ${monthlySuffix}`;
+        el('statCashNetLabel').textContent=`Cash Bersih ${monthlySuffix}`;
+        el('cashChartDescription').textContent=`Perbandingan pemasukan dan pengeluaran hingga ${monthLabel}`;
+        el('storeSummaryDescription').textContent=`Saldo ${monthLabel}`;
+      }
+      function renderDashboard(){
+        if(!canViewAll())return;
+        refreshDashboardDateFilter();
+        const isRealtime=selectedDashboardDate==='realtime';const date=dashboardSelectedDate();const month=dashboardSelectedMonth();
+        updateDashboardPeriodLabels(date,isRealtime);applyDashboardRecapVisibility();
+        const base=filteredByGlobal(state.transactions);const daily=base.filter(t=>t.date===date);const monthly=base.filter(t=>t.date.startsWith(month));
+        const dailyIncome=sumByType(daily,'income');const dailyExpense=sumByType(daily,'expense');const monthlyIncome=sumByType(monthly,'income');const monthlyExpense=sumByType(monthly,'expense');
+        const dailyCash=cashSummary(daily);const monthlyCash=cashSummary(monthly);const lowStock=filteredByGlobal(state.inventory).filter(i=>i.stock<=i.min).length;
+        el('statDailyIncome').textContent=money(dailyIncome);el('statDailyExpense').textContent=money(dailyExpense);el('statDailyProfit').textContent=money(dailyIncome-dailyExpense);el('statDailyCashNet').textContent=money(dailyCash.net);el('statDailyCashNetSub').textContent=`Dikurangi pengeluaran Cash ${money(dailyCash.cashExpense)}`;
+        el('statDailyIncomeCount').textContent=`${daily.filter(t=>t.type==='income').length} transaksi pemasukan`;el('statDailyExpenseCount').textContent=`${daily.filter(t=>t.type==='expense').length} transaksi pengeluaran`;
+        el('statIncome').textContent=money(monthlyIncome);el('statExpense').textContent=money(monthlyExpense);el('statProfit').textContent=money(monthlyIncome-monthlyExpense);el('statCashNet').textContent=money(monthlyCash.net);el('statCashNetSub').textContent=`Dikurangi pengeluaran Cash ${money(monthlyCash.cashExpense)}`;
+        el('statLowStock').textContent=number(lowStock);el('statIncomeCount').textContent=`${monthly.filter(t=>t.type==='income').length} transaksi pemasukan`;el('statExpenseCount').textContent=`${monthly.filter(t=>t.type==='expense').length} transaksi pengeluaran`;
+        renderStoreSummary(month);renderRecentTransactions(date,isRealtime);renderChart();
+      }
       function renderStoreSummary(month){const stores=STORES.filter(store=>canAccessStore(store));el('storeSummary').innerHTML=stores.length?stores.map(store=>{const tx=state.transactions.filter(t=>!t.eventId&&t.store===store&&t.date.startsWith(month));const balance=sumByType(tx,'income')-sumByType(tx,'expense');return`<div class="store-row"><div><strong>${escapeHtml(store)}</strong><small>${tx.length} transaksi</small></div><div class="store-amount" style="color:${balance<0?'var(--red)':'var(--green)'}">${money(balance)}</div></div>`;}).join(''):emptyState('Toko belum ditetapkan','Admin perlu memilih satu atau beberapa toko untuk akun Owner.');}
-      function renderRecentTransactions(){const rows=filteredByGlobal(state.transactions).slice().sort((a,b)=>`${b.date}${b.createdAt||''}`.localeCompare(`${a.date}${a.createdAt||''}`)).slice(0,10);el('recentTransactions').innerHTML=rows.length?transactionTableMarkup(rows,false,'store'):emptyState('Belum ada transaksi toko','Tambahkan transaksi toko pertama untuk melihat ringkasan.');}
+      function renderRecentTransactions(date,isRealtime){
+        const source=filteredByGlobal(state.transactions);
+        const rows=(isRealtime?source:source.filter(item=>item.date===date)).slice().sort((a,b)=>`${b.date}${b.createdAt||''}`.localeCompare(`${a.date}${a.createdAt||''}`)).slice(0,10);
+        el('recentTransactionsHeading').textContent=isRealtime?'Transaksi Terbaru':`Transaksi ${formatDate(date)}`;
+        el('recentTransactionsDescription').textContent=isRealtime?'10 transaksi operasional toko terakhir':`Transaksi operasional toko pada ${formatLongDate(date)}`;
+        el('recentTransactions').innerHTML=rows.length?transactionTableMarkup(rows,false,'store'):emptyState(isRealtime?'Belum ada transaksi toko':'Tidak ada transaksi pada tanggal ini',isRealtime?'Tambahkan transaksi toko pertama untuk melihat ringkasan.':'Pilih tanggal lain atau tambahkan transaksi untuk tanggal tersebut.');
+      }
 
       function renderTransactions(){
         if(!canViewAll())return;
@@ -2546,11 +2650,13 @@ NOTIFY pgrst, 'reload schema';`
         }finally{setButtonBusy(button,false);}
       }
 
-      function renderChart(){const canvas=el('cashChart');if(!canvas||activeView!=='dashboard'||el('appShell').hidden||!canViewAll())return;const rect=canvas.getBoundingClientRect();if(!rect.width)return;const dpr=window.devicePixelRatio||1;canvas.width=Math.max(320,rect.width)*dpr;canvas.height=Math.max(220,rect.height)*dpr;const ctx=canvas.getContext('2d');ctx.scale(dpr,dpr);const width=canvas.width/dpr,height=canvas.height/dpr;ctx.clearRect(0,0,width,height);if(balanceHidden){ctx.fillStyle='#64748b';ctx.textAlign='center';ctx.textBaseline='middle';ctx.font='700 14px system-ui';ctx.fillText('Nominal saldo sedang disembunyikan',width/2,height/2);return;}const months=[];const now=new Date();for(let i=5;i>=0;i--){const d=new Date(now.getFullYear(),now.getMonth()-i,1);months.push({key:`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`,label:new Intl.DateTimeFormat('id-ID',{month:'short'}).format(d)});}const tx=filteredByGlobal(state.transactions);const data=months.map(m=>({...m,income:sumByType(tx.filter(t=>t.date.startsWith(m.key)),'income'),expense:sumByType(tx.filter(t=>t.date.startsWith(m.key)),'expense')}));const maxValue=Math.max(1,...data.flatMap(d=>[d.income,d.expense]));const pad={left:56,right:14,top:22,bottom:40};const chartW=width-pad.left-pad.right,chartH=height-pad.top-pad.bottom;ctx.font='11px system-ui';ctx.strokeStyle='#e5e7eb';ctx.fillStyle='#64748b';ctx.textAlign='right';ctx.textBaseline='middle';for(let i=0;i<=4;i++){const y=pad.top+chartH*i/4,val=maxValue*(1-i/4);ctx.beginPath();ctx.moveTo(pad.left,y);ctx.lineTo(width-pad.right,y);ctx.stroke();ctx.fillText(shortMoney(val),pad.left-8,y);}const groupW=chartW/data.length,barW=Math.min(24,groupW*.25);data.forEach((d,i)=>{const center=pad.left+groupW*i+groupW/2,incomeH=d.income/maxValue*chartH,expenseH=d.expense/maxValue*chartH;ctx.fillStyle='#16a34a';roundedRect(ctx,center-barW-2,pad.top+chartH-incomeH,barW,incomeH,5);ctx.fill();ctx.fillStyle='#dc2626';roundedRect(ctx,center+2,pad.top+chartH-expenseH,barW,expenseH,5);ctx.fill();ctx.fillStyle='#64748b';ctx.textAlign='center';ctx.textBaseline='top';ctx.fillText(d.label,center,height-pad.bottom+12);});ctx.textAlign='left';ctx.textBaseline='middle';ctx.fillStyle='#16a34a';ctx.fillRect(pad.left,4,10,10);ctx.fillStyle='#475569';ctx.fillText('Pemasukan',pad.left+16,9);ctx.fillStyle='#dc2626';ctx.fillRect(pad.left+94,4,10,10);ctx.fillStyle='#475569';ctx.fillText('Pengeluaran',pad.left+110,9);}
+      function renderChart(){const canvas=el('cashChart');if(!canvas||activeView!=='dashboard'||el('appShell').hidden||!canViewAll())return;const rect=canvas.getBoundingClientRect();if(!rect.width)return;const dpr=window.devicePixelRatio||1;canvas.width=Math.max(320,rect.width)*dpr;canvas.height=Math.max(220,rect.height)*dpr;const ctx=canvas.getContext('2d');ctx.scale(dpr,dpr);const width=canvas.width/dpr,height=canvas.height/dpr;ctx.clearRect(0,0,width,height);if(balanceHidden){ctx.fillStyle='#64748b';ctx.textAlign='center';ctx.textBaseline='middle';ctx.font='700 14px system-ui';ctx.fillText('Nominal saldo sedang disembunyikan',width/2,height/2);return;}const months=[];const anchor=dashboardSelectedDate();const now=new Date(`${anchor}T12:00:00+07:00`);for(let i=5;i>=0;i--){const d=new Date(now.getFullYear(),now.getMonth()-i,1);months.push({key:`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`,label:new Intl.DateTimeFormat('id-ID',{month:'short'}).format(d)});}const tx=filteredByGlobal(state.transactions);const data=months.map(m=>({...m,income:sumByType(tx.filter(t=>t.date.startsWith(m.key)),'income'),expense:sumByType(tx.filter(t=>t.date.startsWith(m.key)),'expense')}));const maxValue=Math.max(1,...data.flatMap(d=>[d.income,d.expense]));const pad={left:56,right:14,top:22,bottom:40};const chartW=width-pad.left-pad.right,chartH=height-pad.top-pad.bottom;ctx.font='11px system-ui';ctx.strokeStyle='#e5e7eb';ctx.fillStyle='#64748b';ctx.textAlign='right';ctx.textBaseline='middle';for(let i=0;i<=4;i++){const y=pad.top+chartH*i/4,val=maxValue*(1-i/4);ctx.beginPath();ctx.moveTo(pad.left,y);ctx.lineTo(width-pad.right,y);ctx.stroke();ctx.fillText(shortMoney(val),pad.left-8,y);}const groupW=chartW/data.length,barW=Math.min(24,groupW*.25);data.forEach((d,i)=>{const center=pad.left+groupW*i+groupW/2,incomeH=d.income/maxValue*chartH,expenseH=d.expense/maxValue*chartH;ctx.fillStyle='#16a34a';roundedRect(ctx,center-barW-2,pad.top+chartH-incomeH,barW,incomeH,5);ctx.fill();ctx.fillStyle='#dc2626';roundedRect(ctx,center+2,pad.top+chartH-expenseH,barW,expenseH,5);ctx.fill();ctx.fillStyle='#64748b';ctx.textAlign='center';ctx.textBaseline='top';ctx.fillText(d.label,center,height-pad.bottom+12);});ctx.textAlign='left';ctx.textBaseline='middle';ctx.fillStyle='#16a34a';ctx.fillRect(pad.left,4,10,10);ctx.fillStyle='#475569';ctx.fillText('Pemasukan',pad.left+16,9);ctx.fillStyle='#dc2626';ctx.fillRect(pad.left+94,4,10,10);ctx.fillStyle='#475569';ctx.fillText('Pengeluaran',pad.left+110,9);}
       function roundedRect(ctx,x,y,w,h,r){const radius=Math.min(r,Math.abs(w)/2,Math.abs(h)/2);ctx.beginPath();ctx.moveTo(x+radius,y);ctx.arcTo(x+w,y,x+w,y+h,radius);ctx.arcTo(x+w,y+h,x,y+h,radius);ctx.arcTo(x,y+h,x,y,radius);ctx.arcTo(x,y,x+w,y,radius);ctx.closePath();}
       function shortMoney(value){if(balanceHidden)return'••••';if(value>=1_000_000_000)return`${(value/1_000_000_000).toFixed(1)}M`;if(value>=1_000_000)return`${(value/1_000_000).toFixed(1)}jt`;if(value>=1_000)return`${(value/1_000).toFixed(0)}rb`;return String(Math.round(value));}
-      function updateBalanceToggle(){const button=el('balanceToggleBtn');if(!button)return;el('balanceToggleIcon').textContent=balanceHidden?'○':'◉';el('balanceToggleText').textContent=balanceHidden?'Tampilkan Saldo':'Sembunyikan Saldo';button.setAttribute('aria-pressed',String(balanceHidden));button.title=balanceHidden?'Tampilkan kembali nominal saldo':'Sembunyikan nominal saldo';}
+      function updateBalanceToggle(){const button=el('balanceToggleBtn');if(!button)return;const icon=el('balanceToggleIcon');icon.innerHTML=balanceHidden?'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"></path><path d="M6.61 6.61C3.91 8.38 2 12 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"></path><path d="M14.12 14.12a3 3 0 0 1-4.24-4.24"></path><path d="M2 2l20 20"></path></svg>':'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"></path><circle cx="12" cy="12" r="3"></circle></svg>';el('balanceToggleText').textContent=balanceHidden?'Tampilkan Saldo':'Sembunyikan Saldo';button.setAttribute('aria-pressed',String(balanceHidden));button.setAttribute('aria-label',balanceHidden?'Tampilkan kembali nominal saldo':'Sembunyikan nominal saldo');button.title=balanceHidden?'Tampilkan kembali nominal saldo':'Sembunyikan nominal saldo';}
       function toggleBalanceVisibility(){balanceHidden=!balanceHidden;localStorage.setItem(BALANCE_VISIBILITY_KEY,balanceHidden?'1':'0');updateBalanceToggle();renderAll();toast(balanceHidden?'Nominal saldo disembunyikan.':'Nominal saldo ditampilkan kembali.');}
+      function formatLongDate(date){if(!date)return'-';return new Intl.DateTimeFormat('id-ID',{timeZone:'Asia/Jakarta',weekday:'long',day:'numeric',month:'long',year:'numeric'}).format(new Date(`${date}T12:00:00+07:00`));}
+      function formatMonthYear(month){if(!month)return'-';return new Intl.DateTimeFormat('id-ID',{timeZone:'Asia/Jakarta',month:'long',year:'numeric'}).format(new Date(`${month}-01T12:00:00+07:00`));}
       function formatDate(date){if(!date)return'-';return new Intl.DateTimeFormat('id-ID',{day:'2-digit',month:'short',year:'numeric'}).format(new Date(`${date}T00:00:00`));}
       function formatSavedDateTime(value){if(!value)return'-';const date=new Date(value);if(Number.isNaN(date.getTime()))return'-';const savedDate=new Intl.DateTimeFormat('id-ID',{timeZone:'Asia/Jakarta',day:'2-digit',month:'short',year:'numeric'}).format(date);const savedTime=new Intl.DateTimeFormat('id-ID',{timeZone:'Asia/Jakarta',hour:'2-digit',minute:'2-digit',hour12:false}).format(date).replace('.',':');return`${savedDate} · ${savedTime} WIB`;}
       function emptyState(title,text){return`<div class="empty-state"><span class="emoji">📋</span><strong>${escapeHtml(title)}</strong><span>${escapeHtml(text)}</span></div>`;}
@@ -2559,7 +2665,7 @@ NOTIFY pgrst, 'reload schema';`
       function setCloudStatus(status,text){el('cloudPill').className=`cloud-pill ${status}`;el('cloudStatusText').textContent=text;}
       function showSyncError(error){const message=friendlyError(error);setCloudStatus('error','Gagal sinkron');el('syncBanner').textContent=message;el('syncBanner').hidden=false;toast(message);}
       function hideSyncError(){el('syncBanner').hidden=true;el('syncBanner').textContent='';}
-      function friendlyError(error){const message=String(error?.message||error||'Terjadi kesalahan.');if(/Invalid login credentials/i.test(message))return'Email atau password salah.';if(/Email not confirmed/i.test(message))return'Email belum dikonfirmasi.';if(/Failed to fetch|NetworkError|fetch/i.test(message))return'Tidak dapat terhubung ke Supabase. Periksa internet, Project URL, dan publishable key.';if(/relation .* does not exist|Could not find the table|column .* does not exist/i.test(message))return'Struktur Supabase belum diperbarui. Jalankan SQL terbaru yang tersedia pada halaman pengaturan koneksi.';if(/row-level security|permission denied|policy/i.test(message))return'Akses database ditolak. Jalankan SQL terbaru agar aturan Admin, Owner, dan Karyawan aktif dengan benar.';if(/JWT|apikey|API key|Unauthorized/i.test(message))return'Publishable key tidak valid atau sudah berubah.';return message;}
+      function friendlyError(error){const message=String(error?.message||error||'Terjadi kesalahan.');if(/payment_method.*schema cache|schema cache.*payment_method|Could not find the ['"]payment_method['"] column/i.test(message))return'Kolom metode pembayaran belum aktif di Supabase. Jalankan file fix_payment_method.sql, tunggu beberapa detik, lalu muat ulang halaman.';if(/Invalid login credentials/i.test(message))return'Email atau password salah.';if(/Email not confirmed/i.test(message))return'Email belum dikonfirmasi.';if(/Failed to fetch|NetworkError|fetch/i.test(message))return'Tidak dapat terhubung ke Supabase. Periksa internet, Project URL, dan publishable key.';if(/relation .* does not exist|Could not find the table|column .* does not exist/i.test(message))return'Struktur Supabase belum diperbarui. Jalankan SQL terbaru yang tersedia pada halaman pengaturan koneksi.';if(/row-level security|permission denied|policy/i.test(message))return'Akses database ditolak. Jalankan SQL terbaru agar aturan Admin, Owner, dan Karyawan aktif dengan benar.';if(/JWT|apikey|API key|Unauthorized/i.test(message))return'Publishable key tidak valid atau sudah berubah.';return message;}
 
       function downloadFile(name,content,type){const blob=new Blob([content],{type});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);}
       function toCSV(rows){return rows.map(row=>row.map(value=>`"${String(value??'').replace(/"/g,'""')}"`).join(',')).join('\n');}
