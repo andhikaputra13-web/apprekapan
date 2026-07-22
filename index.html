@@ -530,6 +530,7 @@
       line-height: 1.55;
     }
     .gate-links { display: flex; justify-content: space-between; gap: 12px; align-items: center; margin-top: 14px; }
+    .gate-links-end { justify-content: flex-end; }
     .link-btn { border: 0; background: transparent; color: var(--blue); padding: 0; font-size: 12px; font-weight: 800; }
     .sql-box {
       width: 100%; min-height: 260px; resize: vertical; margin-top: 12px;
@@ -1019,7 +1020,6 @@
           <div class="brand-mark">RT</div>
           <div>
             <h1>Masuk ke Rekap Toko</h1>
-            <p>Gunakan akun Supabase Auth agar data hanya dapat diakses oleh pengguna yang sudah masuk.</p>
           </div>
         </div>
       </div>
@@ -1036,11 +1036,9 @@
           <div id="authMessage" hidden></div>
           <button class="btn btn-primary" type="submit" id="loginBtn">Masuk</button>
           <button class="btn btn-light" type="button" id="signupBtn">Buat Akun Baru</button>
-          <p class="helper-text">Akun pengguna sebaiknya dibuat oleh admin melalui Supabase Dashboard → Authentication → Users.</p>
         </form>
-        <div class="gate-links">
-          <span class="helper-text" id="authProjectHost"></span>
-          <button class="link-btn" type="button" id="authChangeConfigBtn">Ubah koneksi</button>
+        <div class="gate-links gate-links-end">
+          <button class="link-btn" type="button" id="authChangeConfigBtn">Ubah Koneksi</button>
         </div>
       </div>
     </div>
@@ -2247,7 +2245,7 @@ NOTIFY pgrst, 'reload schema';`
       }
 
       function bindEvents(){
-        el('setupForm').addEventListener('submit',handleSetupSubmit);el('copySqlBtn').addEventListener('click',copyDatabaseSql);el('loginForm').addEventListener('submit',handleLogin);el('signupBtn').addEventListener('click',handleSignup);el('authChangeConfigBtn').addEventListener('click',()=>showSetup());
+        el('setupForm').addEventListener('submit',handleSetupSubmit);el('copySqlBtn').addEventListener('click',copyDatabaseSql);el('loginForm').addEventListener('submit',handleLogin);el('signupBtn').addEventListener('click',handleSignup);el('authChangeConfigBtn')?.addEventListener('click',()=>showSetup());
         document.addEventListener('input',clearWarningFromEvent);document.addEventListener('change',clearWarningFromEvent);
         el('logoutBtn').addEventListener('click',logout);el('settingsLogoutBtn').addEventListener('click',logout);el('syncNowBtn').addEventListener('click',()=>loadCloudData(false));el('manualRefreshBtn').addEventListener('click',manualRefreshData);el('changeConfigBtn').addEventListener('click',changeConnection);el('balanceToggleBtn').addEventListener('click',toggleBalanceVisibility);el('themeToggleBtn').addEventListener('click',toggleTheme);
         el('dailyRecapToggle').addEventListener('click',()=>toggleDashboardRecap('daily'));
