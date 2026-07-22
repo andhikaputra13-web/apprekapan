@@ -611,6 +611,11 @@
     .profiles-note { margin:0 0 12px; color:var(--muted); font-size:12px; line-height:1.6; }
     .role-select { min-width:120px; }
     .branch-select { min-width:190px; }
+    .owner-store-picker { display:grid; gap:6px; min-width:230px; max-width:290px; padding:9px 10px; border:1px solid var(--border); border-radius:10px; background:#fff; }
+    .owner-store-picker[hidden] { display:none; }
+    .owner-store-option { display:flex; align-items:center; gap:8px; font-size:12px; color:var(--text); cursor:pointer; }
+    .owner-store-option input { width:16px; height:16px; margin:0; accent-color:var(--primary); }
+    .owner-store-summary { display:block; margin-top:6px; color:var(--muted); font-size:11px; line-height:1.45; }
     .branch-notice { margin:0 0 16px; padding:12px 14px; border-radius:12px; border:1px solid #bbf7d0; background:#f0fdf4; color:#166534; font-size:13px; line-height:1.5; }
     .branch-notice.warning { border-color:#fecaca; background:#fff1f2; color:#be123c; }
     .inventory-workflow-note { margin:0 0 16px; padding:13px 15px; border:1px solid #bfdbfe; background:#eff6ff; color:#1e3a8a; border-radius:13px; font-size:13px; line-height:1.55; }
@@ -1033,7 +1038,7 @@
           </div>
           <article class="card table-card" style="margin-top:18px">
             <div class="card-head"><div><h3>Hak Akses Akun</h3><p>Admin dapat mengatur akses akun. Owner dapat melihat akses akunnya sendiri dalam mode hanya lihat.</p></div></div>
-            <div class="card-body"><p class="profiles-note" id="profilesAccessNote">Buat akun baru melalui Supabase Dashboard → Authentication → Users. Admin dapat mengubah peran dan memilih toko untuk Owner atau Karyawan. Owner hanya dapat melihat akses akunnya sendiri. Pembatasan baca/tulis berlaku pada tampilan web dan Supabase Row Level Security.</p><div class="table-wrap" id="profilesTable"></div></div>
+            <div class="card-body"><p class="profiles-note" id="profilesAccessNote">Buat akun baru melalui Supabase Dashboard → Authentication → Users. Admin dapat mengubah peran, memilih satu atau beberapa toko untuk Owner, dan memilih satu toko untuk Karyawan. Owner hanya dapat melihat akses akunnya sendiri. Pembatasan baca/tulis berlaku pada tampilan web dan Supabase Row Level Security.</p><div class="table-wrap" id="profilesTable"></div></div>
           </article>
         </section>
       </div>
@@ -1140,7 +1145,7 @@
 
       const DATABASE_SQL = String.raw`-- Jalankan seluruh SQL ini di Supabase SQL Editor.
 -- Admin: akses penuh dan dapat mengubah data.
--- Owner: melihat data hanya pada satu toko yang ditetapkan, tanpa mengubah data.
+-- Owner: melihat data pada satu atau beberapa toko yang ditetapkan, tanpa mengubah data.
 -- Karyawan: mengelola rekapan bahan hanya pada satu toko yang ditetapkan.
 
 CREATE TABLE IF NOT EXISTS public.profiles (
@@ -1148,6 +1153,7 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   email text,
   role text NOT NULL DEFAULT 'employee',
   branch text,
+  branches text[] NOT NULL DEFAULT '{}'::text[],
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
@@ -1156,6 +1162,7 @@ CREATE TABLE IF NOT EXISTS public.profiles (
 DROP FUNCTION IF EXISTS public.handle_new_user() CASCADE;
 DROP FUNCTION IF EXISTS public.can_manage_inventory(text) CASCADE;
 DROP FUNCTION IF EXISTS public.can_access_store(text) CASCADE;
+DROP FUNCTION IF EXISTS public.current_user_branches() CASCADE;
 DROP FUNCTION IF EXISTS public.current_user_branch() CASCADE;
 DROP FUNCTION IF EXISTS public.can_view_all() CASCADE;
 DROP FUNCTION IF EXISTS public.is_owner() CASCADE;
@@ -1169,12 +1176,25 @@ ALTER TABLE public.profiles DROP CONSTRAINT IF EXISTS profiles_role_check;
 ALTER TABLE public.profiles ADD CONSTRAINT profiles_role_check
   CHECK (role IN ('admin','owner','employee'));
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS branch text;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS branches text[] NOT NULL DEFAULT '{}'::text[];
 ALTER TABLE public.profiles DROP CONSTRAINT IF EXISTS profiles_branch_check;
 ALTER TABLE public.profiles ADD CONSTRAINT profiles_branch_check CHECK (
   branch IS NULL OR branch IN (
     'Chickumbar Blok M','Susu Sore','Hi Fruit','Ngayamin','Chickumbar Barito'
   )
 );
+ALTER TABLE public.profiles DROP CONSTRAINT IF EXISTS profiles_branches_check;
+ALTER TABLE public.profiles ADD CONSTRAINT profiles_branches_check CHECK (
+  branches <@ ARRAY['Chickumbar Blok M','Susu Sore','Hi Fruit','Ngayamin','Chickumbar Barito']::text[]
+  AND array_position(branches, NULL) IS NULL
+);
+
+-- Migrasikan Owner lama yang sebelumnya hanya memiliki satu toko.
+UPDATE public.profiles
+SET branches = ARRAY[branch]
+WHERE role = 'owner' AND branch IS NOT NULL AND cardinality(branches) = 0;
+UPDATE public.profiles SET branch = NULL WHERE role = 'owner';
+UPDATE public.profiles SET branches = '{}'::text[] WHERE role <> 'owner';
 
 CREATE TABLE IF NOT EXISTS public.events (
   id text PRIMARY KEY,
@@ -1293,7 +1313,14 @@ $$;
 CREATE OR REPLACE FUNCTION public.current_user_branch()
 RETURNS text LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
   SELECT branch FROM public.profiles
-  WHERE user_id = auth.uid() AND role IN ('owner','employee')
+  WHERE user_id = auth.uid() AND role = 'employee'
+  LIMIT 1;
+$$;
+
+CREATE OR REPLACE FUNCTION public.current_user_branches()
+RETURNS text[] LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
+  SELECT COALESCE(branches, '{}'::text[]) FROM public.profiles
+  WHERE user_id = auth.uid() AND role = 'owner'
   LIMIT 1;
 $$;
 
@@ -1303,9 +1330,10 @@ RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS
     OR EXISTS (
       SELECT 1 FROM public.profiles
       WHERE user_id = auth.uid()
-        AND role IN ('owner','employee')
-        AND branch IS NOT NULL
-        AND branch = target_store
+        AND (
+          (role = 'owner' AND target_store = ANY(COALESCE(branches, '{}'::text[])))
+          OR (role = 'employee' AND branch IS NOT NULL AND branch = target_store)
+        )
     );
 $$;
 
@@ -1324,12 +1352,14 @@ $$;
 REVOKE ALL ON FUNCTION public.is_admin() FROM public;
 REVOKE ALL ON FUNCTION public.is_owner() FROM public;
 REVOKE ALL ON FUNCTION public.can_view_all() FROM public;
+REVOKE ALL ON FUNCTION public.current_user_branches() FROM public;
 REVOKE ALL ON FUNCTION public.current_user_branch() FROM public;
 REVOKE ALL ON FUNCTION public.can_access_store(text) FROM public;
 REVOKE ALL ON FUNCTION public.can_manage_inventory(text) FROM public;
 GRANT EXECUTE ON FUNCTION public.is_admin() TO authenticated;
 GRANT EXECUTE ON FUNCTION public.is_owner() TO authenticated;
 GRANT EXECUTE ON FUNCTION public.can_view_all() TO authenticated;
+GRANT EXECUTE ON FUNCTION public.current_user_branches() TO authenticated;
 GRANT EXECUTE ON FUNCTION public.current_user_branch() TO authenticated;
 GRANT EXECUTE ON FUNCTION public.can_access_store(text) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.can_manage_inventory(text) TO authenticated;
@@ -1383,8 +1413,8 @@ BEGIN
     assigned_role := 'admin';
   END IF;
 
-  INSERT INTO public.profiles (user_id, email, role, branch)
-  VALUES (new.id, new.email, assigned_role, NULL)
+  INSERT INTO public.profiles (user_id, email, role, branch, branches)
+  VALUES (new.id, new.email, assigned_role, NULL, '{}'::text[])
   ON CONFLICT (user_id) DO UPDATE SET email = excluded.email;
   RETURN new;
 END;
@@ -1403,7 +1433,7 @@ ON CONFLICT (user_id) DO UPDATE SET email = excluded.email;
 DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM public.profiles WHERE role = 'admin') THEN
-    UPDATE public.profiles SET role = 'admin', branch = NULL
+    UPDATE public.profiles SET role = 'admin', branch = NULL, branches = '{}'::text[]
     WHERE user_id = (
       SELECT id FROM auth.users ORDER BY created_at ASC LIMIT 1
     );
@@ -1495,7 +1525,7 @@ ON public.events FOR ALL TO authenticated
 USING (public.is_admin()) WITH CHECK (public.is_admin());
 
 GRANT SELECT ON public.profiles TO authenticated;
-GRANT UPDATE (role, branch) ON public.profiles TO authenticated;
+GRANT UPDATE (role, branch, branches) ON public.profiles TO authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.events TO authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.transactions TO authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.inventory TO authenticated;
@@ -1533,12 +1563,18 @@ NOTIFY pgrst, 'reload schema';`
       const isOwner = () => state.profile?.role === 'owner';
       const isEmployee = () => state.profile?.role === 'employee';
       const canViewAll = () => isAdmin() || isOwner();
-      const canEditInventory = () => isAdmin() || (isEmployee() && !!state.profile?.branch);
-      const canManageMaterials = () => isAdmin();
+      const profileBranches = profile => {
+        const saved=Array.isArray(profile?.branches)?profile.branches:[];
+        const legacy=profile?.role==='owner'&&profile?.branch?[profile.branch]:[];
+        return [...new Set([...saved,...legacy].filter(store=>STORES.includes(store)))];
+      };
+      const ownerBranches = () => isOwner() ? profileBranches(state.profile) : [];
       const employeeBranch = () => isEmployee() ? (state.profile?.branch || '') : '';
-      const ownerBranch = () => isOwner() ? (state.profile?.branch || '') : '';
-      const assignedBranch = () => (isOwner() || isEmployee()) ? (state.profile?.branch || '') : '';
-      const canAccessStore = store => isAdmin() || (!!assignedBranch() && store === assignedBranch());
+      const accessibleStores = () => isAdmin() ? [...STORES] : isOwner() ? ownerBranches() : (employeeBranch() ? [employeeBranch()] : []);
+      const assignedBranch = () => employeeBranch();
+      const canAccessStore = store => isAdmin() || accessibleStores().includes(store);
+      const canEditInventory = () => isAdmin() || (isEmployee() && !!employeeBranch());
+      const canManageMaterials = () => isAdmin();
       const eventById = id => state.events.find(item => item.id === id);
       const eventName = id => id ? (eventById(id)?.name || 'Event tidak ditemukan') : 'Non-Event';
 
@@ -1605,7 +1641,7 @@ NOTIFY pgrst, 'reload schema';`
       }
 
       async function loadCurrentProfile(user){
-        const {data,error}=await db.from('profiles').select('user_id,email,role,branch,created_at').eq('user_id',user.id).single();
+        const {data,error}=await db.from('profiles').select('user_id,email,role,branch,branches,created_at').eq('user_id',user.id).single();
         if(error)throw error;
         state.profile=data;
       }
@@ -1614,7 +1650,9 @@ NOTIFY pgrst, 'reload schema';`
         const admin=isAdmin();
         const owner=isOwner();
         const fullView=canViewAll();
-        const branch=state.profile?.branch||'';
+        const employeeStore=employeeBranch();
+        const ownerStores=ownerBranches();
+        const ownerStoreText=ownerStores.join(', ');
         document.querySelectorAll('[data-full-view]').forEach(node=>node.hidden=!fullView);
         document.querySelectorAll('[data-admin-only]').forEach(node=>node.hidden=!admin);
         document.querySelectorAll('[data-admin-write]').forEach(node=>node.hidden=!admin);
@@ -1623,16 +1661,16 @@ NOTIFY pgrst, 'reload schema';`
         if(el('view-events'))el('view-events').hidden=!admin;
 
         const roleLabel=admin?'Admin':owner?'Owner':'Karyawan';
-        const accessLabel=admin?'Semua toko':branch?`${branch} · hanya lihat`:'Toko belum ditetapkan';
-        el('roleBadge').textContent=admin?'Admin':owner?`Owner · ${branch||'Belum ada toko'}`:`Karyawan · ${branch||'Belum ada cabang'}`;
+        const accessLabel=admin?'Semua toko':owner?(ownerStores.length?ownerStoreText:'Toko belum ditetapkan'):(employeeStore||'Toko belum ditetapkan');
+        el('roleBadge').textContent=admin?'Admin':owner?`Owner · ${ownerStores.length?`${ownerStores.length} toko`:'Belum ada toko'}`:`Karyawan · ${employeeStore||'Belum ada cabang'}`;
         el('roleBadge').className=`role-badge ${admin?'role-admin':owner?'role-owner':'role-employee'}`;
         el('settingsUserRole').textContent=roleLabel;
         el('settingsUserBranch').textContent=accessLabel;
-        el('sidebarUserAccess').textContent=admin?'Admin · Semua toko dan event':owner?(branch?`Owner · ${branch} · Hanya lihat`:'Owner · Toko belum ditetapkan'):branch?`Karyawan · ${branch}`:'Karyawan · Cabang belum ditetapkan';
-        el('transactionAccessText').textContent=owner?(branch?`Mode hanya lihat untuk transaksi operasional toko ${branch}.`:'Mode Owner aktif, tetapi toko akses belum ditetapkan oleh Admin.'):'Catat transaksi operasional toko. Seluruh transaksi event dikelola terpisah melalui menu Event.';
+        el('sidebarUserAccess').textContent=admin?'Admin · Semua toko dan event':owner?(ownerStores.length?`Owner · ${ownerStores.length} toko · Hanya lihat`:'Owner · Toko belum ditetapkan'):employeeStore?`Karyawan · ${employeeStore}`:'Karyawan · Cabang belum ditetapkan';
+        el('transactionAccessText').textContent=owner?(ownerStores.length?`Mode hanya lihat untuk transaksi ${ownerStores.length} toko yang ditetapkan.`:'Mode Owner aktif, tetapi toko akses belum ditetapkan oleh Admin.'):'Catat transaksi operasional toko. Seluruh transaksi event dikelola terpisah melalui menu Event.';
         el('eventAccessText').textContent='Event hanya dapat diakses dan dikelola oleh Admin karena tidak menjadi bagian dari toko.';
-        if(el('settingsAccessText'))el('settingsAccessText').textContent=owner?(branch?`Mode Owner: data toko ${branch} dapat dilihat tanpa mengubahnya.`:'Mode Owner: pilih toko akses melalui akun Admin terlebih dahulu.'):'Kelola koneksi, akun, cadangan, dan data online aplikasi.';
-        if(el('profilesAccessNote'))el('profilesAccessNote').textContent=owner?'Mode hanya lihat: Anda hanya dapat memeriksa akses akun sendiri.':'Buat akun baru melalui Supabase Dashboard → Authentication → Users. Admin dapat memilih toko untuk Owner dan Karyawan. Pembatasan baca/tulis berlaku pada tampilan web dan Supabase Row Level Security.';
+        if(el('settingsAccessText'))el('settingsAccessText').textContent=owner?(ownerStores.length?`Mode Owner: data ${ownerStores.length} toko dapat dilihat tanpa mengubahnya.`:'Mode Owner: pilih toko akses melalui akun Admin terlebih dahulu.'):'Kelola koneksi, akun, cadangan, dan data online aplikasi.';
+        if(el('profilesAccessNote'))el('profilesAccessNote').textContent=owner?'Mode hanya lihat: Anda hanya dapat memeriksa akses akun sendiri.':'Buat akun baru melalui Supabase Dashboard → Authentication → Users. Admin dapat memilih beberapa toko untuk Owner dan satu toko untuk Karyawan. Pembatasan baca/tulis berlaku pada tampilan web dan Supabase Row Level Security.';
         applyStoreAccessUI();
 
         if(isEmployee()){
@@ -1655,7 +1693,6 @@ NOTIFY pgrst, 'reload schema';`
       function applyStoreAccessUI(){
         const admin=isAdmin();
         const owner=isOwner();
-        const branch=assignedBranch();
 
         if(admin){
           el('globalStore').hidden=false;
@@ -1679,6 +1716,47 @@ NOTIFY pgrst, 'reload schema';`
           return;
         }
 
+        if(owner){
+          const stores=ownerBranches();
+          const includeAll=stores.length>1;
+          const selectors=[el('globalStore'),el('inventoryStoreFilter'),el('materialsStoreFilter')];
+          if(stores.length){
+            selectors.forEach(select=>populateStoreSelect(select,includeAll,stores));
+            populateStoreSelect(el('transactionStore'),false,stores);
+            populateStoreSelect(el('inventoryStore'),false,stores);
+          }else{
+            [...selectors,el('transactionStore'),el('inventoryStore')].forEach(select=>select.innerHTML='<option value="">Toko belum ditetapkan</option>');
+          }
+          const allowedValues=includeAll?['all',...stores]:stores;
+          if(!allowedValues.includes(selectedGlobalStore))selectedGlobalStore=includeAll?'all':(stores[0]||'');
+          selectors.forEach(select=>select.value=selectedGlobalStore);
+          el('inventoryStore').value=stores[0]||'';
+          el('globalStore').hidden=false;
+          el('globalStore').disabled=stores.length<=1;
+          el('inventoryStoreFilter').disabled=stores.length<=1;
+          el('materialsStoreFilter').disabled=stores.length<=1;
+          el('inventoryStore').disabled=true;
+          el('addInventoryBtn').hidden=true;
+          el('addInventoryBtn').disabled=true;
+          el('closeDailyRecapBtn').hidden=true;
+          el('exportInventoryBtn').disabled=!stores.length;
+          el('branchNotice').hidden=false;
+          el('materialsBranchNotice').hidden=false;
+          const storeText=stores.join(', ');
+          el('branchNotice').className=`branch-notice${stores.length?'':' warning'}`;
+          el('branchNotice').textContent=stores.length
+            ? `Mode Owner: Anda dapat melihat rekapan bahan untuk ${stores.length} toko: ${storeText}. Data Event tidak dapat diakses.`
+            : 'Toko akses Owner belum ditetapkan. Hubungi Admin agar satu atau beberapa toko dipilih terlebih dahulu.';
+          el('materialsBranchNotice').className=`branch-notice${stores.length?'':' warning'}`;
+          el('materialsBranchNotice').textContent=stores.length
+            ? `Mode hanya lihat untuk Daftar Bahan ${stores.length} toko yang ditetapkan.`
+            : 'Daftar Bahan belum dapat ditampilkan karena toko akses belum ditetapkan.';
+          el('inventoryAccessText').textContent=stores.length?`Lihat hasil closing bahan harian dari ${stores.length} toko dalam mode hanya lihat.`:'Toko akses belum ditetapkan oleh Admin.';
+          el('materialsAccessText').textContent=stores.length?`Lihat nama bahan, stok terakhir, stok minimum, dan status dari ${stores.length} toko.`:'Toko akses belum ditetapkan oleh Admin.';
+          return;
+        }
+
+        const branch=employeeBranch();
         const fixedOptions=branch?`<option value="${escapeHtml(branch)}">${escapeHtml(branch)}</option>`:'<option value="">Toko belum ditetapkan</option>';
         el('globalStore').innerHTML=fixedOptions;
         el('inventoryStoreFilter').innerHTML=fixedOptions;
@@ -1689,7 +1767,7 @@ NOTIFY pgrst, 'reload schema';`
         el('materialsStoreFilter').value=branch;
         el('inventoryStore').value=branch;
         selectedGlobalStore=branch;
-        el('globalStore').hidden=isEmployee();
+        el('globalStore').hidden=true;
         el('globalStore').disabled=true;
         el('inventoryStoreFilter').disabled=true;
         el('materialsStoreFilter').disabled=true;
@@ -1697,24 +1775,6 @@ NOTIFY pgrst, 'reload schema';`
         el('addInventoryBtn').hidden=true;
         el('addInventoryBtn').disabled=true;
         el('exportInventoryBtn').disabled=!branch;
-        el('materialsBranchNotice').hidden=!owner;
-
-        if(owner){
-          el('closeDailyRecapBtn').hidden=true;
-          el('branchNotice').hidden=false;
-          el('branchNotice').className=`branch-notice${branch?'':' warning'}`;
-          el('branchNotice').textContent=branch
-            ? `Mode Owner: Anda hanya dapat melihat rekapan bahan toko ${branch}. Data toko lain dan Event tidak dapat diakses.`
-            : 'Toko akses Owner belum ditetapkan. Hubungi Admin agar satu toko dipilih terlebih dahulu.';
-          el('materialsBranchNotice').className=`branch-notice${branch?'':' warning'}`;
-          el('materialsBranchNotice').textContent=branch
-            ? `Mode hanya lihat untuk Daftar Bahan toko ${branch}.`
-            : 'Daftar Bahan belum dapat ditampilkan karena toko akses belum ditetapkan.';
-          el('inventoryAccessText').textContent=branch?`Lihat hasil closing bahan harian toko ${branch} dalam mode hanya lihat.`:'Toko akses belum ditetapkan oleh Admin.';
-          el('materialsAccessText').textContent=branch?`Lihat nama bahan, stok terakhir, stok minimum, dan status toko ${branch}.`:'Toko akses belum ditetapkan oleh Admin.';
-          return;
-        }
-
         el('closeDailyRecapBtn').hidden=false;
         el('branchNotice').hidden=false;
         el('materialsBranchNotice').hidden=true;
@@ -2060,27 +2120,27 @@ NOTIFY pgrst, 'reload schema';`
         dataLoading=true;if(!silent)el('loadingCover').hidden=false;setCloudStatus('syncing','Menyinkronkan');
         try{
           if(currentSession?.user){
-            const {data:profileData,error:profileError}=await db.from('profiles').select('user_id,email,role,branch,created_at').eq('user_id',currentSession.user.id).single();
+            const {data:profileData,error:profileError}=await db.from('profiles').select('user_id,email,role,branch,branches,created_at').eq('user_id',currentSession.user.id).single();
             if(profileError)throw profileError;
             state.profile=profileData;
             applyRoleUI();
           }
           const eventPromise=isAdmin()?db.from('events').select('*').order('event_date',{ascending:false}):Promise.resolve({data:[],error:null});
-          const branch=assignedBranch();
+          const stores=accessibleStores();
           const inventoryPromise=isAdmin()
             ? db.from('inventory').select('*').order('store',{ascending:true}).order('name',{ascending:true})
-            : branch
-              ? db.from('inventory').select('*').eq('store',branch).order('name',{ascending:true})
+            : stores.length
+              ? db.from('inventory').select('*').in('store',stores).order('store',{ascending:true}).order('name',{ascending:true})
               : Promise.resolve({data:[],error:null});
           const transactionPromise=isAdmin()
             ? db.from('transactions').select('*').order('transaction_date',{ascending:false}).order('created_at',{ascending:false})
-            : isOwner()&&branch
-              ? db.from('transactions').select('*').eq('store',branch).is('event_id',null).order('transaction_date',{ascending:false}).order('created_at',{ascending:false})
+            : isOwner()&&stores.length
+              ? db.from('transactions').select('*').in('store',stores).is('event_id',null).order('transaction_date',{ascending:false}).order('created_at',{ascending:false})
               : Promise.resolve({data:[],error:null});
           let dailyQuery=db.from('inventory_daily').select('*').order('record_date',{ascending:false}).order('store',{ascending:true}).order('name',{ascending:true});
-          if(!isAdmin()&&branch)dailyQuery=dailyQuery.eq('store',branch);
-          const dailyPromise=branch||isAdmin()?dailyQuery:Promise.resolve({data:[],error:null});
-          const profilesPromise=isAdmin()?db.from('profiles').select('user_id,email,role,branch,created_at').order('created_at',{ascending:true}):Promise.resolve({data:[state.profile],error:null});
+          if(!isAdmin()&&stores.length)dailyQuery=dailyQuery.in('store',stores);
+          const dailyPromise=stores.length||isAdmin()?dailyQuery:Promise.resolve({data:[],error:null});
+          const profilesPromise=isAdmin()?db.from('profiles').select('user_id,email,role,branch,branches,created_at').order('created_at',{ascending:true}):Promise.resolve({data:[state.profile],error:null});
           const [eventResult,inventoryResult,txResult,dailyResult,profilesResult]=await Promise.all([eventPromise,inventoryPromise,transactionPromise,dailyPromise,profilesPromise]);
           for(const result of [eventResult,inventoryResult,txResult,dailyResult,profilesResult])if(result.error)throw result.error;
           state.events=(eventResult.data||[]).map(rowToEvent);
@@ -2100,7 +2160,7 @@ NOTIFY pgrst, 'reload schema';`
       function stopCloudRefresh(){clearInterval(refreshTimer);clearTimeout(realtimeDebounce);refreshTimer=null;if(cloudChannel&&db)db.removeChannel(cloudChannel);cloudChannel=null;}
 
       function renderAll(){renderDashboard();renderTransactions();renderInventory();renderMaterials();renderEvents();renderProfiles();}
-      function filteredByGlobal(items){const storeItems=items.filter(item=>!item.eventId&&canAccessStore(item.store));const activeStore=isAdmin()?selectedGlobalStore:assignedBranch();return activeStore==='all'?storeItems:storeItems.filter(item=>item.store===activeStore);}
+      function filteredByGlobal(items){const storeItems=items.filter(item=>!item.eventId&&canAccessStore(item.store));const activeStore=isEmployee()?employeeBranch():selectedGlobalStore;return activeStore==='all'||!activeStore?storeItems:storeItems.filter(item=>item.store===activeStore);}
       function sumByType(rows,type){return rows.filter(t=>t.type===type).reduce((sum,t)=>sum+t.amount,0);}
 
       function dashboardVisibilityIcon(expanded){
@@ -2125,7 +2185,7 @@ NOTIFY pgrst, 'reload schema';`
         applyDashboardRecapVisibility();
       }
       function renderDashboard(){if(!canViewAll())return;applyDashboardRecapVisibility();const today=todayISO();const month=currentMonth();const base=filteredByGlobal(state.transactions);const daily=base.filter(t=>t.date===today);const monthly=base.filter(t=>t.date.startsWith(month));const dailyIncome=sumByType(daily,'income');const dailyExpense=sumByType(daily,'expense');const monthlyIncome=sumByType(monthly,'income');const monthlyExpense=sumByType(monthly,'expense');const lowStock=filteredByGlobal(state.inventory).filter(i=>i.stock<=i.min).length;el('statDailyIncome').textContent=money(dailyIncome);el('statDailyExpense').textContent=money(dailyExpense);el('statDailyProfit').textContent=money(dailyIncome-dailyExpense);el('statDailyIncomeCount').textContent=`${daily.filter(t=>t.type==='income').length} transaksi pemasukan`;el('statDailyExpenseCount').textContent=`${daily.filter(t=>t.type==='expense').length} transaksi pengeluaran`;el('statIncome').textContent=money(monthlyIncome);el('statExpense').textContent=money(monthlyExpense);el('statProfit').textContent=money(monthlyIncome-monthlyExpense);el('statLowStock').textContent=number(lowStock);el('statIncomeCount').textContent=`${monthly.filter(t=>t.type==='income').length} transaksi pemasukan`;el('statExpenseCount').textContent=`${monthly.filter(t=>t.type==='expense').length} transaksi pengeluaran`;renderStoreSummary(month);renderRecentTransactions();renderChart();}
-      function renderStoreSummary(month){const stores=STORES.filter(store=>canAccessStore(store));el('storeSummary').innerHTML=stores.length?stores.map(store=>{const tx=state.transactions.filter(t=>!t.eventId&&t.store===store&&t.date.startsWith(month));const balance=sumByType(tx,'income')-sumByType(tx,'expense');return`<div class="store-row"><div><strong>${escapeHtml(store)}</strong><small>${tx.length} transaksi</small></div><div class="store-amount" style="color:${balance<0?'var(--red)':'var(--green)'}">${money(balance)}</div></div>`;}).join(''):emptyState('Toko belum ditetapkan','Admin perlu memilih satu toko untuk akun Owner.');}
+      function renderStoreSummary(month){const stores=STORES.filter(store=>canAccessStore(store));el('storeSummary').innerHTML=stores.length?stores.map(store=>{const tx=state.transactions.filter(t=>!t.eventId&&t.store===store&&t.date.startsWith(month));const balance=sumByType(tx,'income')-sumByType(tx,'expense');return`<div class="store-row"><div><strong>${escapeHtml(store)}</strong><small>${tx.length} transaksi</small></div><div class="store-amount" style="color:${balance<0?'var(--red)':'var(--green)'}">${money(balance)}</div></div>`;}).join(''):emptyState('Toko belum ditetapkan','Admin perlu memilih satu atau beberapa toko untuk akun Owner.');}
       function renderRecentTransactions(){const rows=filteredByGlobal(state.transactions).slice().sort((a,b)=>`${b.date}${b.createdAt||''}`.localeCompare(`${a.date}${a.createdAt||''}`)).slice(0,10);el('recentTransactions').innerHTML=rows.length?transactionTableMarkup(rows,false,'store'):emptyState('Belum ada transaksi toko','Tambahkan transaksi toko pertama untuk melihat ringkasan.');}
 
       function renderTransactions(){
@@ -2337,13 +2397,15 @@ NOTIFY pgrst, 'reload schema';`
           const isProfileOwner=role==='owner';
           const isProfileEmployee=role==='employee';
           const roleLabel=isProfileAdmin?'Admin':isProfileOwner?'Owner':'Karyawan';
-          const accessLabel=isProfileAdmin?'Semua toko':(profile.branch||'Toko belum ditetapkan');
+          const profileStores=profileBranches(profile);
+          const accessLabel=isProfileAdmin?'Semua toko':isProfileOwner?(profileStores.length?profileStores.join(', '):'Toko belum ditetapkan'):(profile.branch||'Toko belum ditetapkan');
           const branchOptions=`<option value="">Pilih satu toko</option>`+STORES.map(store=>`<option value="${escapeHtml(store)}" ${profile.branch===store?'selected':''}>${escapeHtml(store)}</option>`).join('');
-          const helpText=isProfileAdmin?'Admin dapat membuka dan mengubah semua data.':isProfileOwner?(profile.branch?`Owner hanya dapat melihat data toko ${escapeHtml(profile.branch)} tanpa mengubahnya.`:'Pilih tepat satu toko untuk akun Owner.'):profile.branch?`Karyawan hanya dapat membuka Rekapan Bahan cabang ${escapeHtml(profile.branch)}.`:'Pilih tepat satu toko untuk akun Karyawan.';
+          const ownerOptions=STORES.map(store=>`<label class="owner-store-option"><input type="checkbox" data-owner-branch-user="${profile.user_id}" value="${escapeHtml(store)}" ${profileStores.includes(store)?'checked':''}><span>${escapeHtml(store)}</span></label>`).join('');
+          const helpText=isProfileAdmin?'Admin dapat membuka dan mengubah semua data.':isProfileOwner?(profileStores.length?`Owner dapat melihat ${profileStores.length} toko tanpa mengubah data.`:'Pilih minimal satu toko untuk akun Owner.'):profile.branch?`Karyawan hanya dapat membuka Rekapan Bahan cabang ${escapeHtml(profile.branch)}.`:'Pilih tepat satu toko untuk akun Karyawan.';
           if(!editable){
             return`<tr><td><strong>${escapeHtml(profile.email||'-')}</strong>${profile.user_id===state.profile?.user_id?'<br><small class="muted">Akun Anda</small>':''}</td><td><span class="role-badge ${isProfileAdmin?'role-admin':isProfileOwner?'role-owner':'role-employee'}">${roleLabel}</span></td><td><strong>${escapeHtml(accessLabel)}</strong><br><small class="muted">${helpText}</small></td><td>${profile.created_at?new Intl.DateTimeFormat('id-ID',{day:'2-digit',month:'short',year:'numeric'}).format(new Date(profile.created_at)):'-'}</td></tr>`;
           }
-          return`<tr data-access-row="${profile.user_id}"><td><strong>${escapeHtml(profile.email||'-')}</strong>${profile.user_id===state.profile?.user_id?'<br><small class="muted">Akun Anda</small>':''}</td><td><select class="select role-select" data-role-user="${profile.user_id}" data-original-role="${role}"><option value="admin" ${isProfileAdmin?'selected':''}>Admin</option><option value="owner" ${isProfileOwner?'selected':''}>Owner</option><option value="employee" ${isProfileEmployee?'selected':''}>Karyawan</option></select></td><td><select class="select branch-select" data-branch-user="${profile.user_id}" data-original-branch="${escapeHtml(profile.branch||'')}" ${isProfileAdmin?'disabled':''}>${branchOptions}</select><br><small class="${(isProfileOwner||isProfileEmployee)&&!profile.branch?'danger-text':'muted'}" data-access-help>${helpText}</small></td><td>${profile.created_at?new Intl.DateTimeFormat('id-ID',{day:'2-digit',month:'short',year:'numeric'}).format(new Date(profile.created_at)):'-'}</td><td><button class="btn btn-primary" type="button" data-save-access="${profile.user_id}">Simpan Akses</button></td></tr>`;
+          return`<tr data-access-row="${profile.user_id}"><td><strong>${escapeHtml(profile.email||'-')}</strong>${profile.user_id===state.profile?.user_id?'<br><small class="muted">Akun Anda</small>':''}</td><td><select class="select role-select" data-role-user="${profile.user_id}" data-original-role="${role}"><option value="admin" ${isProfileAdmin?'selected':''}>Admin</option><option value="owner" ${isProfileOwner?'selected':''}>Owner</option><option value="employee" ${isProfileEmployee?'selected':''}>Karyawan</option></select></td><td><div class="owner-store-picker" data-owner-store-picker ${isProfileOwner?'':'hidden'}>${ownerOptions}</div><select class="select branch-select" data-branch-user="${profile.user_id}" data-original-branch="${escapeHtml(profile.branch||'')}" ${isProfileEmployee?'':'hidden disabled'}>${branchOptions}</select><small class="${(isProfileOwner&&!profileStores.length)||(isProfileEmployee&&!profile.branch)?'danger-text':'muted'} owner-store-summary" data-access-help>${helpText}</small></td><td>${profile.created_at?new Intl.DateTimeFormat('id-ID',{day:'2-digit',month:'short',year:'numeric'}).format(new Date(profile.created_at)):'-'}</td><td><button class="btn btn-primary" type="button" data-save-access="${profile.user_id}">Simpan Akses</button></td></tr>`;
         }).join('')}</tbody></table>`;
       }
 
@@ -2383,24 +2445,27 @@ NOTIFY pgrst, 'reload schema';`
       }
       function handleProfileAccessDraftChange(event){
         if(!isAdmin())return;
-        const changed=event.target.closest('[data-role-user],[data-branch-user]');
+        const changed=event.target.closest('[data-role-user],[data-branch-user],[data-owner-branch-user]');
         if(!changed)return;
         const row=changed.closest('[data-access-row]');
         const roleSelect=row?.querySelector('[data-role-user]');
         const branchSelect=row?.querySelector('[data-branch-user]');
+        const ownerPicker=row?.querySelector('[data-owner-store-picker]');
         const help=row?.querySelector('[data-access-help]');
-        if(!roleSelect||!branchSelect)return;
+        if(!roleSelect||!branchSelect||!ownerPicker)return;
         const role=roleSelect.value;
-        const needsBranch=role==='owner'||role==='employee';
-        branchSelect.disabled=!needsBranch;
-        if(!needsBranch){
+        const ownerStores=[...ownerPicker.querySelectorAll('[data-owner-branch-user]:checked')].map(input=>input.value);
+        ownerPicker.hidden=role!=='owner';
+        branchSelect.hidden=role!=='employee';
+        branchSelect.disabled=role!=='employee';
+        if(role==='admin'){
           branchSelect.value='';
-          if(help){help.className='muted';help.textContent='Admin dapat membuka dan mengubah semua data.';}
+          if(help){help.className='muted owner-store-summary';help.textContent='Admin dapat membuka dan mengubah semua data.';}
+        }else if(role==='owner'){
+          if(help){help.className=`${ownerStores.length?'muted':'danger-text'} owner-store-summary`;help.textContent=ownerStores.length?`Owner dapat melihat ${ownerStores.length} toko: ${ownerStores.join(', ')}.`:'Pilih minimal satu toko untuk akun Owner.';}
         }else if(help){
-          help.className=branchSelect.value?'muted':'danger-text';
-          help.textContent=branchSelect.value
-            ? role==='owner'?`Owner hanya dapat melihat data toko ${branchSelect.value}.`:`Karyawan hanya dapat mengelola bahan ${branchSelect.value}.`
-            : `Pilih tepat satu toko untuk akun ${role==='owner'?'Owner':'Karyawan'}.`;
+          help.className=`${branchSelect.value?'muted':'danger-text'} owner-store-summary`;
+          help.textContent=branchSelect.value?`Karyawan hanya dapat mengelola bahan ${branchSelect.value}.`:'Pilih tepat satu toko untuk akun Karyawan.';
         }
       }
 
@@ -2412,37 +2477,35 @@ NOTIFY pgrst, 'reload schema';`
         const row=button.closest('[data-access-row]');
         const roleSelect=row?.querySelector('[data-role-user]');
         const branchSelect=row?.querySelector('[data-branch-user]');
+        const ownerPicker=row?.querySelector('[data-owner-store-picker]');
         const profile=state.profiles.find(item=>item.user_id===userId);
-        if(!profile||!roleSelect||!branchSelect)return;
+        if(!profile||!roleSelect||!branchSelect||!ownerPicker)return;
 
         const newRole=roleSelect.value;
-        const requiresBranch=newRole==='owner'||newRole==='employee';
-        const newBranch=requiresBranch?(branchSelect.value||null):null;
-        if(requiresBranch&&!newBranch)return toast(`Pilih tepat satu toko untuk akun ${newRole==='owner'?'Owner':'Karyawan'}.`);
+        const newBranches=newRole==='owner'?[...ownerPicker.querySelectorAll('[data-owner-branch-user]:checked')].map(input=>input.value):[];
+        const newBranch=newRole==='employee'?(branchSelect.value||null):null;
+        if(newRole==='owner'&&!newBranches.length)return toast('Pilih minimal satu toko untuk akun Owner.');
+        if(newRole==='employee'&&!newBranch)return toast('Pilih tepat satu toko untuk akun Karyawan.');
 
         const admins=state.profiles.filter(item=>item.role==='admin');
         if(userId===state.profile.user_id&&profile.role==='admin'&&newRole!=='admin'&&admins.length<=1){
-          roleSelect.value=profile.role;
-          branchSelect.value=profile.branch||'';
-          handleProfileAccessDraftChange({target:roleSelect});
+          renderProfiles();
           return toast('Minimal harus ada satu akun Admin.');
         }
 
         const roleName=newRole==='admin'?'Admin':newRole==='owner'?'Owner':'Karyawan';
-        const accessLabel=newRole==='admin'?'semua toko dengan akses penuh':newRole==='owner'?`toko ${newBranch} dalam mode hanya lihat`:`toko ${newBranch}`;
+        const accessLabel=newRole==='admin'?'semua toko dengan akses penuh':newRole==='owner'?`${newBranches.length} toko (${newBranches.join(', ')}) dalam mode hanya lihat`:`toko ${newBranch}`;
         if(!confirm(`Simpan akses akun ${profile.email||''} sebagai ${roleName} dengan akses ${accessLabel}?`))return;
         setButtonBusy(button,true,'Menyimpan…');
         try{
-          const {error}=await db.from('profiles').update({role:newRole,branch:newBranch}).eq('user_id',userId);
+          const {error}=await db.from('profiles').update({role:newRole,branch:newBranch,branches:newBranches}).eq('user_id',userId);
           if(error)throw error;
           if(userId===state.profile.user_id)await loadCurrentProfile(currentSession.user);
           applyRoleUI();
           await loadCloudData(true);
-          toast(newRole==='admin'?'Akun sekarang memiliki akses penuh semua toko.':newRole==='owner'?`Akun Owner hanya dapat melihat data toko ${newBranch}.`:`Akun hanya dapat mengelola bahan toko ${newBranch}.`);
+          toast(newRole==='admin'?'Akun sekarang memiliki akses penuh semua toko.':newRole==='owner'?`Akun Owner dapat melihat ${newBranches.length} toko.`:`Akun hanya dapat mengelola bahan toko ${newBranch}.`);
         }catch(error){
-          roleSelect.value=profile.role;
-          branchSelect.value=profile.branch||'';
-          handleProfileAccessDraftChange({target:roleSelect});
+          renderProfiles();
           showSyncError(error);
         }finally{setButtonBusy(button,false);}
       }
