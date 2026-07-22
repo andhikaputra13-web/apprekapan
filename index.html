@@ -2439,11 +2439,11 @@ NOTIFY pgrst, 'reload schema';`
         }else if(!fullView&&(activeView==='materials'||activeView==='settings'||activeView==='events')){
           activeView='inventory';
           switchView('inventory');
-        }else if(!['dashboard','transactions','inventory','materials','events','settings'].includes(activeView)){
+        }else if(!['dashboard','transactions','inventory','materials','events','payroll','settings'].includes(activeView)){
           activeView='dashboard';
           switchView('dashboard');
         }else{
-          el('globalStore').hidden=!fullView||activeView==='events'||activeView==='settings';
+          el('globalStore').hidden=!fullView||activeView==='events'||activeView==='payroll'||activeView==='settings';
         }
       }
 
@@ -2959,6 +2959,34 @@ NOTIFY pgrst, 'reload schema';`
       function payrollToRow(item){return{id:item.id,payroll_month:item.month,store:item.store,employee_name:item.employeeName,position:item.position,base_salary:item.baseSalary,allowance:item.allowance,bonus:item.bonus,deduction:item.deduction,status:item.status,paid_date:item.paidDate||null,note:item.note||'',updated_at:new Date().toISOString()};}
       function rowToPayroll(row){return{id:row.id,month:row.payroll_month,store:row.store,employeeName:row.employee_name,position:row.position,baseSalary:Number(row.base_salary||0),allowance:Number(row.allowance||0),bonus:Number(row.bonus||0),deduction:Number(row.deduction||0),status:row.status||'draft',paidDate:row.paid_date||'',note:row.note||'',createdAt:row.created_at,updatedAt:row.updated_at};}
 
+      function captureSyncUiState(){
+        return{
+          view:activeView,
+          scrollX:window.scrollX,
+          scrollY:window.scrollY,
+          focusedId:document.activeElement?.id||''
+        };
+      }
+      function canRestoreView(view){
+        const valid=['dashboard','transactions','inventory','materials','events','payroll','settings'];
+        if(!valid.includes(view))return false;
+        if(isEmployee())return view==='inventory';
+        if(isOwner()&&view==='events')return false;
+        if(!canViewAll()&&(view==='materials'||view==='events'||view==='payroll'||view==='settings'))return false;
+        return true;
+      }
+      function restoreSyncUiState(snapshot){
+        if(!snapshot)return;
+        if(canRestoreView(snapshot.view)&&activeView!==snapshot.view)switchView(snapshot.view);
+        requestAnimationFrame(()=>{
+          window.scrollTo(snapshot.scrollX,snapshot.scrollY);
+          const focused=snapshot.focusedId?el(snapshot.focusedId):null;
+          if(focused&&!focused.disabled&&focused.offsetParent!==null){
+            try{focused.focus({preventScroll:true});}catch(_){focused.focus();}
+          }
+        });
+      }
+
       async function manualRefreshData(){
         if(dataLoading){toast('Sinkronisasi data sedang berjalan.');return;}
         const button=el('manualRefreshBtn');
@@ -2975,6 +3003,7 @@ NOTIFY pgrst, 'reload schema';`
 
       async function loadCloudData(silent=false){
         if(!db||dataLoading||!navigator.onLine){if(!navigator.onLine)setCloudStatus('error','Offline');return false;}
+        const syncUiState=captureSyncUiState();
         dataLoading=true;setCloudStatus('syncing','Menyinkronkan');
         try{
           if(currentSession?.user){
@@ -3011,9 +3040,9 @@ NOTIFY pgrst, 'reload schema';`
           state.updatedAt=new Date().toISOString();
           refreshEventSelects();
           el('lastSyncText').textContent=new Intl.DateTimeFormat('id-ID',{timeZone:'Asia/Jakarta',hour:'2-digit',minute:'2-digit',second:'2-digit'}).format(new Date());
-          hideSyncError();renderAll();setCloudStatus('online','Tersinkron');
+          hideSyncError();renderAll();restoreSyncUiState(syncUiState);setCloudStatus('online','Tersinkron');
           return true;
-        }catch(error){showSyncError(error);return false;}finally{dataLoading=false;}
+        }catch(error){showSyncError(error);restoreSyncUiState(syncUiState);return false;}finally{dataLoading=false;}
       }
 
       function startCloudRefresh(){stopCloudRefresh();refreshTimer=setInterval(()=>loadCloudData(true),30000);try{cloudChannel=db.channel('rekap-toko-cloud-v6').on('postgres_changes',{event:'*',schema:'public',table:'transactions'},scheduleRealtimeRefresh).on('postgres_changes',{event:'*',schema:'public',table:'inventory'},scheduleRealtimeRefresh).on('postgres_changes',{event:'*',schema:'public',table:'inventory_daily'},scheduleRealtimeRefresh).on('postgres_changes',{event:'*',schema:'public',table:'events'},scheduleRealtimeRefresh).on('postgres_changes',{event:'*',schema:'public',table:'payroll'},scheduleRealtimeRefresh).on('postgres_changes',{event:'*',schema:'public',table:'profiles'},scheduleRealtimeRefresh).subscribe();}catch(error){console.warn('Realtime tidak aktif, polling tetap berjalan.',error);}}
