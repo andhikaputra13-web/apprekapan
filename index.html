@@ -1140,17 +1140,13 @@
         </section>
 
         <section class="view" data-full-view id="view-transactions">
-          <div class="toolbar"><div><h3>Pemasukan & Pengeluaran Toko</h3><p id="transactionAccessText">Catat transaksi operasional toko. Cash Kotor adalah total pemasukan Cash, sedangkan Cash Bersih adalah Cash Kotor dikurangi pengeluaran yang dibayar menggunakan Cash. Data Event tetap terpisah.</p></div><div class="toolbar-actions"><button class="btn btn-light" id="exportTransactionsBtn">⇩ Ekspor CSV</button><button class="btn btn-primary" id="addTransactionBtn" data-admin-write>＋ Tambah Transaksi Toko</button></div></div>
+          <div class="toolbar"><div><h3>Pemasukan & Pengeluaran Toko</h3><p id="transactionAccessText">Transaksi operasional toko.</p></div><div class="toolbar-actions"><button class="btn btn-light" id="exportTransactionsBtn">⇩ Ekspor CSV</button><button class="btn btn-primary" id="addTransactionBtn" data-admin-write>＋ Tambah Transaksi Toko</button></div></div>
           <div class="card filters transaction-filters">
             <input class="input" id="transactionSearch" placeholder="Cari kategori atau keterangan..." />
             <select class="select" id="transactionTypeFilter"><option value="all">Semua Jenis</option><option value="income">Pemasukan</option><option value="expense">Pengeluaran</option></select>
             <select class="select" id="transactionPaymentFilter"><option value="all">Semua Pembayaran</option><option value="cash">Cash</option><option value="qris">QRIS</option></select>
-            <input class="input" type="month" id="transactionMonthFilter" />
+            <input class="input" type="date" id="transactionDateFilter" aria-label="Pilih tanggal transaksi" />
             <select class="select" id="transactionEventFilter" hidden aria-hidden="true" tabindex="-1"><option value="none">Non-Event</option></select>
-          </div>
-          <div class="grid transaction-cash-summary">
-            <article class="card stat-card cash-gross"><div class="stat-label">Cash Kotor</div><div class="stat-value" id="transactionCashGross">Rp0</div><div class="stat-sub" id="transactionCashGrossSub">Total pemasukan Cash pada periode terpilih</div></article>
-            <article class="card stat-card cash-net"><div class="stat-label">Cash Bersih</div><div class="stat-value" id="transactionCashNet">Rp0</div><div class="stat-sub" id="transactionCashNetSub">Cash kotor dikurangi pengeluaran Cash</div></article>
           </div>
           <article class="card table-card"><div class="table-wrap" id="transactionsTable"></div></article>
         </section>
@@ -1950,7 +1946,8 @@ NOTIFY pgrst, 'reload schema';`
       function initStaticUI(){
         [el('globalStore'),el('inventoryStoreFilter')].forEach(s=>populateStoreSelect(s,true));
         [el('transactionStore'),el('inventoryStore')].forEach(s=>populateStoreSelect(s,false));
-        el('transactionMonthFilter').value=currentMonth();
+        el('transactionDateFilter').value=todayISO();
+        el('transactionDateFilter').max=todayISO();
         el('eventTransactionMonthFilter').value=currentMonth();
         el('inventoryDateFilter').value=todayISO();
         el('eventInventoryDateFilter').value=todayISO();
@@ -2251,7 +2248,7 @@ NOTIFY pgrst, 'reload schema';`
         el('addEventInventoryBtn').addEventListener('click',()=>openInventoryModal(null,'event',selectedEventWorkspaceId()));
         el('closeEventDailyRecapBtn').addEventListener('click',()=>openDailyClosingModal('event'));
         el('transactionForm').addEventListener('submit',saveTransaction);el('transactionRows').addEventListener('click',handleTransactionRowClick);el('transactionRows').addEventListener('input',updateTransactionTotal);el('inventoryForm').addEventListener('submit',saveInventory);el('dailyClosingForm').addEventListener('submit',saveDailyClosing);el('dailyClosingRows').addEventListener('input',updateClosingUsagePreview);el('eventForm').addEventListener('submit',saveEvent);
-        ['transactionSearch','transactionTypeFilter','transactionPaymentFilter','transactionMonthFilter'].forEach(id=>el(id).addEventListener('input',renderTransactions));
+        ['transactionSearch','transactionTypeFilter','transactionPaymentFilter','transactionDateFilter'].forEach(id=>el(id).addEventListener('input',renderTransactions));
         ['inventorySearch','inventoryStatusFilter','inventoryStoreFilter'].forEach(id=>el(id).addEventListener('input',renderInventory));
         el('materialsSearch').addEventListener('input',renderMaterials);
         el('inventoryDateFilter').addEventListener('change',renderInventory);
@@ -2691,22 +2688,16 @@ NOTIFY pgrst, 'reload schema';`
         const query=el('transactionSearch').value.toLowerCase().trim();
         const type=el('transactionTypeFilter').value;
         const payment=el('transactionPaymentFilter').value;
-        const month=el('transactionMonthFilter').value;
+        const date=el('transactionDateFilter').value;
         const store=selectedGlobalStore;
-        const periodRows=state.transactions.filter(t=>!t.eventId&&canAccessStore(t.store)&&(store==='all'||t.store===store)&&(!month||t.date.startsWith(month)));
-        const cash=cashSummary(periodRows);
-        el('transactionCashGross').textContent=money(cash.gross);
-        el('transactionCashNet').textContent=money(cash.net);
-        const periodLabel=month?new Intl.DateTimeFormat('id-ID',{month:'long',year:'numeric',timeZone:'Asia/Jakarta'}).format(new Date(`${month}-01T12:00:00`)):'seluruh periode';
-        el('transactionCashGrossSub').textContent=`Total pemasukan Cash ${periodLabel}`;
-        el('transactionCashNetSub').textContent=`Dikurangi pengeluaran Cash ${money(cash.cashExpense)}`;
+        const periodRows=state.transactions.filter(t=>!t.eventId&&canAccessStore(t.store)&&(store==='all'||t.store===store)&&(!date||t.date===date));
         const rows=periodRows.filter(t=>{
           const matchesQuery=!query||`${t.category} ${t.note||''} ${t.store} ${paymentMethodLabel(t.paymentMethod)}`.toLowerCase().includes(query);
           const matchesType=type==='all'||t.type===type;
           const matchesPayment=payment==='all'||normalizePaymentMethod(t.paymentMethod)===payment;
           return matchesQuery&&matchesType&&matchesPayment;
         }).sort((a,b)=>`${b.date}${b.createdAt||''}`.localeCompare(`${a.date}${a.createdAt||''}`));
-        el('transactionsTable').innerHTML=rows.length?transactionTableMarkup(rows,isAdmin(),'store'):emptyState('Transaksi toko tidak ditemukan','Ubah filter atau tambahkan transaksi toko baru.');
+        el('transactionsTable').innerHTML=rows.length?transactionTableMarkup(rows,isAdmin(),'store'):emptyState(date?`Tidak ada transaksi pada ${formatDate(date)}`:'Transaksi toko tidak ditemukan','Ubah filter atau tambahkan transaksi toko baru.');
       }
       function transactionTableMarkup(rows,editable,context='store'){
         const eventMode=context==='event';
@@ -3078,9 +3069,10 @@ NOTIFY pgrst, 'reload schema';`
       function exportTransactionsCSV(){
         if(!canViewAll())return;
         const store=selectedGlobalStore;
+        const date=el('transactionDateFilter').value;
         const rows=[['Tanggal','Toko','Jenis','Metode Pembayaran','Kategori','Keterangan','Nominal']];
-        state.transactions.filter(t=>!t.eventId&&(store==='all'||t.store===store)).slice().sort((a,b)=>b.date.localeCompare(a.date)).forEach(t=>rows.push([t.date,t.store,t.type==='income'?'Pemasukan':'Pengeluaran',paymentMethodLabel(t.paymentMethod),t.category,t.note||'',t.amount]));
-        downloadFile(`rekap-transaksi-toko-${todayISO()}.csv`,'\ufeff'+toCSV(rows),'text/csv;charset=utf-8');toast('File transaksi toko berhasil diekspor.');
+        state.transactions.filter(t=>!t.eventId&&(store==='all'||t.store===store)&&(!date||t.date===date)).slice().sort((a,b)=>b.date.localeCompare(a.date)).forEach(t=>rows.push([t.date,t.store,t.type==='income'?'Pemasukan':'Pengeluaran',paymentMethodLabel(t.paymentMethod),t.category,t.note||'',t.amount]));
+        downloadFile(`rekap-transaksi-toko-${date||todayISO()}.csv`,'\ufeff'+toCSV(rows),'text/csv;charset=utf-8');toast('File transaksi toko berhasil diekspor.');
       }
       function exportInventoryCSV(){
         if(!canViewAll()&&!employeeBranch())return toast('Cabang akun belum ditetapkan.');
