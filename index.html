@@ -733,6 +733,27 @@
       .event-tabs { padding:10px 14px; }
     }
 
+    /* Clean interface: hide non-essential explanatory copy while preserving operational status, warnings, and timestamps. */
+    #appShell .brand small,
+    #appShell .toolbar p,
+    #appShell .card-head p,
+    #appShell .dashboard-period-copy p,
+    #appShell .event-workspace-head p,
+    #appShell .event-recap-heading p,
+    #appShell .event-scope-note,
+    #appShell .stat-sub,
+    #appShell .profiles-note,
+    #appShell .setting-box p:not(.setting-warning),
+    #transactionModal .transaction-list-head small,
+    #transactionModal .transaction-batch-note,
+    #inventoryModal .field-help,
+    #inventoryModal .helper-text {
+      display: none !important;
+    }
+    #appShell .stat-card .stat-value { margin-bottom: 0; }
+    #appShell .setting-box h3 { margin-bottom: 14px; }
+    #appShell .setting-box .setting-warning { margin-bottom: 14px; }
+
   </style>
 </head>
 <body>
@@ -1098,10 +1119,10 @@
           <div class="grid settings-grid">
             <article class="card setting-box"><h3>Status Supabase</h3><p>Seluruh data tersimpan di database online yang sama.</p><div class="connection-list"><div class="connection-row"><span>Proyek</span><strong id="settingsProjectHost">-</strong></div><div class="connection-row"><span>Pengguna</span><strong id="settingsUserEmail">-</strong></div><div class="connection-row"><span>Hak akses</span><strong id="settingsUserRole">-</strong></div><div class="connection-row"><span>Cabang akses</span><strong id="settingsUserBranch">-</strong></div><div class="connection-row"><span>Sinkronisasi terakhir</span><strong id="lastSyncText">Belum</strong></div></div><div class="toolbar-actions"><button class="btn btn-dark" id="syncNowBtn">Sinkronkan Sekarang</button><button class="btn btn-light" id="changeConfigBtn" data-admin-write>Ubah Koneksi</button></div></article>
             <article class="card setting-box"><h3>Cadangkan Data Cloud</h3><p>Unduh transaksi, bahan, dan event dari Supabase ke format JSON.</p><button class="btn btn-dark" id="backupBtn">Unduh Cadangan JSON</button></article>
-            <article class="card setting-box" data-admin-write><h3>Pulihkan ke Supabase</h3><p>Data cloud saat ini akan diganti dengan isi file cadangan.</p><input type="file" id="restoreInput" accept="application/json" hidden /><button class="btn btn-light" id="restoreBtn">Pilih File Cadangan</button></article>
+            <article class="card setting-box" data-admin-write><h3>Pulihkan ke Supabase</h3><p class="setting-warning">Data cloud saat ini akan diganti dengan isi file cadangan.</p><input type="file" id="restoreInput" accept="application/json" hidden /><button class="btn btn-light" id="restoreBtn">Pilih File Cadangan</button></article>
             <article class="card setting-box" data-admin-write><h3>Data Contoh Online</h3><p>Tambahkan contoh transaksi, bahan, dan event.</p><button class="btn btn-light" id="demoBtn">Muat Data Contoh</button></article>
             <article class="card setting-box"><h3>Keluar dari Akun</h3><p>Akhiri sesi pada perangkat ini.</p><button class="btn btn-light" id="settingsLogoutBtn">Keluar</button></article>
-            <article class="card setting-box" data-admin-write><h3>Hapus Semua Data Cloud</h3><p>Tindakan ini menghapus transaksi, bahan, dan event untuk semua perangkat.</p><button class="btn btn-danger" id="clearBtn">Hapus Semua Data</button></article>
+            <article class="card setting-box" data-admin-write><h3>Hapus Semua Data Cloud</h3><p class="setting-warning">Tindakan ini menghapus transaksi, bahan, dan event untuk semua perangkat.</p><button class="btn btn-danger" id="clearBtn">Hapus Semua Data</button></article>
           </div>
           <article class="card table-card" style="margin-top:18px">
             <div class="card-head"><div><h3>Hak Akses Akun</h3><p>Admin dapat mengatur akses akun. Owner dapat melihat akses akunnya sendiri dalam mode hanya lihat.</p></div></div>
