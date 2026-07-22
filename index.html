@@ -551,6 +551,21 @@
     .cloud-pill.online .cloud-dot { background: var(--green); box-shadow: 0 0 0 4px rgba(22,163,74,.12); }
     .cloud-pill.syncing .cloud-dot { background: var(--primary); }
     .cloud-pill.error .cloud-dot { background: var(--red); }
+    .manual-refresh-btn {
+      width: 34px; height: 34px; min-width: 34px; padding: 0; border-radius: 10px;
+      display: inline-flex; align-items: center; justify-content: center;
+    }
+    .manual-refresh-btn svg {
+      width: 16px; height: 16px; fill: none; stroke: currentColor;
+      stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
+      transform-origin: 50% 50%;
+    }
+    .manual-refresh-btn[aria-busy="true"] svg { animation: manual-refresh-spin .75s linear infinite; }
+    @keyframes manual-refresh-spin { to { transform: rotate(360deg); } }
+    @media (prefers-reduced-motion: reduce) {
+      .manual-refresh-btn[aria-busy="true"] svg { animation: none; }
+    }
+    .manual-refresh-btn:disabled { opacity: .5; cursor: not-allowed; }
     .user-chip { font-size: 11px; color: var(--muted); max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .sync-banner {
       margin-bottom: 16px; padding: 13px 15px; border-radius: 13px;
@@ -1075,6 +1090,9 @@
         </div>
         <div class="top-actions">
           <div class="cloud-pill" id="cloudPill"><span class="cloud-dot"></span><span id="cloudStatusText">Menghubungkan</span></div>
+          <button class="btn btn-light btn-sm manual-refresh-btn" id="manualRefreshBtn" type="button" aria-label="Refresh data" title="Refresh data sekarang">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6v5h-5"></path><path d="M4 18v-5h5"></path><path d="M6.1 9a7 7 0 0 1 11.7-2.6L20 11"></path><path d="M17.9 15a7 7 0 0 1-11.7 2.6L4 13"></path></svg>
+          </button>
           <button class="btn btn-light btn-sm balance-toggle" id="balanceToggleBtn" type="button" aria-pressed="false" title="Sembunyikan nominal saldo">
             <span class="privacy-icon" id="balanceToggleIcon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"></path><circle cx="12" cy="12" r="3"></circle></svg></span><span id="balanceToggleText">Sembunyikan Saldo</span>
           </button>
@@ -2231,7 +2249,7 @@ NOTIFY pgrst, 'reload schema';`
       function bindEvents(){
         el('setupForm').addEventListener('submit',handleSetupSubmit);el('copySqlBtn').addEventListener('click',copyDatabaseSql);el('loginForm').addEventListener('submit',handleLogin);el('signupBtn').addEventListener('click',handleSignup);el('authChangeConfigBtn').addEventListener('click',()=>showSetup());
         document.addEventListener('input',clearWarningFromEvent);document.addEventListener('change',clearWarningFromEvent);
-        el('logoutBtn').addEventListener('click',logout);el('settingsLogoutBtn').addEventListener('click',logout);el('syncNowBtn').addEventListener('click',()=>loadCloudData(false));el('changeConfigBtn').addEventListener('click',changeConnection);el('balanceToggleBtn').addEventListener('click',toggleBalanceVisibility);el('themeToggleBtn').addEventListener('click',toggleTheme);
+        el('logoutBtn').addEventListener('click',logout);el('settingsLogoutBtn').addEventListener('click',logout);el('syncNowBtn').addEventListener('click',()=>loadCloudData(false));el('manualRefreshBtn').addEventListener('click',manualRefreshData);el('changeConfigBtn').addEventListener('click',changeConnection);el('balanceToggleBtn').addEventListener('click',toggleBalanceVisibility);el('themeToggleBtn').addEventListener('click',toggleTheme);
         el('dailyRecapToggle').addEventListener('click',()=>toggleDashboardRecap('daily'));
         el('monthlyRecapToggle').addEventListener('click',()=>toggleDashboardRecap('monthly'));
         el('dashboardDateFilter').addEventListener('change',event=>{selectedDashboardDate=event.target.value||'realtime';renderDashboard();});
@@ -2556,8 +2574,22 @@ NOTIFY pgrst, 'reload schema';`
       function rowToInventory(row){return{id:row.id,store:row.store,eventId:row.event_id||null,name:row.name,unit:row.unit,stock:Number(row.stock),min:Number(row.min_stock),price:Number(row.price),note:row.note||'',updatedAt:row.updated_at};}
       function rowToEvent(row){return{id:row.id,name:row.name,eventDate:row.event_date,endDate:row.end_date,location:row.location||'',organizer:row.organizer||'',note:row.note||'',createdAt:row.created_at};}
 
+      async function manualRefreshData(){
+        if(dataLoading){toast('Sinkronisasi data sedang berjalan.');return;}
+        const button=el('manualRefreshBtn');
+        button.disabled=true;
+        button.setAttribute('aria-busy','true');
+        try{
+          const success=await loadCloudData(false);
+          if(success)toast('Data berhasil diperbarui.');
+        }finally{
+          button.disabled=false;
+          button.removeAttribute('aria-busy');
+        }
+      }
+
       async function loadCloudData(silent=false){
-        if(!db||dataLoading||!navigator.onLine){if(!navigator.onLine)setCloudStatus('error','Offline');return;}
+        if(!db||dataLoading||!navigator.onLine){if(!navigator.onLine)setCloudStatus('error','Offline');return false;}
         dataLoading=true;setCloudStatus('syncing','Menyinkronkan');
         try{
           if(currentSession?.user){
@@ -2593,7 +2625,8 @@ NOTIFY pgrst, 'reload schema';`
           refreshEventSelects();
           el('lastSyncText').textContent=new Intl.DateTimeFormat('id-ID',{timeZone:'Asia/Jakarta',hour:'2-digit',minute:'2-digit',second:'2-digit'}).format(new Date());
           hideSyncError();renderAll();setCloudStatus('online','Tersinkron');
-        }catch(error){showSyncError(error);}finally{dataLoading=false;}
+          return true;
+        }catch(error){showSyncError(error);return false;}finally{dataLoading=false;}
       }
 
       function startCloudRefresh(){stopCloudRefresh();refreshTimer=setInterval(()=>loadCloudData(true),30000);try{cloudChannel=db.channel('rekap-toko-cloud-v6').on('postgres_changes',{event:'*',schema:'public',table:'transactions'},scheduleRealtimeRefresh).on('postgres_changes',{event:'*',schema:'public',table:'inventory'},scheduleRealtimeRefresh).on('postgres_changes',{event:'*',schema:'public',table:'inventory_daily'},scheduleRealtimeRefresh).on('postgres_changes',{event:'*',schema:'public',table:'events'},scheduleRealtimeRefresh).on('postgres_changes',{event:'*',schema:'public',table:'profiles'},scheduleRealtimeRefresh).subscribe();}catch(error){console.warn('Realtime tidak aktif, polling tetap berjalan.',error);}}
