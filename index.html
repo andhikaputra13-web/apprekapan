@@ -1950,12 +1950,15 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON public.inventory TO authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.inventory_daily TO authenticated;
 
 
+
+-- TABEL GAJI KARYAWAN.
+-- Dibuat dengan ID text agar sama dengan ID yang dihasilkan aplikasi.
 CREATE TABLE IF NOT EXISTS public.payroll (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  payroll_month text NOT NULL,
-  store text NOT NULL,
-  employee_name text NOT NULL,
-  position text NOT NULL,
+  id text PRIMARY KEY,
+  payroll_month text NOT NULL DEFAULT to_char(now(), 'YYYY-MM'),
+  store text NOT NULL DEFAULT 'Chickumbar Blok M',
+  employee_name text NOT NULL DEFAULT '',
+  position text NOT NULL DEFAULT '',
   base_salary numeric NOT NULL DEFAULT 0,
   allowance numeric NOT NULL DEFAULT 0,
   bonus numeric NOT NULL DEFAULT 0,
@@ -1964,15 +1967,104 @@ CREATE TABLE IF NOT EXISTS public.payroll (
   paid_date date,
   note text NOT NULL DEFAULT '',
   created_at timestamptz NOT NULL DEFAULT now(),
-  updated_at timestamptz NOT NULL DEFAULT now(),
-  CONSTRAINT payroll_status_check CHECK (status IN ('draft','pending','paid'))
+  updated_at timestamptz NOT NULL DEFAULT now()
 );
-CREATE INDEX IF NOT EXISTS payroll_month_store_idx ON public.payroll(payroll_month,store);
+
+-- Lengkapi tabel apabila sebelumnya pernah dibuat dengan struktur yang belum lengkap.
+ALTER TABLE public.payroll ADD COLUMN IF NOT EXISTS payroll_month text DEFAULT to_char(now(), 'YYYY-MM');
+ALTER TABLE public.payroll ADD COLUMN IF NOT EXISTS store text DEFAULT 'Chickumbar Blok M';
+ALTER TABLE public.payroll ADD COLUMN IF NOT EXISTS employee_name text DEFAULT '';
+ALTER TABLE public.payroll ADD COLUMN IF NOT EXISTS position text DEFAULT '';
+ALTER TABLE public.payroll ADD COLUMN IF NOT EXISTS base_salary numeric DEFAULT 0;
+ALTER TABLE public.payroll ADD COLUMN IF NOT EXISTS allowance numeric DEFAULT 0;
+ALTER TABLE public.payroll ADD COLUMN IF NOT EXISTS bonus numeric DEFAULT 0;
+ALTER TABLE public.payroll ADD COLUMN IF NOT EXISTS deduction numeric DEFAULT 0;
+ALTER TABLE public.payroll ADD COLUMN IF NOT EXISTS status text DEFAULT 'draft';
+ALTER TABLE public.payroll ADD COLUMN IF NOT EXISTS paid_date date;
+ALTER TABLE public.payroll ADD COLUMN IF NOT EXISTS note text DEFAULT '';
+ALTER TABLE public.payroll ADD COLUMN IF NOT EXISTS created_at timestamptz DEFAULT now();
+ALTER TABLE public.payroll ADD COLUMN IF NOT EXISTS updated_at timestamptz DEFAULT now();
+
+UPDATE public.payroll SET payroll_month = to_char(COALESCE(created_at, now()), 'YYYY-MM') WHERE payroll_month IS NULL OR btrim(payroll_month) = '';
+UPDATE public.payroll SET store = 'Chickumbar Blok M' WHERE store IS NULL OR btrim(store) = '';
+UPDATE public.payroll SET employee_name = '' WHERE employee_name IS NULL;
+UPDATE public.payroll SET position = '' WHERE position IS NULL;
+UPDATE public.payroll SET base_salary = 0 WHERE base_salary IS NULL;
+UPDATE public.payroll SET allowance = 0 WHERE allowance IS NULL;
+UPDATE public.payroll SET bonus = 0 WHERE bonus IS NULL;
+UPDATE public.payroll SET deduction = 0 WHERE deduction IS NULL;
+UPDATE public.payroll SET status = CASE WHEN status IN ('draft','pending','paid') THEN status ELSE 'draft' END;
+UPDATE public.payroll SET note = '' WHERE note IS NULL;
+UPDATE public.payroll SET created_at = now() WHERE created_at IS NULL;
+UPDATE public.payroll SET updated_at = now() WHERE updated_at IS NULL;
+
+ALTER TABLE public.payroll ALTER COLUMN payroll_month SET NOT NULL;
+ALTER TABLE public.payroll ALTER COLUMN store SET NOT NULL;
+ALTER TABLE public.payroll ALTER COLUMN employee_name SET NOT NULL;
+ALTER TABLE public.payroll ALTER COLUMN position SET NOT NULL;
+ALTER TABLE public.payroll ALTER COLUMN base_salary SET NOT NULL;
+ALTER TABLE public.payroll ALTER COLUMN allowance SET NOT NULL;
+ALTER TABLE public.payroll ALTER COLUMN bonus SET NOT NULL;
+ALTER TABLE public.payroll ALTER COLUMN deduction SET NOT NULL;
+ALTER TABLE public.payroll ALTER COLUMN status SET NOT NULL;
+ALTER TABLE public.payroll ALTER COLUMN note SET NOT NULL;
+ALTER TABLE public.payroll ALTER COLUMN created_at SET NOT NULL;
+ALTER TABLE public.payroll ALTER COLUMN updated_at SET NOT NULL;
+
+ALTER TABLE public.payroll DROP CONSTRAINT IF EXISTS payroll_status_check;
+ALTER TABLE public.payroll ADD CONSTRAINT payroll_status_check CHECK (status IN ('draft','pending','paid'));
+ALTER TABLE public.payroll DROP CONSTRAINT IF EXISTS payroll_store_check;
+ALTER TABLE public.payroll ADD CONSTRAINT payroll_store_check CHECK (
+  store IN ('Chickumbar Blok M','Susu Sore','Hi Fruit','Ngayamin','Chickumbar Barito')
+);
+ALTER TABLE public.payroll DROP CONSTRAINT IF EXISTS payroll_amount_check;
+ALTER TABLE public.payroll ADD CONSTRAINT payroll_amount_check CHECK (
+  base_salary >= 0 AND allowance >= 0 AND bonus >= 0 AND deduction >= 0
+);
+
+CREATE INDEX IF NOT EXISTS payroll_month_store_idx ON public.payroll(payroll_month, store);
 ALTER TABLE public.payroll ENABLE ROW LEVEL SECURITY;
+
 DROP POLICY IF EXISTS "Payroll readable by access" ON public.payroll;
 DROP POLICY IF EXISTS "Payroll manageable by admin" ON public.payroll;
-CREATE POLICY "Payroll readable by access" ON public.payroll FOR SELECT TO authenticated USING (public.can_access_store(store));
-CREATE POLICY "Payroll manageable by admin" ON public.payroll FOR ALL TO authenticated USING (public.is_admin()) WITH CHECK (public.is_admin());
+DROP POLICY IF EXISTS "Payroll admin manage" ON public.payroll;
+DROP POLICY IF EXISTS "Payroll owner read" ON public.payroll;
+
+CREATE POLICY "Payroll readable by access"
+ON public.payroll FOR SELECT TO authenticated
+USING (
+  EXISTS (
+    SELECT 1
+    FROM public.profiles p
+    WHERE p.user_id = auth.uid()
+      AND (
+        p.role = 'admin'
+        OR (
+          p.role = 'owner'
+          AND (
+            store = p.branch
+            OR store = ANY(COALESCE(p.branches, '{}'::text[]))
+          )
+        )
+      )
+  )
+);
+
+CREATE POLICY "Payroll manageable by admin"
+ON public.payroll FOR ALL TO authenticated
+USING (
+  EXISTS (
+    SELECT 1 FROM public.profiles p
+    WHERE p.user_id = auth.uid() AND p.role = 'admin'
+  )
+)
+WITH CHECK (
+  EXISTS (
+    SELECT 1 FROM public.profiles p
+    WHERE p.user_id = auth.uid() AND p.role = 'admin'
+  )
+);
+
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.payroll TO authenticated;
 
 NOTIFY pgrst, 'reload schema';`
@@ -3247,7 +3339,7 @@ NOTIFY pgrst, 'reload schema';`
       function setCloudStatus(status,text){el('cloudPill').className=`cloud-pill ${status}`;el('cloudStatusText').textContent=text;}
       function showSyncError(error){const message=friendlyError(error);setCloudStatus('error','Gagal sinkron');el('syncBanner').textContent=message;el('syncBanner').hidden=false;toast(message);}
       function hideSyncError(){el('syncBanner').hidden=true;el('syncBanner').textContent='';}
-      function friendlyError(error){const message=String(error?.message||error||'Terjadi kesalahan.');if(/payment_method.*schema cache|schema cache.*payment_method|Could not find the ['"]payment_method['"] column/i.test(message))return'Kolom metode pembayaran belum aktif di Supabase. Jalankan file fix_payment_method.sql, tunggu beberapa detik, lalu muat ulang halaman.';if(/Invalid login credentials/i.test(message))return'Email atau password salah.';if(/Email not confirmed/i.test(message))return'Email belum dikonfirmasi.';if(/Failed to fetch|NetworkError|fetch/i.test(message))return'Tidak dapat terhubung ke Supabase. Periksa internet, Project URL, dan publishable key.';if(/relation .* does not exist|Could not find the table|column .* does not exist/i.test(message))return'Struktur Supabase belum diperbarui. Jalankan SQL terbaru yang tersedia pada halaman pengaturan koneksi.';if(/row-level security|permission denied|policy/i.test(message))return'Akses database ditolak. Jalankan SQL terbaru agar aturan Admin, Owner, dan Karyawan aktif dengan benar.';if(/JWT|apikey|API key|Unauthorized/i.test(message))return'Publishable key tidak valid atau sudah berubah.';return message;}
+      function friendlyError(error){const message=String(error?.message||error||'Terjadi kesalahan.');if(/payment_method.*schema cache|schema cache.*payment_method|Could not find the ['"]payment_method['"] column/i.test(message))return'Kolom metode pembayaran belum aktif di Supabase. Jalankan file fix_payment_method.sql, tunggu beberapa detik, lalu muat ulang halaman.';if(/Invalid login credentials/i.test(message))return'Email atau password salah.';if(/Email not confirmed/i.test(message))return'Email belum dikonfirmasi.';if(/Failed to fetch|NetworkError|fetch/i.test(message))return'Tidak dapat terhubung ke Supabase. Periksa internet, Project URL, dan publishable key.';if(/payroll.*schema cache|schema cache.*payroll|Could not find the table ['"]?public\.payroll|relation .*payroll.* does not exist/i.test(message))return'Tabel Gaji Karyawan belum aktif di Supabase. Jalankan fix_payroll.sql, tunggu beberapa detik, lalu refresh data.';if(/relation .* does not exist|Could not find the table|column .* does not exist/i.test(message))return'Struktur Supabase belum diperbarui. Jalankan SQL terbaru yang tersedia pada halaman pengaturan koneksi.';if(/row-level security|permission denied|policy/i.test(message))return'Akses database ditolak. Jalankan SQL terbaru agar aturan Admin, Owner, dan Karyawan aktif dengan benar.';if(/JWT|apikey|API key|Unauthorized/i.test(message))return'Publishable key tidak valid atau sudah berubah.';return message;}
 
       function downloadFile(name,content,type){const blob=new Blob([content],{type});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);}
       function toCSV(rows){return rows.map(row=>row.map(value=>`"${String(value??'').replace(/"/g,'""')}"`).join(',')).join('\n');}
