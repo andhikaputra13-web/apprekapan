@@ -881,6 +881,32 @@
     html[data-theme="dark"] input[type="date"]::-webkit-calendar-picker-indicator,
     html[data-theme="dark"] input[type="month"]::-webkit-calendar-picker-indicator { filter: invert(1) opacity(.8); }
 
+    .input.field-invalid, .select.field-invalid, .textarea.field-invalid {
+      border-color: #ef4444 !important;
+      box-shadow: 0 0 0 3px rgba(239,68,68,.12) !important;
+      background: #fff7f7;
+    }
+    .field-warning-message {
+      display: block;
+      margin-top: 2px;
+      color: #dc2626;
+      font-size: 12px;
+      font-weight: 700;
+      line-height: 1.35;
+    }
+    .select:required:invalid { color: #94a3b8; }
+    .select option { color: #0f172a; }
+    html[data-theme="dark"] .input.field-invalid,
+    html[data-theme="dark"] .select.field-invalid,
+    html[data-theme="dark"] .textarea.field-invalid {
+      background: #3a2026;
+      border-color: #fb7185 !important;
+      box-shadow: 0 0 0 3px rgba(251,113,133,.14) !important;
+    }
+    html[data-theme="dark"] .field-warning-message { color: #fda4af; }
+    html[data-theme="dark"] .select:required:invalid { color: #64748b; }
+    html[data-theme="dark"] .select option { color: #e2e8f0; background: #111827; }
+
     /* Clean interface: hide non-essential explanatory copy while preserving operational status, warnings, and timestamps. */
     #appShell .brand small,
     #appShell .toolbar p,
@@ -918,7 +944,7 @@
         </div>
       </div>
       <div class="gate-body">
-        <form class="gate-form" id="setupForm">
+        <form class="gate-form" id="setupForm" novalidate>
           <div class="field">
             <label for="setupUrl">Supabase Project URL</label>
             <input class="input" type="url" id="setupUrl" placeholder="https://xxxxx.supabase.co" required />
@@ -953,7 +979,7 @@
         </div>
       </div>
       <div class="gate-body">
-        <form class="gate-form" id="loginForm">
+        <form class="gate-form" id="loginForm" novalidate>
           <div class="field">
             <label for="authEmail">Email</label>
             <input class="input" type="email" id="authEmail" autocomplete="email" placeholder="admin@tokosaya.com" required />
@@ -1292,7 +1318,7 @@
 
   <div class="modal" id="transactionModal" role="dialog" aria-modal="true">
     <div class="modal-panel transaction-modal-panel"><div class="modal-head"><h3 id="transactionModalTitle">Tambah Transaksi</h3><button class="close-btn" data-close="transactionModal">✕</button></div>
-      <form id="transactionForm">
+      <form id="transactionForm" novalidate>
         <div class="modal-body">
           <input type="hidden" id="transactionId" /><input type="hidden" id="transactionContext" value="store" />
           <div class="transaction-list-head">
@@ -1303,13 +1329,13 @@
               <div class="transaction-entry-head"><strong class="transaction-entry-title">Transaksi 1</strong><button type="button" class="transaction-remove-btn" data-remove-transaction-row hidden>Hapus</button></div>
               <div class="form-grid">
                 <div class="field"><label for="transactionDate">Tanggal</label><input class="input transaction-row-date" type="date" id="transactionDate" required /></div>
-                <div class="field" id="transactionStoreField"><label for="transactionStore">Toko/Brand</label><select class="select transaction-row-store" id="transactionStore" required></select></div>
-                <div class="field" id="transactionEventField"><label for="transactionEvent">Event</label><select class="select transaction-row-event" id="transactionEvent"></select></div>
-                <div class="field"><label for="transactionType">Jenis Transaksi</label><select class="select transaction-row-type" id="transactionType" required><option value="income">Pemasukan</option><option value="expense">Pengeluaran</option></select></div>
-                <div class="field" id="transactionPaymentField"><label for="transactionPaymentMethod">Metode Pembayaran</label><select class="select transaction-row-payment" id="transactionPaymentMethod" required><option value="cash">Cash</option><option value="qris">QRIS</option></select></div>
+                <div class="field" id="transactionStoreField"><label for="transactionStore">Toko/Brand</label><select class="select transaction-row-store" id="transactionStore" data-placeholder="Pilih toko/brand" required><option value="" disabled selected>Pilih toko/brand</option></select></div>
+                <div class="field" id="transactionEventField"><label for="transactionEvent">Event</label><select class="select transaction-row-event" id="transactionEvent" data-placeholder="Pilih event"><option value="" disabled selected>Pilih event</option></select></div>
+                <div class="field"><label for="transactionType">Jenis Transaksi</label><select class="select transaction-row-type" id="transactionType" required><option value="" disabled selected>Pilih jenis transaksi</option><option value="income">Pemasukan</option><option value="expense">Pengeluaran</option></select></div>
+                <div class="field" id="transactionPaymentField"><label for="transactionPaymentMethod">Metode Pembayaran</label><select class="select transaction-row-payment" id="transactionPaymentMethod" required><option value="" disabled selected>Pilih metode pembayaran</option><option value="cash">Cash</option><option value="qris">QRIS</option></select></div>
                 <div class="field full"><label for="transactionCategory">Kategori</label><input class="input transaction-row-category" id="transactionCategory" list="categoryList" placeholder="Contoh: Penjualan Harian" required /></div>
                 <div class="field full"><label for="transactionNote">Keterangan</label><textarea class="textarea transaction-row-note" id="transactionNote" placeholder="Contoh: Penjualan menu reguler"></textarea></div>
-                <div class="field full"><label for="transactionAmount">Nominal (Rp)</label><input class="input transaction-row-amount" type="number" id="transactionAmount" min="0" step="1" placeholder="0" required /></div>
+                <div class="field full"><label for="transactionAmount">Nominal (Rp)</label><input class="input transaction-row-amount" type="number" id="transactionAmount" min="0" step="1" placeholder="Masukkan nominal" required /></div>
               </div>
               <div class="transaction-add-wrap"><button type="button" class="btn btn-light transaction-add-small" id="addTransactionRowBtn" data-add-transaction-row>＋ Tambah Baris</button></div>
             </div>
@@ -1325,7 +1351,7 @@
 
   <div class="modal" id="inventoryModal" role="dialog" aria-modal="true">
     <div class="modal-panel"><div class="modal-head"><h3 id="inventoryModalTitle">Tambah Nama Bahan</h3><button class="close-btn" data-close="inventoryModal">✕</button></div>
-      <form id="inventoryForm"><div class="modal-body">
+      <form id="inventoryForm" novalidate><div class="modal-body">
         <input type="hidden" id="inventoryId" /><input type="hidden" id="inventoryContext" value="store" />
         <select id="inventoryStore" hidden></select>
         <select id="inventoryEvent" hidden><option value="none">Non-Event</option></select>
@@ -1334,8 +1360,8 @@
         <div class="material-store-summary"><span id="inventoryModalScopeLabel">Bahan akan digunakan untuk cabang</span><strong id="inventoryModalStoreText">-</strong></div>
         <div class="form-grid">
           <div class="field full"><label for="inventoryName">Nama Bahan</label><input class="input" id="inventoryName" placeholder="Contoh: Ayam fillet, gula, cup 16 oz" required /></div>
-          <div class="field full"><label for="inventoryUnit">Satuan Bahan</label><input class="input" id="inventoryUnit" list="inventoryUnitList" value="pcs" placeholder="Pilih atau ketik satuan" autocomplete="off" required /><datalist id="inventoryUnitList"><option value="pcs"></option><option value="botol"></option><option value="pack"></option><option value="box"></option><option value="dus"></option><option value="cup"></option><option value="sachet"></option><option value="kaleng"></option><option value="kg"></option><option value="gram"></option><option value="liter"></option><option value="ml"></option><option value="porsi"></option><option value="lembar"></option><option value="batang"></option><option value="ikat"></option><option value="karung"></option><option value="tray"></option><option value="roll"></option><option value="unit"></option></datalist><small class="field-help">Pilih satuan yang tersedia atau ketik satuan lain sesuai kebutuhan.</small></div>
-          <div class="field full"><label for="inventoryMin">Stok Minimum</label><input class="input" type="number" id="inventoryMin" min="0" step="0.01" value="0" placeholder="Contoh: 10" required /><small class="field-help">Status menjadi Perlu Restok saat stok terakhir mencapai atau berada di bawah angka ini.</small></div>
+          <div class="field full"><label for="inventoryUnit">Satuan Bahan</label><input class="input" id="inventoryUnit" list="inventoryUnitList" placeholder="Pilih atau ketik satuan" autocomplete="off" required /><datalist id="inventoryUnitList"><option value="pcs"></option><option value="botol"></option><option value="pack"></option><option value="box"></option><option value="dus"></option><option value="cup"></option><option value="sachet"></option><option value="kaleng"></option><option value="kg"></option><option value="gram"></option><option value="liter"></option><option value="ml"></option><option value="porsi"></option><option value="lembar"></option><option value="batang"></option><option value="ikat"></option><option value="karung"></option><option value="tray"></option><option value="roll"></option><option value="unit"></option></datalist><small class="field-help">Pilih satuan yang tersedia atau ketik satuan lain sesuai kebutuhan.</small></div>
+          <div class="field full"><label for="inventoryMin">Stok Minimum</label><input class="input" type="number" id="inventoryMin" min="0" step="0.01" placeholder="Masukkan stok minimum" required /><small class="field-help">Status menjadi Perlu Restok saat stok terakhir mencapai atau berada di bawah angka ini.</small></div>
         </div>
         <p class="helper-text" style="margin:12px 0 0">Stok saat ini tidak diisi di halaman ini. Nilainya otomatis mengikuti stok akhir dari closing bahan terbaru.</p>
       </div><div class="modal-foot"><button type="button" class="btn btn-light" data-close="inventoryModal">Batal</button><button type="submit" class="btn btn-primary">Simpan Nama Bahan</button></div></form>
@@ -1345,7 +1371,7 @@
   <div class="modal" id="dailyClosingModal" role="dialog" aria-modal="true">
     <div class="modal-panel closing-modal-panel">
       <div class="modal-head"><h3 id="dailyClosingModalTitle">Closing Rekapan Bahan</h3><button class="close-btn" data-close="dailyClosingModal">✕</button></div>
-      <form id="dailyClosingForm">
+      <form id="dailyClosingForm" novalidate>
         <div class="modal-body">
           <input type="hidden" id="dailyClosingStore" />
           <input type="hidden" id="dailyClosingDate" />
@@ -1361,13 +1387,13 @@
 
   <div class="modal" id="eventModal" role="dialog" aria-modal="true">
     <div class="modal-panel"><div class="modal-head"><h3 id="eventModalTitle">Tambah Event</h3><button class="close-btn" data-close="eventModal">✕</button></div>
-      <form id="eventForm"><div class="modal-body"><input type="hidden" id="eventId" /><div class="form-grid">
+      <form id="eventForm" novalidate><div class="modal-body"><input type="hidden" id="eventId" /><div class="form-grid">
         <div class="field full"><label for="eventName">Nama Event</label><input class="input" id="eventName" placeholder="Contoh: Festival Kuliner Jakarta" required /></div>
         <div class="field"><label for="eventDate">Tanggal Mulai</label><input class="input" type="date" id="eventDate" required /></div>
         <div class="field"><label for="eventEndDate">Tanggal Selesai</label><input class="input" type="date" id="eventEndDate" required /></div>
-        <div class="field"><label for="eventLocation">Lokasi</label><input class="input" id="eventLocation" required /></div>
-        <div class="field"><label for="eventOrganizer">Penyelenggara/PIC</label><input class="input" id="eventOrganizer" /></div>
-        <div class="field full"><label for="eventNote">Keterangan</label><textarea class="textarea" id="eventNote"></textarea></div>
+        <div class="field"><label for="eventLocation">Lokasi</label><input class="input" id="eventLocation" placeholder="Masukkan lokasi event" required /></div>
+        <div class="field"><label for="eventOrganizer">Penyelenggara/PIC</label><input class="input" id="eventOrganizer" placeholder="Masukkan nama penyelenggara atau PIC" /></div>
+        <div class="field full"><label for="eventNote">Keterangan</label><textarea class="textarea" id="eventNote" placeholder="Masukkan keterangan event"></textarea></div>
       </div></div><div class="modal-foot"><button type="button" class="btn btn-light" data-close="eventModal">Batal</button><button type="submit" class="btn btn-primary">Simpan Event</button></div></form>
     </div>
   </div>
@@ -1889,9 +1915,6 @@ NOTIFY pgrst, 'reload schema';`
         el('eventTransactionMonthFilter').value=currentMonth();
         el('inventoryDateFilter').value=todayISO();
         el('eventInventoryDateFilter').value=todayISO();
-        el('transactionDate').value=todayISO();
-        el('eventDate').value=todayISO();
-        el('eventEndDate').value=todayISO();
         el('todayText').textContent=new Intl.DateTimeFormat('id-ID',{timeZone:'Asia/Jakarta',weekday:'long',day:'numeric',month:'long',year:'numeric'}).format(new Date());
         el('setupSql').value=DATABASE_SQL;
         el('signupBtn').hidden=!ALLOW_PUBLIC_SIGNUP;
@@ -2088,18 +2111,79 @@ NOTIFY pgrst, 'reload schema';`
       }
 
       function setGateMessage(node,message,type){node.hidden=!message;node.textContent=message||'';node.className=type==='success'?'gate-success':'gate-error';}
+      function fieldLabel(control){
+        if(control.dataset.label)return control.dataset.label;
+        const field=control.closest('.field');
+        const label=field?.querySelector('label');
+        return (label?.textContent||control.getAttribute('aria-label')||control.name||'Field ini').trim();
+      }
+      function fieldWarningText(control){
+        const label=fieldLabel(control);
+        if(control.validity?.typeMismatch)return `${label} belum menggunakan format yang benar.`;
+        if(control.validity?.tooShort)return `${label} minimal ${control.minLength} karakter.`;
+        if(control.validity?.rangeUnderflow)return `${label} tidak boleh kurang dari ${control.min}.`;
+        if(control.validity?.rangeOverflow)return `${label} tidak boleh lebih dari ${control.max}.`;
+        if(control.validity?.stepMismatch||control.validity?.badInput)return `${label} harus diisi dengan angka yang valid.`;
+        return control.tagName==='SELECT'?`${label} wajib dipilih.`:`${label} wajib diisi.`;
+      }
+      function clearFieldWarning(control){
+        if(!control?.classList)return;
+        control.classList.remove('field-invalid');
+        control.removeAttribute('aria-invalid');
+        const host=control.closest('.field')||control.parentElement;
+        host?.querySelectorAll('.field-warning-message').forEach(node=>node.remove());
+      }
+      function clearFormWarnings(form){
+        form?.querySelectorAll('.field-invalid').forEach(clearFieldWarning);
+        form?.querySelectorAll('.field-warning-message').forEach(node=>node.remove());
+      }
+      function markFieldWarning(control,message){
+        clearFieldWarning(control);
+        control.classList.add('field-invalid');
+        control.setAttribute('aria-invalid','true');
+        const host=control.closest('.field')||control.parentElement;
+        if(!host)return;
+        const warning=document.createElement('small');
+        warning.className='field-warning-message';
+        warning.textContent=message;
+        host.appendChild(warning);
+      }
+      function controlNeedsValidation(control){
+        if(!control.required||control.disabled||control.hidden||control.type==='hidden')return false;
+        if(control.closest('[hidden],.scope-hidden'))return false;
+        return true;
+      }
+      function validateFormFields(form,{notify=true,message='Lengkapi semua data wajib sebelum melanjutkan.'}={}){
+        clearFormWarnings(form);
+        const invalid=[];
+        form.querySelectorAll('input,select,textarea').forEach(control=>{
+          if(!controlNeedsValidation(control))return;
+          const empty=String(control.value??'').trim()==='';
+          if(empty||!control.validity.valid){markFieldWarning(control,fieldWarningText(control));invalid.push(control);}
+        });
+        if(!invalid.length)return{valid:true,invalid:[],labels:[]};
+        const first=invalid[0];
+        first.scrollIntoView({behavior:'smooth',block:'center'});
+        setTimeout(()=>first.focus({preventScroll:true}),120);
+        if(notify)toast(message);
+        return{valid:false,invalid,labels:[...new Set(invalid.map(fieldLabel))]};
+      }
+      function clearWarningFromEvent(event){const control=event.target.closest?.('input,select,textarea');if(control)clearFieldWarning(control);}
       function updateProjectLabels(){let host='-';try{host=currentConfig?new URL(currentConfig.url).host:'-';}catch(_){} if(el('authProjectHost'))el('authProjectHost').textContent=host;if(el('settingsProjectHost'))el('settingsProjectHost').textContent=host;}
 
-      async function handleSetupSubmit(event){event.preventDefault();const button=el('setupSubmitBtn');const url=el('setupUrl').value.trim().replace(/\/$/,'');const key=el('setupKey').value.trim();setGateMessage(el('setupError'),'','error');if(!/^https:\/\/.+\.supabase\.co$/i.test(url))return setGateMessage(el('setupError'),'Project URL harus berbentuk https://xxxxx.supabase.co','error');if(key.length<30)return setGateMessage(el('setupError'),'Publishable key terlihat tidak lengkap.','error');setButtonBusy(button,true,'Memeriksa koneksi…');try{const response=await fetch(`${url}/auth/v1/settings`,{headers:{apikey:key}});if(!response.ok)throw new Error('Project URL atau publishable key tidak valid.');saveConfig({url,key});await connectSupabase({url,key});}catch(error){setGateMessage(el('setupError'),friendlyError(error),'error');}finally{setButtonBusy(button,false);}}
-      async function handleLogin(event){event.preventDefault();const button=el('loginBtn');setGateMessage(el('authMessage'),'','error');setButtonBusy(button,true,'Memproses…');try{const {error}=await db.auth.signInWithPassword({email:el('authEmail').value.trim(),password:el('authPassword').value});if(error)throw error;}catch(error){setGateMessage(el('authMessage'),friendlyError(error),'error');}finally{setButtonBusy(button,false);}}
-      async function handleSignup(){const email=el('authEmail').value.trim();const password=el('authPassword').value;if(!email||password.length<6)return setGateMessage(el('authMessage'),'Isi email dan password minimal 6 karakter.','error');const button=el('signupBtn');setButtonBusy(button,true,'Membuat akun…');try{const {data,error}=await db.auth.signUp({email,password});if(error)throw error;setGateMessage(el('authMessage'),data.session?'Akun berhasil dibuat dan Anda sudah masuk.':'Akun berhasil dibuat. Periksa email untuk konfirmasi.','success');}catch(error){setGateMessage(el('authMessage'),friendlyError(error),'error');}finally{setButtonBusy(button,false);}}
+      async function handleSetupSubmit(event){event.preventDefault();const button=el('setupSubmitBtn');setGateMessage(el('setupError'),'','error');const validation=validateFormFields(el('setupForm'),{notify:false});if(!validation.valid)return setGateMessage(el('setupError'),`Lengkapi ${validation.labels.join(', ')} terlebih dahulu.`,'error');const url=el('setupUrl').value.trim().replace(/\/$/,'');const key=el('setupKey').value.trim();if(!/^https:\/\/.+\.supabase\.co$/i.test(url)){markFieldWarning(el('setupUrl'),'Project URL belum menggunakan format Supabase yang benar.');return setGateMessage(el('setupError'),'Project URL harus berbentuk https://xxxxx.supabase.co','error');}if(key.length<30){markFieldWarning(el('setupKey'),'Publishable Key terlihat belum lengkap.');return setGateMessage(el('setupError'),'Publishable key terlihat tidak lengkap.','error');}setButtonBusy(button,true,'Memeriksa koneksi…');try{const response=await fetch(`${url}/auth/v1/settings`,{headers:{apikey:key}});if(!response.ok)throw new Error('Project URL atau publishable key tidak valid.');saveConfig({url,key});await connectSupabase({url,key});}catch(error){setGateMessage(el('setupError'),friendlyError(error),'error');}finally{setButtonBusy(button,false);}}
+      async function handleLogin(event){event.preventDefault();const button=el('loginBtn');setGateMessage(el('authMessage'),'','error');const validation=validateFormFields(el('loginForm'),{notify:false});if(!validation.valid)return setGateMessage(el('authMessage'),`Lengkapi ${validation.labels.join(', ')} terlebih dahulu.`,'error');setButtonBusy(button,true,'Memproses…');try{const {error}=await db.auth.signInWithPassword({email:el('authEmail').value.trim(),password:el('authPassword').value});if(error)throw error;}catch(error){setGateMessage(el('authMessage'),friendlyError(error),'error');}finally{setButtonBusy(button,false);}}
+      async function handleSignup(){setGateMessage(el('authMessage'),'','error');const validation=validateFormFields(el('loginForm'),{notify:false});if(!validation.valid)return setGateMessage(el('authMessage'),`Lengkapi ${validation.labels.join(', ')} terlebih dahulu.`,'error');const email=el('authEmail').value.trim();const password=el('authPassword').value;const button=el('signupBtn');setButtonBusy(button,true,'Membuat akun…');try{const {data,error}=await db.auth.signUp({email,password});if(error)throw error;setGateMessage(el('authMessage'),data.session?'Akun berhasil dibuat dan Anda sudah masuk.':'Akun berhasil dibuat. Periksa email untuk konfirmasi.','success');}catch(error){setGateMessage(el('authMessage'),friendlyError(error),'error');}finally{setButtonBusy(button,false);}}
 
       function populateStoreSelect(select,includeAll=false,stores=STORES){
         const old=select.value;
-        select.innerHTML=`${includeAll?'<option value="all">Semua Toko</option>':''}`+stores.map(store=>`<option value="${escapeHtml(store)}">${escapeHtml(store)}</option>`).join('');
+        const placeholder=select.dataset.placeholder?`<option value="" disabled>${escapeHtml(select.dataset.placeholder)}</option>`:'';
+        select.innerHTML=placeholder+`${includeAll?'<option value="all">Semua Toko</option>':''}`+stores.map(store=>`<option value="${escapeHtml(store)}">${escapeHtml(store)}</option>`).join('');
         if([...select.options].some(option=>option.value===old))select.value=old;
+        else if(placeholder)select.value='';
+        else if(select.options.length)select.selectedIndex=0;
       }
-      function populateEventSelect(select,{includeAll=false,includeNone=true}={}){const old=select.value;select.innerHTML=`${includeAll?'<option value="all">Semua Event</option>':''}${includeNone?'<option value="none">Non-Event</option>':''}`+state.events.slice().sort((a,b)=>b.eventDate.localeCompare(a.eventDate)).map(item=>`<option value="${item.id}">${escapeHtml(item.name)} — ${formatDate(item.eventDate)}</option>`).join('');if([...select.options].some(o=>o.value===old))select.value=old;}
+      function populateEventSelect(select,{includeAll=false,includeNone=true}={}){const old=select.value;const placeholder=select.dataset.placeholder?`<option value="" disabled>${escapeHtml(select.dataset.placeholder)}</option>`:'';select.innerHTML=placeholder+`${includeAll?'<option value="all">Semua Event</option>':''}${includeNone?'<option value="none">Non-Event</option>':''}`+state.events.slice().sort((a,b)=>b.eventDate.localeCompare(a.eventDate)).map(item=>`<option value="${item.id}">${escapeHtml(item.name)} — ${formatDate(item.eventDate)}</option>`).join('');if([...select.options].some(o=>o.value===old))select.value=old;else if(placeholder)select.value='';else if(select.options.length)select.selectedIndex=0;}
       function refreshEventSelects(){
         populateEventSelect(el('transactionEventFilter'),{includeAll:false,includeNone:true});
         document.querySelectorAll('#transactionRows .transaction-row-event').forEach(select=>populateEventSelect(select,{includeNone:true}));
@@ -2113,6 +2197,7 @@ NOTIFY pgrst, 'reload schema';`
 
       function bindEvents(){
         el('setupForm').addEventListener('submit',handleSetupSubmit);el('copySqlBtn').addEventListener('click',copyDatabaseSql);el('loginForm').addEventListener('submit',handleLogin);el('signupBtn').addEventListener('click',handleSignup);el('authChangeConfigBtn').addEventListener('click',()=>showSetup());
+        document.addEventListener('input',clearWarningFromEvent);document.addEventListener('change',clearWarningFromEvent);
         el('logoutBtn').addEventListener('click',logout);el('settingsLogoutBtn').addEventListener('click',logout);el('syncNowBtn').addEventListener('click',()=>loadCloudData(false));el('changeConfigBtn').addEventListener('click',changeConnection);el('balanceToggleBtn').addEventListener('click',toggleBalanceVisibility);el('themeToggleBtn').addEventListener('click',toggleTheme);
         el('dailyRecapToggle').addEventListener('click',()=>toggleDashboardRecap('daily'));
         el('monthlyRecapToggle').addEventListener('click',()=>toggleDashboardRecap('monthly'));
@@ -2183,7 +2268,7 @@ NOTIFY pgrst, 'reload schema';`
       function transactionTotalAmount(){return transactionEntries().reduce((total,entry)=>{const amount=Number(entry.querySelector('.transaction-row-amount')?.value||0);return total+(Number.isFinite(amount)&&amount>0?amount:0);},0);}
       function updateTransactionTotal(){const entries=transactionEntries();const total=transactionTotalAmount();const eventMode=el('transactionContext').value==='event';const scopeLabel=eventMode?'Event':'Toko';el('transactionTotalLabel').textContent=`Total nominal ${entries.length} baris`;el('transactionTotalAmount').textContent=rawMoney(total);const editing=!!el('transactionId').value;el('transactionSubmitBtn').textContent=editing?`Simpan Perubahan Transaksi ${scopeLabel} · ${rawMoney(total)}`:`Simpan ${entries.length} Transaksi ${scopeLabel} · ${rawMoney(total)}`;}
       function refreshTransactionEntryControls(){const entries=transactionEntries();const editing=!!el('transactionId').value;entries.forEach((entry,index)=>{entry.querySelector('.transaction-entry-title').textContent=editing?'Detail Transaksi':index===0?'Transaksi Utama':`Baris Tambahan ${index+1}`;const remove=entry.querySelector('[data-remove-transaction-row]');if(remove)remove.hidden=editing||index===0;const add=entry.querySelector('[data-add-transaction-row]');if(add)add.hidden=editing;});el('transactionBatchNote').hidden=editing;updateTransactionTotal();}
-      function addTransactionRow(afterEntry=null){if(el('transactionId').value)return;const entry=document.createElement('div');entry.className='transaction-entry transaction-extra-entry';entry.dataset.transactionEntry='';entry.innerHTML=`<div class="transaction-entry-head"><strong class="transaction-entry-title"></strong><button type="button" class="transaction-remove-btn" data-remove-transaction-row>Hapus</button></div><div class="form-grid"><div class="field full"><label>Keterangan</label><textarea class="textarea transaction-row-note" placeholder="Contoh: Penjualan menu tambahan"></textarea></div><div class="field full"><label>Nominal (Rp)</label><input class="input transaction-row-amount" type="number" min="0" step="1" placeholder="0" required /></div></div><div class="transaction-add-wrap"><button type="button" class="btn btn-light transaction-add-small" data-add-transaction-row>＋ Tambah Baris</button></div>`;if(afterEntry&&afterEntry.parentElement===el('transactionRows'))afterEntry.insertAdjacentElement('afterend',entry);else el('transactionRows').appendChild(entry);refreshTransactionEntryControls();setTimeout(()=>entry.querySelector('.transaction-row-note').focus(),60);}
+      function addTransactionRow(afterEntry=null){if(el('transactionId').value)return;const entry=document.createElement('div');entry.className='transaction-entry transaction-extra-entry';entry.dataset.transactionEntry='';entry.innerHTML=`<div class="transaction-entry-head"><strong class="transaction-entry-title"></strong><button type="button" class="transaction-remove-btn" data-remove-transaction-row>Hapus</button></div><div class="form-grid"><div class="field full"><label>Keterangan</label><textarea class="textarea transaction-row-note" placeholder="Contoh: Penjualan menu tambahan"></textarea></div><div class="field full"><label>Nominal (Rp)</label><input class="input transaction-row-amount" type="number" min="0" step="1" placeholder="Masukkan nominal" required /></div></div><div class="transaction-add-wrap"><button type="button" class="btn btn-light transaction-add-small" data-add-transaction-row>＋ Tambah Baris</button></div>`;if(afterEntry&&afterEntry.parentElement===el('transactionRows'))afterEntry.insertAdjacentElement('afterend',entry);else el('transactionRows').appendChild(entry);refreshTransactionEntryControls();setTimeout(()=>entry.querySelector('.transaction-row-note').focus(),60);}
       function handleTransactionRowClick(event){const add=event.target.closest('[data-add-transaction-row]');if(add){addTransactionRow(add.closest('[data-transaction-entry]'));return;}const remove=event.target.closest('[data-remove-transaction-row]');if(!remove)return;const entry=remove.closest('[data-transaction-entry]');if(entry&&!entry.hasAttribute('data-main-transaction-entry')){entry.remove();refreshTransactionEntryControls();}}
       function openTransactionModal(id=null,context='store',presetEventId=null){
         if(!isAdmin())return toast('Fitur transaksi hanya untuk Admin.');
@@ -2192,14 +2277,18 @@ NOTIFY pgrst, 'reload schema';`
         const eventId=existing?.eventId||presetEventId||selectedEventWorkspaceId();
         if(eventMode&&!eventId)return toast('Pilih event terlebih dahulu.');
         el('transactionForm').reset();
+        clearFormWarnings(el('transactionForm'));
         transactionEntries().slice(1).forEach(entry=>entry.remove());
         el('transactionId').value='';
         el('transactionContext').value=eventMode?'event':'store';
+        populateEventSelect(el('transactionEvent'),{includeNone:!eventMode});
         el('transactionDate').value=todayISO();
-        el('transactionType').value='income';
-        el('transactionPaymentMethod').value='cash';
-        el('transactionStore').value=eventMode?STORES[0]:(selectedGlobalStore==='all'?STORES[0]:selectedGlobalStore);
-        el('transactionEvent').value=eventMode?eventId:'none';
+        el('transactionType').value='';
+        el('transactionPaymentMethod').value='';
+        el('transactionStore').value='';
+        el('transactionEvent').value=eventMode?'':'none';
+        el('transactionStore').required=!eventMode;
+        el('transactionEvent').required=eventMode;
         el('transactionCategory').value='';
         el('transactionAmount').value='';
         el('transactionNote').value='';
@@ -2223,11 +2312,13 @@ NOTIFY pgrst, 'reload schema';`
         }
         refreshTransactionEntryControls();
         openModal('transactionModal');
-        setTimeout(()=>el('transactionCategory').focus(),80);
+        setTimeout(()=>el('transactionDate').focus(),80);
       }
       async function saveTransaction(event){
         event.preventDefault();
         if(!isAdmin())return;
+        const validation=validateFormFields(el('transactionForm'),{message:'Lengkapi seluruh data wajib transaksi sebelum menyimpan.'});
+        if(!validation.valid)return;
         const editId=el('transactionId').value;
         const existing=state.transactions.find(t=>t.id===editId);
         const entries=transactionEntries();
@@ -2242,7 +2333,7 @@ NOTIFY pgrst, 'reload schema';`
           paymentMethod:main.querySelector('.transaction-row-payment').value,
           category:main.querySelector('.transaction-row-category').value.trim()
         };
-        if(!common.date||!common.store||!common.category||(eventMode&&!common.eventId)){
+        if(!common.date||!common.store||!common.type||!common.paymentMethod||!common.category||(eventMode&&!common.eventId)){
           main.scrollIntoView({behavior:'smooth',block:'center'});
           main.querySelector('.transaction-row-category').focus();
           return toast(eventMode?'Mohon lengkapi tanggal, event, jenis, dan kategori transaksi.':'Mohon lengkapi tanggal, toko, jenis, dan kategori transaksi.');
@@ -2313,6 +2404,7 @@ NOTIFY pgrst, 'reload schema';`
           const opening=Number(row.querySelector('[data-closing-open]').value||0);const stockIn=Number(row.querySelector('[data-closing-in]').value||0);
           row.querySelector('[data-closing-end]').value=opening+stockIn;
         });
+        clearFormWarnings(el('dailyClosingForm'));
         updateClosingUsagePreview();
       }
 
@@ -2328,12 +2420,13 @@ NOTIFY pgrst, 'reload schema';`
         const rows=dailyRowsForDisplay(date,store,eventId).sort((a,b)=>a.name.localeCompare(b.name));
         if(!rows.length)return toast(eventMode?'Belum ada nama bahan pada event ini. Tambahkan bahan event terlebih dahulu.':'Belum ada nama bahan pada toko ini. Tambahkan nama bahan terlebih dahulu.');
         activeClosingRows=rows.map(row=>row.isDraft?{...row,id:uid()}:row);
+        clearFormWarnings(el('dailyClosingForm'));
         el('dailyClosingStore').value=store;
         el('dailyClosingDate').value=date;
         el('dailyClosingContext').value=eventMode?'event':'store';
         el('dailyClosingEventId').value=eventId||'';
         el('dailyClosingModalTitle').textContent=eventMode?`Closing Event ${eventName(eventId)} — ${formatDate(date)}`:`Closing ${store} — ${formatDate(date)}`;
-        el('dailyClosingRows').innerHTML=`<table><thead><tr><th>No.</th><th>Nama Bahan</th><th>Satuan</th><th>Stok Awal</th><th>Stok Masuk</th><th>Stok Akhir</th><th>Terpakai</th><th>Keterangan</th></tr></thead><tbody>${activeClosingRows.map((row,index)=>`<tr data-daily-closing-row="${index}"><td>${index+1}</td><td><strong>${escapeHtml(row.name)}</strong></td><td>${escapeHtml(row.unit||'unit')}</td><td><input class="input closing-table-input" type="number" min="0" step="0.01" data-closing-open value="${row.openingStock}" required></td><td><input class="input closing-table-input" type="number" min="0" step="0.01" data-closing-in value="${row.stockIn||0}"></td><td><input class="input closing-table-input" type="number" min="0" step="0.01" data-closing-end value="${row.closingStock==null?row.openingStock+(row.stockIn||0):row.closingStock}" required></td><td><strong class="used-value" data-closing-used>0</strong> ${escapeHtml(row.unit||'unit')}</td><td><input class="input closing-note-input" data-closing-note value="${escapeHtml(row.note||'')}" placeholder="Opsional"></td></tr>`).join('')}</tbody></table>`;
+        el('dailyClosingRows').innerHTML=`<table><thead><tr><th>No.</th><th>Nama Bahan</th><th>Satuan</th><th>Stok Awal</th><th>Stok Masuk</th><th>Stok Akhir</th><th>Terpakai</th><th>Keterangan</th></tr></thead><tbody>${activeClosingRows.map((row,index)=>`<tr data-daily-closing-row="${index}"><td>${index+1}</td><td><strong>${escapeHtml(row.name)}</strong></td><td>${escapeHtml(row.unit||'unit')}</td><td><input class="input closing-table-input" type="number" min="0" step="0.01" data-closing-open data-label="Stok Awal ${escapeHtml(row.name)}" value="${row.openingStock}" required></td><td><input class="input closing-table-input" type="number" min="0" step="0.01" data-closing-in data-label="Stok Masuk ${escapeHtml(row.name)}" value="${row.isClosed?row.stockIn:''}" placeholder="0"></td><td><input class="input closing-table-input" type="number" min="0" step="0.01" data-closing-end data-label="Stok Akhir ${escapeHtml(row.name)}" value="${row.closingStock==null?'':row.closingStock}" placeholder="Wajib diisi" required></td><td><strong class="used-value" data-closing-used>0</strong> ${escapeHtml(row.unit||'unit')}</td><td><input class="input closing-note-input" data-closing-note value="${escapeHtml(row.note||'')}" placeholder="Opsional"></td></tr>`).join('')}</tbody></table>`;
         updateClosingUsagePreview();openModal('dailyClosingModal');
       }
 
@@ -2349,12 +2442,14 @@ NOTIFY pgrst, 'reload schema';`
         const date=el('dailyClosingDate').value;
         const eventId=el('dailyClosingEventId').value||null;
         if(!store||date>todayISO()||(eventMode&&!eventId))return toast('Pilih ruang data dan tanggal hari ini atau tanggal sebelumnya untuk menyimpan closing.');
+        const validation=validateFormFields(el('dailyClosingForm'),{message:'Lengkapi stok akhir seluruh bahan sebelum menyimpan closing.'});
+        if(!validation.valid)return;
         const now=new Date().toISOString();const updates=[];const stockUpdates=[];
         for(const rowEl of el('dailyClosingRows').querySelectorAll('[data-daily-closing-row]')){
           const record=activeClosingRows[Number(rowEl.dataset.dailyClosingRow)];if(!record)continue;
           const openingStock=Number(rowEl.querySelector('[data-closing-open]').value);const stockIn=Number(rowEl.querySelector('[data-closing-in]').value||0);const closingStock=Number(rowEl.querySelector('[data-closing-end]').value);const available=openingStock+stockIn;
           if(!Number.isFinite(openingStock)||openingStock<0||!Number.isFinite(stockIn)||stockIn<0||!Number.isFinite(closingStock)||closingStock<0)return toast(`Periksa angka pada bahan ${record.name}.`);
-          if(closingStock>available)return toast(`Stok akhir ${record.name} melebihi stok tersedia. Tambahkan jumlah pada Stok Masuk.`);
+          if(closingStock>available){const closingInput=rowEl.querySelector('[data-closing-end]');markFieldWarning(closingInput,`Stok akhir tidak boleh melebihi stok tersedia ${number(available)}.`);closingInput.focus();return toast(`Stok akhir ${record.name} melebihi stok tersedia. Tambahkan jumlah pada Stok Masuk.`);}
           const usedStock=Math.max(0,available-closingStock);
           updates.push(dailyRecordToRow({...record,store,eventId:eventMode?eventId:null,openingStock,stockIn,closingStock,usedStock,note:rowEl.querySelector('[data-closing-note]').value.trim(),isClosed:true,isDraft:false,closedAt:now,closedBy:currentSession?.user?.id,updatedAt:now}));
           if(record.inventoryId){
@@ -2376,13 +2471,14 @@ NOTIFY pgrst, 'reload schema';`
         if(!eventMode&&!assignedStore)return toast('Pilih satu toko pada halaman Daftar Bahan terlebih dahulu.');
         if(existing&&!eventMode&&!canAccessStore(existing.store))return toast('Anda tidak memiliki akses ke data bahan ini.');
         el('inventoryForm').reset();
+        clearFormWarnings(el('inventoryForm'));
         el('inventoryId').value=existing?.id||'';
         el('inventoryContext').value=eventMode?'event':'store';
         el('inventoryStore').value=eventMode?STORES[0]:assignedStore;
         el('inventoryEvent').value=eventMode?eventId:'none';
-        el('inventoryUnit').value=existing?.unit||'pcs';
-        el('inventoryStock').value=existing?.stock||0;
-        el('inventoryMin').value=existing?.min||0;
+        el('inventoryUnit').value=existing?.unit??'';
+        el('inventoryStock').value=existing?.stock??0;
+        el('inventoryMin').value=existing?.min??'';
         el('inventoryNote').value=existing?.note||'';
         el('inventoryName').value=existing?.name||'';
         el('inventoryModalScopeLabel').textContent=eventMode?'Bahan khusus untuk event':'Bahan akan digunakan untuk cabang';
@@ -2394,6 +2490,8 @@ NOTIFY pgrst, 'reload schema';`
       async function saveInventory(event){
         event.preventDefault();
         if(!canManageMaterials())return toast('Hanya Admin yang dapat mengubah Daftar Bahan.');
+        const validation=validateFormFields(el('inventoryForm'),{message:'Lengkapi nama bahan, satuan, dan stok minimum sebelum menyimpan.'});
+        if(!validation.valid)return;
         const itemId=el('inventoryId').value||uid();
         const existing=state.inventory.find(item=>item.id===itemId);
         const eventMode=el('inventoryContext').value==='event';
@@ -2409,14 +2507,14 @@ NOTIFY pgrst, 'reload schema';`
         if(!unit)return toast('Satuan bahan wajib dipilih atau diisi.');
         if(!Number.isFinite(minStock)||minStock<0)return toast('Stok minimum harus berupa angka nol atau lebih.');
         const duplicate=state.inventory.some(item=>item.id!==itemId&&(eventMode?item.eventId===eventId:!item.eventId&&item.store===assignedStore)&&item.name.trim().toLowerCase()===name.toLowerCase());
-        if(duplicate)return toast(eventMode?'Nama bahan tersebut sudah ada pada event ini.':'Nama bahan tersebut sudah ada pada cabang ini.');
+        if(duplicate){markFieldWarning(el('inventoryName'),eventMode?'Nama bahan tersebut sudah ada pada event ini.':'Nama bahan tersebut sudah ada pada cabang ini.');return toast(eventMode?'Nama bahan tersebut sudah ada pada event ini.':'Nama bahan tersebut sudah ada pada cabang ini.');}
         const item={id:itemId,store:assignedStore,eventId,name,unit,stock:Number(existing?.stock||0),min:minStock,price:Number(existing?.price||0),note:existing?.note||'',updatedAt:new Date().toISOString()};
         const button=event.submitter;setButtonBusy(button,true,'Menyimpan…');
         try{const {error}=await db.from('inventory').upsert(inventoryToRow(item));if(error)throw error;closeModal('inventoryModal');await loadCloudData(true);toast(existing?'Bahan, satuan, dan stok minimum berhasil diperbarui.':eventMode?'Bahan event beserta satuannya berhasil ditambahkan.':'Bahan toko beserta satuannya berhasil ditambahkan dan akan tampil setiap hari.');}catch(error){showSyncError(error);}finally{setButtonBusy(button,false);}
       }
 
-      function openEventModal(id=null){if(!isAdmin())return;el('eventForm').reset();el('eventId').value='';el('eventDate').value=todayISO();el('eventEndDate').value=todayISO();el('eventModalTitle').textContent='Tambah Event';if(id){const item=state.events.find(e=>e.id===id);if(!item)return;el('eventId').value=item.id;el('eventName').value=item.name;el('eventDate').value=item.eventDate;el('eventEndDate').value=item.endDate;el('eventLocation').value=item.location;el('eventOrganizer').value=item.organizer;el('eventNote').value=item.note||'';el('eventModalTitle').textContent='Edit Event';}openModal('eventModal');setTimeout(()=>el('eventName').focus(),80);}
-      async function saveEvent(event){event.preventDefault();if(!isAdmin())return;const existing=state.events.find(e=>e.id===el('eventId').value);const item={id:el('eventId').value||uid(),name:el('eventName').value.trim(),eventDate:el('eventDate').value,endDate:el('eventEndDate').value,location:el('eventLocation').value.trim(),organizer:el('eventOrganizer').value.trim(),note:el('eventNote').value.trim(),createdAt:existing?.createdAt||new Date().toISOString()};if(!item.name||!item.eventDate||!item.endDate||!item.location||item.endDate<item.eventDate)return toast('Mohon periksa data event dan rentang tanggal.');const button=event.submitter;setButtonBusy(button,true,'Menyimpan…');try{const {error}=await db.from('events').upsert(eventToRow(item));if(error)throw error;closeModal('eventModal');await loadCloudData(true);toast(existing?'Event berhasil diperbarui.':'Event berhasil ditambahkan.');}catch(error){showSyncError(error);}finally{setButtonBusy(button,false);}}
+      function openEventModal(id=null){if(!isAdmin())return;el('eventForm').reset();clearFormWarnings(el('eventForm'));el('eventId').value='';const today=todayISO();el('eventDate').value=today;el('eventEndDate').value=today;el('eventModalTitle').textContent='Tambah Event';if(id){const item=state.events.find(e=>e.id===id);if(!item)return;el('eventId').value=item.id;el('eventName').value=item.name;el('eventDate').value=item.eventDate;el('eventEndDate').value=item.endDate;el('eventLocation').value=item.location;el('eventOrganizer').value=item.organizer;el('eventNote').value=item.note||'';el('eventModalTitle').textContent='Edit Event';}openModal('eventModal');setTimeout(()=>el('eventName').focus(),80);}
+      async function saveEvent(event){event.preventDefault();if(!isAdmin())return;const validation=validateFormFields(el('eventForm'),{message:'Lengkapi seluruh data wajib event sebelum menyimpan.'});if(!validation.valid)return;const existing=state.events.find(e=>e.id===el('eventId').value);const item={id:el('eventId').value||uid(),name:el('eventName').value.trim(),eventDate:el('eventDate').value,endDate:el('eventEndDate').value,location:el('eventLocation').value.trim(),organizer:el('eventOrganizer').value.trim(),note:el('eventNote').value.trim(),createdAt:existing?.createdAt||new Date().toISOString()};if(item.endDate<item.eventDate){markFieldWarning(el('eventEndDate'),'Tanggal selesai tidak boleh lebih awal dari tanggal mulai.');return toast('Periksa kembali rentang tanggal event.');}const button=event.submitter;setButtonBusy(button,true,'Menyimpan…');try{const {error}=await db.from('events').upsert(eventToRow(item));if(error)throw error;closeModal('eventModal');await loadCloudData(true);toast(existing?'Event berhasil diperbarui.':'Event berhasil ditambahkan.');}catch(error){showSyncError(error);}finally{setButtonBusy(button,false);}}
 
       function transactionToRow(item){return{id:item.id,transaction_date:item.date,store:item.store,event_id:item.eventId||null,type:item.type,payment_method:normalizePaymentMethod(item.paymentMethod),category:item.category,amount:item.amount,note:item.note||'',created_at:item.createdAt||new Date().toISOString()};}
       function inventoryToRow(item){return{id:item.id,store:item.store,event_id:item.eventId||null,name:item.name,unit:item.unit,stock:item.stock,min_stock:item.min,price:item.price,note:item.note||'',updated_at:item.updatedAt||new Date().toISOString()};}
