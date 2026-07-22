@@ -5,6 +5,17 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="description" content="Aplikasi rekapan pemasukan, pengeluaran, dan stok bahan untuk lima toko." />
   <title>Rekap Toko | Dashboard Operasional</title>
+  <script>
+    (() => {
+      try {
+        const savedTheme = localStorage.getItem('rekapTokoTheme_v1');
+        const systemTheme = window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        document.documentElement.dataset.theme = savedTheme === 'dark' || savedTheme === 'light' ? savedTheme : systemTheme;
+      } catch (_) {
+        document.documentElement.dataset.theme = 'light';
+      }
+    })();
+  </script>
   <style>
     :root {
       --bg: #f5f7fb;
@@ -22,6 +33,8 @@
       --blue: #2563eb;
       --shadow: 0 12px 32px rgba(23, 32, 51, 0.08);
       --radius: 18px;
+      --border: var(--line);
+      color-scheme: light;
     }
 
     * { box-sizing: border-box; }
@@ -75,8 +88,30 @@
       box-shadow: 0 8px 20px rgba(243, 182, 31, .28);
     }
 
-    .brand h1 { margin: 0; font-size: 17px; }
+    .brand-copy { min-width: 0; flex: 1; }
+    .brand-title-row { display: flex; align-items: center; gap: 7px; }
+    .brand h1 { margin: 0; font-size: 17px; white-space: nowrap; }
     .brand small { display: block; color: #aeb7c8; margin-top: 3px; }
+    .theme-toggle-btn {
+      width: 30px;
+      height: 30px;
+      flex: 0 0 30px;
+      display: grid;
+      place-items: center;
+      padding: 0;
+      border: 1px solid rgba(255,255,255,.14);
+      border-radius: 9px;
+      background: rgba(255,255,255,.08);
+      color: #ffd75f;
+      transition: background .2s ease, color .2s ease, transform .2s ease;
+    }
+    .theme-toggle-btn:hover { background: rgba(255,255,255,.15); transform: translateY(-1px); }
+    .theme-toggle-btn:focus-visible { outline: 3px solid rgba(243,182,31,.35); outline-offset: 2px; }
+    .theme-toggle-btn svg { width: 17px; height: 17px; display: block; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    .theme-icon-moon { display: none !important; }
+    html[data-theme="dark"] .theme-icon-sun { display: none !important; }
+    html[data-theme="dark"] .theme-icon-moon { display: block !important; }
+    html[data-theme="dark"] .theme-toggle-btn { color: #dbeafe; }
 
     .nav { display: grid; gap: 8px; }
     .nav button {
@@ -733,6 +768,119 @@
       .event-tabs { padding:10px 14px; }
     }
 
+
+    /* Tema gelap */
+    html[data-theme="dark"] {
+      --bg: #07101f;
+      --surface: #0f1a2c;
+      --surface-2: #142238;
+      --text: #edf3fc;
+      --muted: #94a3b8;
+      --line: #26364d;
+      --border: #26364d;
+      --green: #4ade80;
+      --red: #fb7185;
+      --orange: #fb923c;
+      --blue: #60a5fa;
+      --shadow: 0 16px 38px rgba(0,0,0,.28);
+      color-scheme: dark;
+    }
+    html[data-theme="dark"] body { background: var(--bg); color: var(--text); }
+    html[data-theme="dark"] .sidebar { background: #080f1d; }
+    html[data-theme="dark"] .topbar {
+      background: rgba(7,16,31,.88);
+      border-bottom-color: rgba(38,54,77,.9);
+    }
+    html[data-theme="dark"] .card { border-color: var(--line); }
+    html[data-theme="dark"] .store-select,
+    html[data-theme="dark"] .input,
+    html[data-theme="dark"] .select,
+    html[data-theme="dark"] .textarea,
+    html[data-theme="dark"] .menu-btn,
+    html[data-theme="dark"] .btn-light,
+    html[data-theme="dark"] .icon-btn,
+    html[data-theme="dark"] .stock-control button,
+    html[data-theme="dark"] .mini-icon-btn,
+    html[data-theme="dark"] .owner-store-picker,
+    html[data-theme="dark"] .cloud-pill,
+    html[data-theme="dark"] .loading-box,
+    html[data-theme="dark"] .daily-summary-item,
+    html[data-theme="dark"] .event-tab-btn {
+      background: var(--surface);
+      color: var(--text);
+      border-color: var(--line);
+    }
+    html[data-theme="dark"] .input::placeholder,
+    html[data-theme="dark"] .textarea::placeholder { color: #64748b; }
+    html[data-theme="dark"] th { background: #111d30; color: #9eacc0; }
+    html[data-theme="dark"] tbody tr:hover { background: #142238; }
+    html[data-theme="dark"] .modal-panel,
+    html[data-theme="dark"] .gate-card { background: var(--surface); color: var(--text); }
+    html[data-theme="dark"] .close-btn { background: var(--surface-2); color: var(--text); }
+    html[data-theme="dark"] .field label,
+    html[data-theme="dark"] .transaction-total-box span,
+    html[data-theme="dark"] .cloud-pill { color: #b5c2d4; }
+    html[data-theme="dark"] .material-stock-value strong,
+    html[data-theme="dark"] .transaction-entry-title,
+    html[data-theme="dark"] .transaction-total-box strong { color: var(--text); }
+    html[data-theme="dark"] .transaction-entry { background: var(--surface-2); }
+    html[data-theme="dark"] .transaction-entry.transaction-extra-entry { background: var(--surface); }
+    html[data-theme="dark"] .transaction-total-box {
+      border-color: #275176;
+      background: #102841;
+    }
+    html[data-theme="dark"] .transaction-remove-btn,
+    html[data-theme="dark"] .btn-danger { background: #42202a; color: #fda4af; }
+    html[data-theme="dark"] .gate-screen {
+      background:
+        radial-gradient(circle at 15% 15%, rgba(243,182,31,.13), transparent 32%),
+        radial-gradient(circle at 85% 80%, rgba(96,165,250,.10), transparent 30%),
+        var(--bg);
+    }
+    html[data-theme="dark"] .gate-head { background: linear-gradient(135deg,#08111f,#142238); }
+    html[data-theme="dark"] .sql-box { background: #0a1424; color: #cbd5e1; border-color: var(--line); }
+    html[data-theme="dark"] .loading-cover { background: rgba(7,16,31,.84); }
+    html[data-theme="dark"] .dashboard-section-toggle:hover { background: var(--surface); color: var(--text); }
+    html[data-theme="dark"] .dashboard-period-card {
+      background: linear-gradient(135deg,#0f1a2c 0%,#182136 100%);
+      border-color: var(--line);
+    }
+    html[data-theme="dark"] .material-store-summary,
+    html[data-theme="dark"] .event-tabs { background: #111d30; border-color: var(--line); }
+    html[data-theme="dark"] .event-workspace-head { background: linear-gradient(135deg,#251b13,#0f1a2c); }
+    html[data-theme="dark"] .event-tab-btn.active { background: #e8b62b; border-color: #e8b62b; color: #111827; }
+    html[data-theme="dark"] .material-status-low td { background: rgba(124,68,18,.22); }
+    html[data-theme="dark"] .material-status-empty td { background: rgba(127,29,29,.20); }
+    html[data-theme="dark"] .badge-income,
+    html[data-theme="dark"] .badge-ok,
+    html[data-theme="dark"] .role-employee,
+    html[data-theme="dark"] .event-status-ongoing,
+    html[data-theme="dark"] .badge-closed { background: #153a2a; color: #86efac; }
+    html[data-theme="dark"] .badge-expense,
+    html[data-theme="dark"] .badge-empty,
+    html[data-theme="dark"] .gate-error,
+    html[data-theme="dark"] .sync-banner { background: #42202a; color: #fda4af; border-color: #71313f; }
+    html[data-theme="dark"] .badge-low,
+    html[data-theme="dark"] .badge-open,
+    html[data-theme="dark"] .event-tag,
+    html[data-theme="dark"] .role-owner { background: #493515; color: #fde68a; }
+    html[data-theme="dark"] .role-admin,
+    html[data-theme="dark"] .event-status-upcoming,
+    html[data-theme="dark"] .badge-not-started { background: #172f55; color: #93c5fd; }
+    html[data-theme="dark"] .event-tag.none,
+    html[data-theme="dark"] .event-status-completed { background: #253247; color: #cbd5e1; }
+    html[data-theme="dark"] .gate-success { background: #153a2a; color: #86efac; }
+    html[data-theme="dark"] .branch-notice,
+    html[data-theme="dark"] .daily-summary-item.status-closed { background: #123323; border-color: #245b40; color: #86efac; }
+    html[data-theme="dark"] .branch-notice.warning { background: #42202a; border-color: #71313f; color: #fda4af; }
+    html[data-theme="dark"] .inventory-workflow-note,
+    html[data-theme="dark"] .closing-help,
+    html[data-theme="dark"] .daily-summary-item.status-empty { background: #122a46; border-color: #275176; color: #93c5fd; }
+    html[data-theme="dark"] .daily-summary-item.status-open,
+    html[data-theme="dark"] .event-scope-note { background: #3d2b14; border-color: #6f4a1b; color: #fdba74; }
+    html[data-theme="dark"] input[type="date"]::-webkit-calendar-picker-indicator,
+    html[data-theme="dark"] input[type="month"]::-webkit-calendar-picker-indicator { filter: invert(1) opacity(.8); }
+
     /* Clean interface: hide non-essential explanatory copy while preserving operational status, warnings, and timestamps. */
     #appShell .brand small,
     #appShell .toolbar p,
@@ -834,7 +982,16 @@
     <aside class="sidebar" id="sidebar">
       <div class="brand">
         <div class="brand-mark">RT</div>
-        <div><h1>Rekap Toko</h1><small>Operasional 5 Cabang</small></div>
+        <div class="brand-copy">
+          <div class="brand-title-row">
+            <h1>Rekap Toko</h1>
+            <button class="theme-toggle-btn" id="themeToggleBtn" type="button" aria-label="Ganti tema" aria-pressed="false" title="Ganti tema">
+              <svg class="theme-icon-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.66 6.34l1.41-1.41"></path></svg>
+              <svg class="theme-icon-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.5 14.2A8.5 8.5 0 0 1 9.8 3.5 8.5 8.5 0 1 0 20.5 14.2Z"></path></svg>
+            </button>
+          </div>
+          <small>Operasional 5 Cabang</small>
+        </div>
       </div>
 
       <nav class="nav" id="nav">
@@ -1227,6 +1384,7 @@
       const CONFIG_KEY = 'rekapTokoSupabaseConfig_v1';
       const BALANCE_VISIBILITY_KEY = 'rekapTokoBalanceHidden_v1';
       const DASHBOARD_RECAP_VISIBILITY_KEY = 'rekapTokoDashboardRecapVisibility_v1';
+      const THEME_KEY = 'rekapTokoTheme_v1';
       const ALLOW_PUBLIC_SIGNUP = false;
       const STORES = ['Chickumbar Blok M','Susu Sore','Hi Fruit','Ngayamin','Chickumbar Barito'];
       const EVENT_STORE = 'EVENT';
@@ -1706,6 +1864,23 @@ NOTIFY pgrst, 'reload schema';`
       function hasEmbeddedConfig(){ return DEFAULT_SUPABASE_URL.startsWith('https://') && !DEFAULT_SUPABASE_URL.includes('MASUKKAN_') && DEFAULT_SUPABASE_PUBLISHABLE_KEY.length>30 && !DEFAULT_SUPABASE_PUBLISHABLE_KEY.includes('MASUKKAN_'); }
       function getSavedConfig(){ try{const value=JSON.parse(localStorage.getItem(CONFIG_KEY));if(value?.url&&value?.key)return value;}catch(_){} return hasEmbeddedConfig()?{url:DEFAULT_SUPABASE_URL.trim(),key:DEFAULT_SUPABASE_PUBLISHABLE_KEY.trim()}:null; }
       function saveConfig(config){ localStorage.setItem(CONFIG_KEY,JSON.stringify(config)); }
+      function activeTheme(){ return document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light'; }
+      function updateThemeToggle(){
+        const button=el('themeToggleBtn');
+        if(!button)return;
+        const dark=activeTheme()==='dark';
+        const action=dark?'Aktifkan tema terang':'Aktifkan tema gelap';
+        button.setAttribute('aria-pressed',String(dark));
+        button.setAttribute('aria-label',action);
+        button.title=action;
+      }
+      function toggleTheme(){
+        const next=activeTheme()==='dark'?'light':'dark';
+        document.documentElement.dataset.theme=next;
+        localStorage.setItem(THEME_KEY,next);
+        updateThemeToggle();
+        requestAnimationFrame(renderChart);
+      }
 
       function initStaticUI(){
         [el('globalStore'),el('inventoryStoreFilter')].forEach(s=>populateStoreSelect(s,true));
@@ -1721,6 +1896,7 @@ NOTIFY pgrst, 'reload schema';`
         el('setupSql').value=DATABASE_SQL;
         el('signupBtn').hidden=!ALLOW_PUBLIC_SIGNUP;
         updateBalanceToggle();
+        updateThemeToggle();
         if(!eventsBound){bindEvents();eventsBound=true;}
         refreshEventSelects();
         renderAll();
@@ -1937,7 +2113,7 @@ NOTIFY pgrst, 'reload schema';`
 
       function bindEvents(){
         el('setupForm').addEventListener('submit',handleSetupSubmit);el('copySqlBtn').addEventListener('click',copyDatabaseSql);el('loginForm').addEventListener('submit',handleLogin);el('signupBtn').addEventListener('click',handleSignup);el('authChangeConfigBtn').addEventListener('click',()=>showSetup());
-        el('logoutBtn').addEventListener('click',logout);el('settingsLogoutBtn').addEventListener('click',logout);el('syncNowBtn').addEventListener('click',()=>loadCloudData(false));el('changeConfigBtn').addEventListener('click',changeConnection);el('balanceToggleBtn').addEventListener('click',toggleBalanceVisibility);
+        el('logoutBtn').addEventListener('click',logout);el('settingsLogoutBtn').addEventListener('click',logout);el('syncNowBtn').addEventListener('click',()=>loadCloudData(false));el('changeConfigBtn').addEventListener('click',changeConnection);el('balanceToggleBtn').addEventListener('click',toggleBalanceVisibility);el('themeToggleBtn').addEventListener('click',toggleTheme);
         el('dailyRecapToggle').addEventListener('click',()=>toggleDashboardRecap('daily'));
         el('monthlyRecapToggle').addEventListener('click',()=>toggleDashboardRecap('monthly'));
         el('dashboardDateFilter').addEventListener('change',event=>{selectedDashboardDate=event.target.value||'realtime';renderDashboard();});
@@ -2743,7 +2919,7 @@ NOTIFY pgrst, 'reload schema';`
         }finally{setButtonBusy(button,false);}
       }
 
-      function renderChart(){const canvas=el('cashChart');if(!canvas||activeView!=='dashboard'||el('appShell').hidden||!canViewAll())return;const rect=canvas.getBoundingClientRect();if(!rect.width)return;const dpr=window.devicePixelRatio||1;canvas.width=Math.max(320,rect.width)*dpr;canvas.height=Math.max(220,rect.height)*dpr;const ctx=canvas.getContext('2d');ctx.scale(dpr,dpr);const width=canvas.width/dpr,height=canvas.height/dpr;ctx.clearRect(0,0,width,height);if(balanceHidden){ctx.fillStyle='#64748b';ctx.textAlign='center';ctx.textBaseline='middle';ctx.font='700 14px system-ui';ctx.fillText('Nominal saldo sedang disembunyikan',width/2,height/2);return;}const months=[];const anchor=dashboardSelectedDate();const now=new Date(`${anchor}T12:00:00+07:00`);for(let i=5;i>=0;i--){const d=new Date(now.getFullYear(),now.getMonth()-i,1);months.push({key:`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`,label:new Intl.DateTimeFormat('id-ID',{month:'short'}).format(d)});}const tx=filteredByGlobal(state.transactions);const data=months.map(m=>({...m,income:sumByType(tx.filter(t=>t.date.startsWith(m.key)),'income'),expense:sumByType(tx.filter(t=>t.date.startsWith(m.key)),'expense')}));const maxValue=Math.max(1,...data.flatMap(d=>[d.income,d.expense]));const pad={left:56,right:14,top:22,bottom:40};const chartW=width-pad.left-pad.right,chartH=height-pad.top-pad.bottom;ctx.font='11px system-ui';ctx.strokeStyle='#e5e7eb';ctx.fillStyle='#64748b';ctx.textAlign='right';ctx.textBaseline='middle';for(let i=0;i<=4;i++){const y=pad.top+chartH*i/4,val=maxValue*(1-i/4);ctx.beginPath();ctx.moveTo(pad.left,y);ctx.lineTo(width-pad.right,y);ctx.stroke();ctx.fillText(shortMoney(val),pad.left-8,y);}const groupW=chartW/data.length,barW=Math.min(24,groupW*.25);data.forEach((d,i)=>{const center=pad.left+groupW*i+groupW/2,incomeH=d.income/maxValue*chartH,expenseH=d.expense/maxValue*chartH;ctx.fillStyle='#16a34a';roundedRect(ctx,center-barW-2,pad.top+chartH-incomeH,barW,incomeH,5);ctx.fill();ctx.fillStyle='#dc2626';roundedRect(ctx,center+2,pad.top+chartH-expenseH,barW,expenseH,5);ctx.fill();ctx.fillStyle='#64748b';ctx.textAlign='center';ctx.textBaseline='top';ctx.fillText(d.label,center,height-pad.bottom+12);});ctx.textAlign='left';ctx.textBaseline='middle';ctx.fillStyle='#16a34a';ctx.fillRect(pad.left,4,10,10);ctx.fillStyle='#475569';ctx.fillText('Pemasukan',pad.left+16,9);ctx.fillStyle='#dc2626';ctx.fillRect(pad.left+94,4,10,10);ctx.fillStyle='#475569';ctx.fillText('Pengeluaran',pad.left+110,9);}
+      function renderChart(){const canvas=el('cashChart');if(!canvas||activeView!=='dashboard'||el('appShell').hidden||!canViewAll())return;const rect=canvas.getBoundingClientRect();if(!rect.width)return;const dpr=window.devicePixelRatio||1;canvas.width=Math.max(320,rect.width)*dpr;canvas.height=Math.max(220,rect.height)*dpr;const ctx=canvas.getContext('2d');ctx.scale(dpr,dpr);const width=canvas.width/dpr,height=canvas.height/dpr;ctx.clearRect(0,0,width,height);if(balanceHidden){ctx.fillStyle=chartMuted;ctx.textAlign='center';ctx.textBaseline='middle';ctx.font='700 14px system-ui';ctx.fillText('Nominal saldo sedang disembunyikan',width/2,height/2);return;}const months=[];const anchor=dashboardSelectedDate();const now=new Date(`${anchor}T12:00:00+07:00`);for(let i=5;i>=0;i--){const d=new Date(now.getFullYear(),now.getMonth()-i,1);months.push({key:`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`,label:new Intl.DateTimeFormat('id-ID',{month:'short'}).format(d)});}const tx=filteredByGlobal(state.transactions);const data=months.map(m=>({...m,income:sumByType(tx.filter(t=>t.date.startsWith(m.key)),'income'),expense:sumByType(tx.filter(t=>t.date.startsWith(m.key)),'expense')}));const maxValue=Math.max(1,...data.flatMap(d=>[d.income,d.expense]));const pad={left:56,right:14,top:22,bottom:40};const chartW=width-pad.left-pad.right,chartH=height-pad.top-pad.bottom;const themeStyles=getComputedStyle(document.documentElement),chartLine=themeStyles.getPropertyValue('--line').trim()||'#e5e7eb',chartMuted=themeStyles.getPropertyValue('--muted').trim()||'#64748b',chartText=themeStyles.getPropertyValue('--text').trim()||'#475569',chartGreen=themeStyles.getPropertyValue('--green').trim()||'#16a34a',chartRed=themeStyles.getPropertyValue('--red').trim()||'#dc2626';ctx.font='11px system-ui';ctx.strokeStyle=chartLine;ctx.fillStyle=chartMuted;ctx.textAlign='right';ctx.textBaseline='middle';for(let i=0;i<=4;i++){const y=pad.top+chartH*i/4,val=maxValue*(1-i/4);ctx.beginPath();ctx.moveTo(pad.left,y);ctx.lineTo(width-pad.right,y);ctx.stroke();ctx.fillText(shortMoney(val),pad.left-8,y);}const groupW=chartW/data.length,barW=Math.min(24,groupW*.25);data.forEach((d,i)=>{const center=pad.left+groupW*i+groupW/2,incomeH=d.income/maxValue*chartH,expenseH=d.expense/maxValue*chartH;ctx.fillStyle=chartGreen;roundedRect(ctx,center-barW-2,pad.top+chartH-incomeH,barW,incomeH,5);ctx.fill();ctx.fillStyle=chartRed;roundedRect(ctx,center+2,pad.top+chartH-expenseH,barW,expenseH,5);ctx.fill();ctx.fillStyle='#64748b';ctx.textAlign='center';ctx.textBaseline='top';ctx.fillText(d.label,center,height-pad.bottom+12);});ctx.textAlign='left';ctx.textBaseline='middle';ctx.fillStyle=chartGreen;ctx.fillRect(pad.left,4,10,10);ctx.fillStyle=chartText;ctx.fillText('Pemasukan',pad.left+16,9);ctx.fillStyle=chartRed;ctx.fillRect(pad.left+94,4,10,10);ctx.fillStyle=chartText;ctx.fillText('Pengeluaran',pad.left+110,9);}
       function roundedRect(ctx,x,y,w,h,r){const radius=Math.min(r,Math.abs(w)/2,Math.abs(h)/2);ctx.beginPath();ctx.moveTo(x+radius,y);ctx.arcTo(x+w,y,x+w,y+h,radius);ctx.arcTo(x+w,y+h,x,y+h,radius);ctx.arcTo(x,y+h,x,y,radius);ctx.arcTo(x,y,x+w,y,radius);ctx.closePath();}
       function shortMoney(value){if(balanceHidden)return'••••';if(value>=1_000_000_000)return`${(value/1_000_000_000).toFixed(1)}M`;if(value>=1_000_000)return`${(value/1_000_000).toFixed(1)}jt`;if(value>=1_000)return`${(value/1_000).toFixed(0)}rb`;return String(Math.round(value));}
       function updateBalanceToggle(){const button=el('balanceToggleBtn');if(!button)return;const icon=el('balanceToggleIcon');icon.innerHTML=balanceHidden?'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"></path><path d="M6.61 6.61C3.91 8.38 2 12 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"></path><path d="M14.12 14.12a3 3 0 0 1-4.24-4.24"></path><path d="M2 2l20 20"></path></svg>':'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"></path><circle cx="12" cy="12" r="3"></circle></svg>';el('balanceToggleText').textContent=balanceHidden?'Tampilkan Saldo':'Sembunyikan Saldo';button.setAttribute('aria-pressed',String(balanceHidden));button.setAttribute('aria-label',balanceHidden?'Tampilkan kembali nominal saldo':'Sembunyikan nominal saldo');button.title=balanceHidden?'Tampilkan kembali nominal saldo':'Sembunyikan nominal saldo';}
