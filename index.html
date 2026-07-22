@@ -712,12 +712,169 @@
     .payroll-status-paid { background:#dcfce7; color:#166534; }
     .payroll-status-pending { background:#fef3c7; color:#92400e; }
     .payroll-status-draft { background:#f1f5f9; color:#475569; }
-    .payroll-form-summary { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; margin-top:14px; }
-    .payroll-form-summary > div { padding:12px 14px; border:1px solid var(--line); border-radius:12px; background:var(--surface-soft,#f8fafc); }
-    .payroll-form-summary span { display:block; color:var(--muted); font-size:11px; font-weight:800; text-transform:uppercase; }
-    .payroll-form-summary strong { display:block; margin-top:5px; font-size:15px; }
+
+    .payroll-modal-panel {
+      width:min(880px,100%);
+      max-height:94vh;
+      overflow:hidden;
+      display:flex;
+      flex-direction:column;
+      border:1px solid rgba(148,163,184,.28);
+    }
+    .payroll-modal-panel .modal-head {
+      flex:0 0 auto;
+      padding:18px 22px;
+      background:linear-gradient(135deg,#fffdf5 0%,#ffffff 62%,#f8fbff 100%);
+    }
+    .payroll-modal-panel form { min-height:0; display:flex; flex:1; flex-direction:column; }
+    .payroll-modal-body {
+      min-height:0;
+      overflow:auto;
+      padding:18px 20px 22px;
+      background:#f4f7fb;
+    }
+    .payroll-required-note {
+      display:flex;
+      align-items:center;
+      gap:9px;
+      margin-bottom:13px;
+      padding:10px 12px;
+      border:1px solid #fde68a;
+      border-radius:11px;
+      background:#fffbeb;
+      color:#854d0e;
+      font-size:12px;
+      font-weight:700;
+    }
+    .payroll-required-note strong { color:#dc2626; font-size:15px; line-height:1; }
+    .required-mark { color:#dc2626; margin-left:3px; }
+    .optional-label { color:var(--muted); font-size:10px; font-weight:700; }
+    .payroll-form-alert {
+      display:flex;
+      align-items:flex-start;
+      gap:9px;
+      margin:0 0 13px;
+      padding:11px 13px;
+      border:1px solid #fecaca;
+      border-radius:11px;
+      background:#fff1f2;
+      color:#be123c;
+      font-size:12px;
+      font-weight:750;
+      line-height:1.45;
+    }
+    .payroll-form-alert[hidden] { display:none !important; }
+    .payroll-form-card {
+      position:relative;
+      margin-bottom:14px;
+      padding:17px;
+      overflow:hidden;
+      border:1px solid #dbe3ee;
+      border-left-width:5px;
+      border-radius:15px;
+      background:#fff;
+      box-shadow:0 8px 20px rgba(15,23,42,.045);
+    }
+    .payroll-form-card:last-of-type { margin-bottom:0; }
+    .payroll-card-employee { border-left-color:#3b82f6; background:linear-gradient(135deg,#f5f9ff 0%,#fff 48%); }
+    .payroll-card-earnings { border-left-color:#f3b61f; background:linear-gradient(135deg,#fff9e8 0%,#fff 48%); }
+    .payroll-card-payment { border-left-color:#8b5cf6; background:linear-gradient(135deg,#faf7ff 0%,#fff 48%); }
+    .payroll-card-summary { border-left-color:#16a34a; background:linear-gradient(135deg,#f1fbf5 0%,#fff 52%); }
+    .payroll-form-card-head { display:flex; align-items:center; gap:11px; margin-bottom:15px; }
+    .payroll-section-number {
+      width:34px;
+      height:34px;
+      flex:0 0 34px;
+      display:grid;
+      place-items:center;
+      border-radius:10px;
+      background:#172033;
+      color:#fff;
+      font-size:11px;
+      font-weight:900;
+      letter-spacing:.04em;
+      box-shadow:0 6px 14px rgba(23,32,51,.16);
+    }
+    .payroll-card-earnings .payroll-section-number { background:#b77900; }
+    .payroll-card-payment .payroll-section-number { background:#6d28d9; }
+    .payroll-card-summary .payroll-section-number { background:#15803d; }
+    .payroll-form-card-head strong { display:block; color:var(--text); font-size:14px; }
+    .payroll-form-card-head small { display:block; margin-top:3px; color:var(--muted); font-size:11px; line-height:1.4; }
+    .payroll-form-card .field label { color:#334155; }
+    .payroll-form-card .input,
+    .payroll-form-card .select,
+    .payroll-form-card .textarea {
+      background:#fff;
+      border-color:#cbd5e1;
+      box-shadow:0 1px 2px rgba(15,23,42,.025);
+    }
+    .payroll-form-card .input:focus,
+    .payroll-form-card .select:focus,
+    .payroll-form-card .textarea:focus {
+      border-color:#d99b06;
+      box-shadow:0 0 0 3px rgba(243,182,31,.16);
+    }
+    .payroll-form-card .input:disabled {
+      background:#eef2f7;
+      color:#94a3b8;
+      cursor:not-allowed;
+      opacity:1;
+    }
+    .payroll-form-summary { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; }
+    .payroll-form-summary > div {
+      min-height:79px;
+      padding:13px 14px;
+      border:1px solid var(--line);
+      border-radius:12px;
+      background:#fff;
+      box-shadow:0 5px 12px rgba(15,23,42,.04);
+    }
+    .payroll-form-summary > div:nth-child(1) { border-color:#bfdbfe; background:#eff6ff; }
+    .payroll-form-summary > div:nth-child(2) { border-color:#fecaca; background:#fff1f2; }
+    .payroll-form-summary > div:nth-child(3) { border-color:#bbf7d0; background:#f0fdf4; }
+    .payroll-form-summary span { display:block; color:var(--muted); font-size:10px; font-weight:900; letter-spacing:.045em; text-transform:uppercase; }
+    .payroll-form-summary strong { display:block; margin-top:7px; color:var(--text); font-size:17px; }
+    .payroll-form-summary > div:nth-child(2) strong { color:#be123c; }
+    .payroll-form-summary > div:nth-child(3) strong { color:#15803d; }
+    .payroll-modal-panel .modal-foot {
+      position:relative;
+      z-index:2;
+      flex:0 0 auto;
+      background:#fff;
+      box-shadow:0 -8px 20px rgba(15,23,42,.055);
+    }
+    .payroll-modal-panel .modal-foot .btn-primary { min-width:145px; }
+
+    html[data-theme="dark"] .payroll-modal-panel .modal-head { background:linear-gradient(135deg,#211d13 0%,var(--surface) 58%,#102138 100%); }
+    html[data-theme="dark"] .payroll-modal-body { background:#0d1727; }
+    html[data-theme="dark"] .payroll-required-note { border-color:#6f4a1b; background:#3d2b14; color:#facc6b; }
+    html[data-theme="dark"] .payroll-form-alert { border-color:#71313f; background:#42202a; color:#fda4af; }
+    html[data-theme="dark"] .payroll-form-card { border-color:#334155; box-shadow:none; }
+    html[data-theme="dark"] .payroll-card-employee { border-left-color:#60a5fa; background:linear-gradient(135deg,#102442 0%,var(--surface) 48%); }
+    html[data-theme="dark"] .payroll-card-earnings { border-left-color:#fbbf24; background:linear-gradient(135deg,#302713 0%,var(--surface) 48%); }
+    html[data-theme="dark"] .payroll-card-payment { border-left-color:#a78bfa; background:linear-gradient(135deg,#261c3d 0%,var(--surface) 48%); }
+    html[data-theme="dark"] .payroll-card-summary { border-left-color:#4ade80; background:linear-gradient(135deg,#123323 0%,var(--surface) 52%); }
+    html[data-theme="dark"] .payroll-form-card .field label { color:#cbd5e1; }
+    html[data-theme="dark"] .payroll-form-card .input,
+    html[data-theme="dark"] .payroll-form-card .select,
+    html[data-theme="dark"] .payroll-form-card .textarea { background:#111d30; border-color:#3b4a61; color:var(--text); }
+    html[data-theme="dark"] .payroll-form-card .input:disabled { background:#182538; color:#64748b; }
+    html[data-theme="dark"] .payroll-form-summary > div { box-shadow:none; }
+    html[data-theme="dark"] .payroll-form-summary > div:nth-child(1) { border-color:#275176; background:#102841; }
+    html[data-theme="dark"] .payroll-form-summary > div:nth-child(2) { border-color:#71313f; background:#42202a; }
+    html[data-theme="dark"] .payroll-form-summary > div:nth-child(3) { border-color:#245b40; background:#123323; }
+    html[data-theme="dark"] .payroll-form-summary > div:nth-child(2) strong { color:#fda4af; }
+    html[data-theme="dark"] .payroll-form-summary > div:nth-child(3) strong { color:#86efac; }
+    html[data-theme="dark"] .payroll-modal-panel .modal-foot { background:var(--surface); }
+
     @media(max-width:1100px){.payroll-stats{grid-template-columns:repeat(2,minmax(0,1fr));}.payroll-filters{grid-template-columns:repeat(2,minmax(0,1fr));}}
-    @media(max-width:780px){.payroll-stats,.payroll-filters,.payroll-form-summary{grid-template-columns:1fr;}}
+    @media(max-width:780px){
+      .payroll-stats,.payroll-filters,.payroll-form-summary{grid-template-columns:1fr;}
+      .payroll-modal-body{padding:14px;}
+      .payroll-form-card{padding:14px;}
+      .payroll-modal-panel .modal-foot{padding:13px 14px;}
+      .payroll-modal-panel .modal-foot .btn{flex:1;}
+    }
 
     /* Rekapan bahan harian */
     .date-slicer { display:flex; align-items:center; gap:8px; min-width:260px; }
@@ -1486,25 +1643,73 @@
   </div>
 
 
-  <div class="modal" id="payrollModal" role="dialog" aria-modal="true">
-    <div class="modal-panel transaction-modal-panel"><div class="modal-head"><h3 id="payrollModalTitle">Tambah Gaji Karyawan</h3><button class="close-btn" data-close="payrollModal">✕</button></div>
-      <form id="payrollForm" novalidate><div class="modal-body">
-        <input type="hidden" id="payrollId" />
-        <div class="form-grid">
-          <div class="field"><label for="payrollMonth">Periode Gaji</label><input class="input" type="month" id="payrollMonth" required /></div>
-          <div class="field"><label for="payrollStore">Toko</label><select class="select" id="payrollStore" required></select></div>
-          <div class="field"><label for="payrollEmployeeName">Nama Karyawan</label><input class="input" id="payrollEmployeeName" placeholder="Masukkan nama karyawan" required /></div>
-          <div class="field"><label for="payrollPosition">Jabatan</label><input class="input" id="payrollPosition" placeholder="Contoh: Kasir" required /></div>
-          <div class="field"><label for="payrollBaseSalary">Gaji Pokok</label><input class="input payroll-calc" type="number" id="payrollBaseSalary" min="0" step="1" placeholder="0" required /></div>
-          <div class="field"><label for="payrollAllowance">Tunjangan</label><input class="input payroll-calc" type="number" id="payrollAllowance" min="0" step="1" placeholder="0" /></div>
-          <div class="field"><label for="payrollBonus">Bonus</label><input class="input payroll-calc" type="number" id="payrollBonus" min="0" step="1" placeholder="0" /></div>
-          <div class="field"><label for="payrollDeduction">Potongan</label><input class="input payroll-calc" type="number" id="payrollDeduction" min="0" step="1" placeholder="0" /></div>
-          <div class="field"><label for="payrollStatus">Status Pembayaran</label><select class="select" id="payrollStatus" required><option value="" disabled selected>Pilih status</option><option value="draft">Draft</option><option value="pending">Belum Dibayar</option><option value="paid">Sudah Dibayar</option></select></div>
-          <div class="field"><label for="payrollPaidDate">Tanggal Pembayaran</label><input class="input" type="date" id="payrollPaidDate" /></div>
-          <div class="field full"><label for="payrollNote">Keterangan</label><textarea class="textarea" id="payrollNote" placeholder="Catatan tambahan"></textarea></div>
+  <div class="modal" id="payrollModal" role="dialog" aria-modal="true" aria-labelledby="payrollModalTitle">
+    <div class="modal-panel payroll-modal-panel">
+      <div class="modal-head">
+        <h3 id="payrollModalTitle">Tambah Gaji Karyawan</h3>
+        <button class="close-btn" type="button" data-close="payrollModal" aria-label="Tutup">✕</button>
+      </div>
+      <form id="payrollForm" novalidate>
+        <div class="modal-body payroll-modal-body">
+          <input type="hidden" id="payrollId" />
+          <div class="payroll-required-note"><strong>*</strong><span>Field bertanda bintang wajib diisi sebelum data gaji dapat disimpan.</span></div>
+          <div class="payroll-form-alert" id="payrollFormAlert" role="alert" aria-live="polite" hidden></div>
+
+          <section class="payroll-form-card payroll-card-employee">
+            <div class="payroll-form-card-head">
+              <span class="payroll-section-number">01</span>
+              <div><strong>Data Karyawan</strong><small>Tentukan periode, lokasi kerja, dan identitas karyawan.</small></div>
+            </div>
+            <div class="form-grid">
+              <div class="field"><label for="payrollMonth">Periode Gaji<span class="required-mark">*</span></label><input class="input" type="month" id="payrollMonth" required /></div>
+              <div class="field"><label for="payrollStore">Toko<span class="required-mark">*</span></label><select class="select" id="payrollStore" data-placeholder="Pilih toko" required></select></div>
+              <div class="field"><label for="payrollEmployeeName">Nama Karyawan<span class="required-mark">*</span></label><input class="input" id="payrollEmployeeName" placeholder="Masukkan nama karyawan" autocomplete="off" required /></div>
+              <div class="field"><label for="payrollPosition">Jabatan<span class="required-mark">*</span></label><input class="input" id="payrollPosition" placeholder="Contoh: Kasir" autocomplete="off" required /></div>
+            </div>
+          </section>
+
+          <section class="payroll-form-card payroll-card-earnings">
+            <div class="payroll-form-card-head">
+              <span class="payroll-section-number">02</span>
+              <div><strong>Komponen Gaji</strong><small>Isi angka 0 apabila tidak ada tunjangan, bonus, atau potongan.</small></div>
+            </div>
+            <div class="form-grid">
+              <div class="field"><label for="payrollBaseSalary">Gaji Pokok<span class="required-mark">*</span></label><input class="input payroll-calc" type="number" id="payrollBaseSalary" min="0" step="1" inputmode="numeric" placeholder="Masukkan gaji pokok" required /></div>
+              <div class="field"><label for="payrollAllowance">Tunjangan<span class="required-mark">*</span></label><input class="input payroll-calc" type="number" id="payrollAllowance" min="0" step="1" inputmode="numeric" placeholder="Isi 0 jika tidak ada" required /></div>
+              <div class="field"><label for="payrollBonus">Bonus<span class="required-mark">*</span></label><input class="input payroll-calc" type="number" id="payrollBonus" min="0" step="1" inputmode="numeric" placeholder="Isi 0 jika tidak ada" required /></div>
+              <div class="field"><label for="payrollDeduction">Potongan<span class="required-mark">*</span></label><input class="input payroll-calc" type="number" id="payrollDeduction" min="0" step="1" inputmode="numeric" placeholder="Isi 0 jika tidak ada" required /></div>
+            </div>
+          </section>
+
+          <section class="payroll-form-card payroll-card-payment">
+            <div class="payroll-form-card-head">
+              <span class="payroll-section-number">03</span>
+              <div><strong>Status Pembayaran</strong><small>Tanggal pembayaran wajib diisi hanya ketika status sudah dibayar.</small></div>
+            </div>
+            <div class="form-grid">
+              <div class="field"><label for="payrollStatus">Status Pembayaran<span class="required-mark">*</span></label><select class="select" id="payrollStatus" required><option value="" disabled selected>Pilih status</option><option value="draft">Draft</option><option value="pending">Belum Dibayar</option><option value="paid">Sudah Dibayar</option></select></div>
+              <div class="field"><label for="payrollPaidDate">Tanggal Pembayaran<span class="required-mark" id="payrollPaidDateMark" hidden>*</span></label><input class="input" type="date" id="payrollPaidDate" disabled /></div>
+              <div class="field full"><label for="payrollNote">Keterangan <span class="optional-label">(Opsional)</span></label><textarea class="textarea" id="payrollNote" placeholder="Contoh: Bonus target penjualan atau keterangan potongan"></textarea></div>
+            </div>
+          </section>
+
+          <section class="payroll-form-card payroll-card-summary">
+            <div class="payroll-form-card-head">
+              <span class="payroll-section-number">04</span>
+              <div><strong>Ringkasan Gaji</strong><small>Nominal dihitung otomatis dari komponen gaji di atas.</small></div>
+            </div>
+            <div class="payroll-form-summary">
+              <div><span>Total Pendapatan</span><strong id="payrollGrossPreview">Rp0</strong></div>
+              <div><span>Total Potongan</span><strong id="payrollDeductionPreview">Rp0</strong></div>
+              <div><span>Gaji Bersih</span><strong id="payrollNetPreview">Rp0</strong></div>
+            </div>
+          </section>
         </div>
-        <div class="payroll-form-summary"><div><span>Pendapatan</span><strong id="payrollGrossPreview">Rp0</strong></div><div><span>Potongan</span><strong id="payrollDeductionPreview">Rp0</strong></div><div><span>Gaji Bersih</span><strong id="payrollNetPreview">Rp0</strong></div></div>
-      </div><div class="modal-foot"><button type="button" class="btn btn-light" data-close="payrollModal">Batal</button><button type="submit" class="btn btn-primary">Simpan Gaji</button></div></form>
+        <div class="modal-foot">
+          <button type="button" class="btn btn-light" data-close="payrollModal">Batal</button>
+          <button type="submit" class="btn btn-primary" id="savePayrollBtn">Simpan Gaji</button>
+        </div>
+      </form>
     </div>
   </div>
 
@@ -2439,7 +2644,7 @@ NOTIFY pgrst, 'reload schema';`
         el('addEventTransactionBtn').addEventListener('click',()=>openTransactionModal(null,'event',selectedEventWorkspaceId()));
         el('addEventInventoryBtn').addEventListener('click',()=>openInventoryModal(null,'event',selectedEventWorkspaceId()));
         el('closeEventDailyRecapBtn').addEventListener('click',()=>openDailyClosingModal('event'));
-        el('transactionForm').addEventListener('submit',saveTransaction);el('transactionRows').addEventListener('click',handleTransactionRowClick);el('transactionRows').addEventListener('input',updateTransactionTotal);el('inventoryForm').addEventListener('submit',saveInventory);el('dailyClosingForm').addEventListener('submit',saveDailyClosing);el('dailyClosingRows').addEventListener('input',updateClosingUsagePreview);el('eventForm').addEventListener('submit',saveEvent);el('payrollForm').addEventListener('submit',savePayroll);document.querySelectorAll('.payroll-calc').forEach(node=>node.addEventListener('input',updatePayrollPreview));el('payrollStatus').addEventListener('change',syncPayrollPaidDate);
+        el('transactionForm').addEventListener('submit',saveTransaction);el('transactionRows').addEventListener('click',handleTransactionRowClick);el('transactionRows').addEventListener('input',updateTransactionTotal);el('inventoryForm').addEventListener('submit',saveInventory);el('dailyClosingForm').addEventListener('submit',saveDailyClosing);el('dailyClosingRows').addEventListener('input',updateClosingUsagePreview);el('eventForm').addEventListener('submit',saveEvent);el('payrollForm').addEventListener('submit',savePayroll);el('payrollForm').addEventListener('input',()=>setPayrollFormAlert(''));document.querySelectorAll('.payroll-calc').forEach(node=>node.addEventListener('input',updatePayrollPreview));el('payrollStatus').addEventListener('change',syncPayrollPaidDate);
         ['transactionSearch','transactionTypeFilter','transactionPaymentFilter','transactionDateFilter'].forEach(id=>el(id).addEventListener('input',renderTransactions));
         ['inventorySearch','inventoryStatusFilter','inventoryStoreFilter'].forEach(id=>el(id).addEventListener('input',renderInventory));
         el('materialsSearch').addEventListener('input',renderMaterials);
@@ -3160,9 +3365,16 @@ NOTIFY pgrst, 'reload schema';`
         el('payrollPendingTotal').textContent=money(pending);
         el('payrollTable').innerHTML=rows.length?`<table><thead><tr><th>Karyawan</th><th>Toko</th><th>Periode</th><th>Gaji Pokok</th><th>Tunjangan + Bonus</th><th>Potongan</th><th>Gaji Bersih</th><th>Status</th><th>Tanggal Bayar</th><th>Aksi</th></tr></thead><tbody>${rows.map(item=>`<tr><td><strong>${escapeHtml(item.employeeName)}</strong><small>${escapeHtml(item.position)}</small></td><td>${escapeHtml(item.store)}</td><td>${escapeHtml(item.month)}</td><td>${money(item.baseSalary)}</td><td>${money(item.allowance+item.bonus)}</td><td>${money(item.deduction)}</td><td class="payroll-net">${money(payrollNet(item))}</td><td>${payrollStatusBadge(item.status)}</td><td>${item.paidDate?formatDate(item.paidDate):'-'}</td><td><div class="table-actions">${isAdmin()?`<button class="icon-btn" data-payroll-edit="${item.id}" title="Edit">✎</button><button class="icon-btn danger" data-payroll-delete="${item.id}" title="Hapus">⌫</button>`:'-'}</div></td></tr>`).join('')}</tbody></table>`:emptyState('Belum ada data gaji','Tambahkan data gaji karyawan untuk periode yang dipilih.');
       }
+      function setPayrollFormAlert(message=''){
+        const alert=el('payrollFormAlert');
+        if(!alert)return;
+        alert.hidden=!message;
+        alert.textContent=message||'';
+      }
       function openPayrollModal(item=null){
         if(!isAdmin())return;
         clearFormWarnings(el('payrollForm'));
+        setPayrollFormAlert('');
         el('payrollId').value=item?.id||'';
         el('payrollModalTitle').textContent=item?'Ubah Gaji Karyawan':'Tambah Gaji Karyawan';
         el('payrollMonth').value=item?.month||currentMonth();
@@ -3176,21 +3388,55 @@ NOTIFY pgrst, 'reload schema';`
         el('payrollStatus').value=item?.status||'';
         el('payrollPaidDate').value=item?.paidDate||'';
         el('payrollNote').value=item?.note||'';
-        syncPayrollPaidDate();updatePayrollPreview();openModal('payrollModal');
+        syncPayrollPaidDate();
+        updatePayrollPreview();
+        openModal('payrollModal');
+        setTimeout(()=>el('payrollEmployeeName')?.focus(),80);
       }
       function updatePayrollPreview(){
         const base=Number(el('payrollBaseSalary')?.value||0),allowance=Number(el('payrollAllowance')?.value||0),bonus=Number(el('payrollBonus')?.value||0),deduction=Number(el('payrollDeduction')?.value||0);
-        el('payrollGrossPreview').textContent=rawMoney(base+allowance+bonus);el('payrollDeductionPreview').textContent=rawMoney(deduction);el('payrollNetPreview').textContent=rawMoney(base+allowance+bonus-deduction);
+        el('payrollGrossPreview').textContent=rawMoney(base+allowance+bonus);
+        el('payrollDeductionPreview').textContent=rawMoney(deduction);
+        el('payrollNetPreview').textContent=rawMoney(base+allowance+bonus-deduction);
       }
-      function syncPayrollPaidDate(){const paid=el('payrollStatus').value==='paid';el('payrollPaidDate').required=paid;if(paid&&!el('payrollPaidDate').value)el('payrollPaidDate').value=todayISO();if(!paid)el('payrollPaidDate').value='';}
+      function syncPayrollPaidDate(){
+        const paid=el('payrollStatus').value==='paid';
+        const paidDate=el('payrollPaidDate');
+        paidDate.required=paid;
+        paidDate.disabled=!paid;
+        el('payrollPaidDateMark').hidden=!paid;
+        if(paid&&!paidDate.value)paidDate.value=todayISO();
+        if(!paid)paidDate.value='';
+        clearFieldWarning(paidDate);
+      }
       async function savePayroll(event){
-        event.preventDefault();if(!isAdmin())return;
-        if(!validateRequiredFields(el('payrollForm')))return;
+        event.preventDefault();
+        if(!isAdmin())return;
+        setPayrollFormAlert('');
+        const validation=validateFormFields(el('payrollForm'),{message:'Lengkapi seluruh field wajib pada form gaji sebelum menyimpan.'});
+        if(!validation.valid){
+          setPayrollFormAlert(`Data belum dapat disimpan. Lengkapi: ${validation.labels.join(', ')}.`);
+          return;
+        }
         const id=el('payrollId').value||uid();
-        const item={id,month:el('payrollMonth').value,store:el('payrollStore').value,employeeName:el('payrollEmployeeName').value.trim(),position:el('payrollPosition').value.trim(),baseSalary:Number(el('payrollBaseSalary').value||0),allowance:Number(el('payrollAllowance').value||0),bonus:Number(el('payrollBonus').value||0),deduction:Number(el('payrollDeduction').value||0),status:el('payrollStatus').value,paidDate:el('payrollPaidDate').value,note:el('payrollNote').value.trim()};
-        if(payrollNet(item)<0){toast('Gaji bersih tidak boleh negatif.');return;}
-        const button=event.submitter;setButtonBusy(button,true,'Menyimpan...');
-        try{const {error}=await db.from('payroll').upsert(payrollToRow(item),{onConflict:'id'});if(error)throw error;closeModal('payrollModal');await loadCloudData(true);toast('Data gaji berhasil disimpan.');}catch(error){showSyncError(error);}finally{setButtonBusy(button,false);}
+        const item={id,month:el('payrollMonth').value,store:el('payrollStore').value,employeeName:el('payrollEmployeeName').value.trim(),position:el('payrollPosition').value.trim(),baseSalary:Number(el('payrollBaseSalary').value),allowance:Number(el('payrollAllowance').value),bonus:Number(el('payrollBonus').value),deduction:Number(el('payrollDeduction').value),status:el('payrollStatus').value,paidDate:el('payrollPaidDate').value,note:el('payrollNote').value.trim()};
+        if(payrollNet(item)<0){
+          markFieldWarning(el('payrollDeduction'),'Potongan tidak boleh lebih besar dari total pendapatan.');
+          setPayrollFormAlert('Data belum dapat disimpan karena gaji bersih bernilai negatif. Periksa kembali jumlah potongan.');
+          el('payrollDeduction').scrollIntoView({behavior:'smooth',block:'center'});
+          setTimeout(()=>el('payrollDeduction').focus({preventScroll:true}),120);
+          toast('Potongan tidak boleh lebih besar dari total pendapatan.');
+          return;
+        }
+        const button=event.submitter||el('savePayrollBtn');
+        setButtonBusy(button,true,'Menyimpan...');
+        try{
+          const {error}=await db.from('payroll').upsert(payrollToRow(item),{onConflict:'id'});
+          if(error)throw error;
+          closeModal('payrollModal');
+          await loadCloudData(true);
+          toast('Data gaji berhasil disimpan.');
+        }catch(error){showSyncError(error);}finally{setButtonBusy(button,false);}
       }
       async function handlePayrollTableClick(event){
         const edit=event.target.closest('[data-payroll-edit]');if(edit){openPayrollModal(state.payroll.find(item=>item.id===edit.dataset.payrollEdit));return;}
