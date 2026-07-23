@@ -1,0 +1,38 @@
+{
+  "id": "./",
+  "name": "Rekapan.id - Dashboard Operasional",
+  "short_name": "Rekapan.id",
+  "description": "Aplikasi rekapan pemasukan, pengeluaran, stok bahan, event, dan operasional toko.",
+  "lang": "id-ID",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "display_override": [
+    "window-controls-overlay",
+    "standalone",
+    "minimal-ui"
+  ],
+  "orientation": "any",
+  "background_color": "#f5f7fb",
+  "theme_color": "#172033",
+  "icons": [
+    {
+      "src": "./icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
