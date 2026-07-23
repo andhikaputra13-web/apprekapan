@@ -914,13 +914,21 @@
     .payroll-panel[hidden] { display:none !important; }
     .employee-stats { grid-template-columns:repeat(3,minmax(0,1fr)); margin-bottom:16px; }
     .payroll-daily-stats { grid-template-columns:repeat(4,minmax(0,1fr)); margin-bottom:16px; }
-    .payroll-monthly-stats { grid-template-columns:repeat(4,minmax(0,1fr)); margin-bottom:16px; }
+    .payroll-monthly-stats { grid-template-columns:repeat(5,minmax(0,1fr)); margin-bottom:16px; }
+    .payroll-advance-stats { grid-template-columns:repeat(4,minmax(0,1fr)); margin-bottom:16px; }
     .employee-filters { grid-template-columns:1.3fr repeat(2,minmax(170px,.65fr)); }
     .payroll-daily-filters { grid-template-columns:minmax(260px,1fr) minmax(180px,.8fr) minmax(180px,.8fr) minmax(170px,.7fr); }
     .payroll-monthly-filters { grid-template-columns:minmax(190px,.7fr) minmax(230px,1.15fr) minmax(180px,.8fr) minmax(180px,.75fr); }
+    .payroll-advance-filters { grid-template-columns:minmax(190px,.7fr) minmax(260px,1.2fr) minmax(180px,.8fr); }
     .monthly-payroll-summary { display:flex; flex-direction:column; gap:3px; }
     .monthly-payroll-summary strong { color:var(--text); }
     .monthly-payroll-summary small { color:var(--muted); }
+    .advance-limit-summary { display:flex; flex-direction:column; gap:3px; }
+    .advance-limit-summary strong { color:var(--text); }
+    .advance-limit-summary small { color:var(--muted); line-height:1.45; }
+    .advance-amount { font-weight:900; color:var(--red); }
+    .advance-remaining { font-weight:900; color:var(--green); }
+    .advance-preview-note { margin-top:10px; padding:11px 12px; border:1px solid var(--border); border-radius:12px; background:var(--surface-2); color:var(--muted); font-size:11px; line-height:1.5; }
     .monthly-payment-date { white-space:nowrap; color:var(--muted); font-size:11px; }
     .monthly-payment-btn { min-width:142px; justify-content:center; }
     .payroll-date-control { display:flex; align-items:center; gap:7px; }
@@ -971,14 +979,14 @@
     html[data-theme="dark"] .payroll-form-card.payroll-card-attendance { border-left-color:#a78bfa; background:linear-gradient(135deg,#261c3d 0%,var(--surface) 52%); }
     html[data-theme="dark"] .attendance-preview > div { background:#111d30; border-color:#334155; }
     @media(max-width:1100px){
-      .payroll-daily-stats,.payroll-monthly-stats{grid-template-columns:repeat(2,minmax(0,1fr));}
-      .payroll-daily-filters,.payroll-monthly-filters{grid-template-columns:repeat(2,minmax(0,1fr));}
+      .payroll-daily-stats,.payroll-monthly-stats,.payroll-advance-stats{grid-template-columns:repeat(2,minmax(0,1fr));}
+      .payroll-daily-filters,.payroll-monthly-filters,.payroll-advance-filters{grid-template-columns:repeat(2,minmax(0,1fr));}
     }
     @media(max-width:780px){
       .payroll-page-toolbar{align-items:stretch;}
       .payroll-page-actions{justify-content:flex-start;}
       .payroll-page-actions .btn{flex:1 1 150px;}
-      .employee-stats,.payroll-daily-stats,.payroll-monthly-stats,.employee-filters,.payroll-daily-filters,.payroll-monthly-filters,.attendance-preview{grid-template-columns:1fr;}
+      .employee-stats,.payroll-daily-stats,.payroll-monthly-stats,.payroll-advance-stats,.employee-filters,.payroll-daily-filters,.payroll-monthly-filters,.payroll-advance-filters,.attendance-preview{grid-template-columns:1fr;}
       .payroll-date-control{width:100%;}
       .payroll-date-control .input{min-width:0;flex:1;}
       .payroll-workspace-tabs{width:100%;}
@@ -1634,11 +1642,12 @@
           <div class="toolbar payroll-page-toolbar">
             <div>
               <h3>Gaji Karyawan</h3>
-              <p>Kelola daftar karyawan, rekapan gaji harian, dan total gaji bulanan beserta status pembayarannya.</p>
+              <p>Kelola daftar karyawan, rekapan gaji harian, kasbon, dan total gaji bulanan beserta status pembayarannya.</p>
             </div>
             <div class="payroll-page-actions">
               <button class="btn btn-light" id="exportPayrollBtn">⇩ Ekspor Rekapan</button>
               <button class="btn btn-light" id="addEmployeeBtn" data-admin-write>＋ Tambah Karyawan</button>
+              <button class="btn btn-light" id="addPayrollAdvanceBtn" data-admin-write>＋ Tambah Kasbon</button>
               <button class="btn btn-primary" id="addPayrollDailyBtn" data-admin-write>＋ Isi Rekapan Harian</button>
             </div>
           </div>
@@ -1646,6 +1655,7 @@
           <div class="payroll-workspace-tabs" id="payrollTabs" role="tablist" aria-label="Menu gaji karyawan">
             <button class="payroll-tab-btn active" type="button" data-payroll-tab="employees" role="tab" aria-selected="true">Daftar Karyawan & Gaji Harian</button>
             <button class="payroll-tab-btn" type="button" data-payroll-tab="daily" role="tab" aria-selected="false">Rekapan Gaji Harian</button>
+            <button class="payroll-tab-btn" type="button" data-payroll-tab="advances" role="tab" aria-selected="false">Kasbon Karyawan</button>
             <button class="payroll-tab-btn" type="button" data-payroll-tab="monthly" role="tab" aria-selected="false">Rekapan Gaji Bulanan</button>
           </div>
 
@@ -1690,10 +1700,29 @@
             </article>
           </section>
 
+          <section class="payroll-panel" id="payrollAdvancesPanel" data-payroll-panel="advances" hidden>
+            <div class="grid stats payroll-advance-stats">
+              <article class="card stat-card expense"><div class="stat-label">Total Kasbon</div><div class="stat-value" id="payrollAdvanceTotal">Rp0</div></article>
+              <article class="card stat-card"><div class="stat-label">Karyawan Kasbon</div><div class="stat-value" id="payrollAdvanceEmployeeCount">0</div></article>
+              <article class="card stat-card income"><div class="stat-label">Batas dari Gaji Terakhir</div><div class="stat-value" id="payrollAdvanceLimitTotal">Rp0</div></article>
+              <article class="card stat-card profit"><div class="stat-label">Sisa Batas Kasbon</div><div class="stat-value" id="payrollAdvanceRemainingTotal">Rp0</div></article>
+            </div>
+            <div class="card filters payroll-advance-filters">
+              <input class="input" id="payrollAdvanceMonthFilter" type="month" aria-label="Pilih bulan kasbon" />
+              <input class="input" id="payrollAdvanceSearch" placeholder="Cari nama karyawan..." />
+              <select class="select" id="payrollAdvanceStoreFilter"></select>
+            </div>
+            <article class="card table-card">
+              <div class="card-head"><div><h3 id="payrollAdvanceTableTitle">Kasbon Karyawan</h3><p>Total kasbon pada satu bulan tidak boleh melebihi gaji bersih terakhir karyawan.</p></div></div>
+              <div class="table-wrap" id="payrollAdvanceTable"></div>
+            </article>
+          </section>
+
           <section class="payroll-panel" id="payrollMonthlyPanel" data-payroll-panel="monthly" hidden>
             <div class="grid stats payroll-monthly-stats">
               <article class="card stat-card"><div class="stat-label">Karyawan Direkap</div><div class="stat-value" id="payrollMonthlyEmployeeCount">0</div></article>
               <article class="card stat-card income"><div class="stat-label">Total Gaji Bersih Bulanan</div><div class="stat-value" id="payrollMonthlyTotal">Rp0</div></article>
+              <article class="card stat-card expense"><div class="stat-label">Total Kasbon</div><div class="stat-value" id="payrollMonthlyAdvanceTotal">Rp0</div></article>
               <article class="card stat-card profit"><div class="stat-label">Sudah Dibayar</div><div class="stat-value" id="payrollMonthlyPaidTotal">Rp0</div></article>
               <article class="card stat-card expense"><div class="stat-label">Belum Dibayar</div><div class="stat-value" id="payrollMonthlyUnpaidTotal">Rp0</div></article>
             </div>
@@ -1704,7 +1733,7 @@
               <select class="select" id="payrollPaymentStatusFilter"><option value="all">Semua Pembayaran</option><option value="paid">Sudah Dibayar</option><option value="unpaid">Belum Dibayar</option></select>
             </div>
             <article class="card table-card">
-              <div class="card-head"><div><h3 id="payrollMonthlyTableTitle">Rekapan Gaji Bulanan</h3><p>Total gaji dihitung otomatis dari seluruh rekapan gaji harian pada bulan yang dipilih.</p></div></div>
+              <div class="card-head"><div><h3 id="payrollMonthlyTableTitle">Rekapan Gaji Bulanan</h3><p>Total gaji dihitung dari rekapan harian, kemudian dikurangi kasbon pada bulan yang dipilih.</p></div></div>
               <div class="table-wrap" id="payrollMonthlyTable"></div>
             </article>
           </section>
@@ -1904,6 +1933,54 @@
         <div class="modal-foot">
           <button type="button" class="btn btn-light" data-close="payrollDailyModal">Batal</button>
           <button type="submit" class="btn btn-primary" id="savePayrollDailyBtn">Simpan Rekapan</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="modal" id="payrollAdvanceModal" role="dialog" aria-modal="true" aria-labelledby="payrollAdvanceModalTitle">
+    <div class="modal-panel payroll-modal-panel">
+      <div class="modal-head">
+        <h3 id="payrollAdvanceModalTitle">Tambah Kasbon Karyawan</h3>
+        <button class="close-btn" type="button" data-close="payrollAdvanceModal" aria-label="Tutup">✕</button>
+      </div>
+      <form id="payrollAdvanceForm" novalidate>
+        <div class="modal-body payroll-modal-body">
+          <input type="hidden" id="payrollAdvanceId" />
+          <div class="payroll-required-note"><strong>*</strong><span>Kasbon maksimal mengikuti gaji bersih terakhir. Total kasbon dalam bulan yang sama tidak boleh melewati batas tersebut.</span></div>
+          <div class="payroll-form-alert" id="payrollAdvanceFormAlert" role="alert" aria-live="polite" hidden></div>
+
+          <section class="payroll-form-card payroll-card-payment">
+            <div class="payroll-form-card-head">
+              <span class="payroll-section-number">01</span>
+              <div><strong>Data Kasbon</strong><small>Pilih karyawan dan masukkan nominal kasbon yang diberikan.</small></div>
+            </div>
+            <div class="form-grid">
+              <div class="field"><label for="payrollAdvanceDate">Tanggal Kasbon<span class="required-mark">*</span></label><input class="input" type="date" id="payrollAdvanceDate" required /></div>
+              <div class="field"><label for="payrollAdvanceEmployeeSelect">Nama Karyawan<span class="required-mark">*</span></label><select class="select" id="payrollAdvanceEmployeeSelect" data-placeholder="Pilih karyawan" required><option value="" disabled selected>Pilih karyawan</option></select></div>
+              <div class="field"><label for="payrollAdvanceStorePreview">Toko</label><input class="input payroll-readonly-input" id="payrollAdvanceStorePreview" readonly placeholder="Terisi otomatis" /></div>
+              <div class="field"><label for="payrollAdvanceAmount">Nominal Kasbon<span class="required-mark">*</span></label><input class="input" type="number" id="payrollAdvanceAmount" min="1" step="1" inputmode="numeric" placeholder="Masukkan nominal kasbon" required /></div>
+              <div class="field full"><label for="payrollAdvanceNote">Keterangan <span class="optional-label">(Opsional)</span></label><textarea class="textarea" id="payrollAdvanceNote" placeholder="Contoh: kebutuhan mendesak atau cicilan kasbon"></textarea></div>
+            </div>
+          </section>
+
+          <section class="payroll-form-card payroll-card-summary">
+            <div class="payroll-form-card-head">
+              <span class="payroll-section-number">02</span>
+              <div><strong>Batas Kasbon Otomatis</strong><small>Batas dihitung dari total gaji bersih periode terakhir yang tersedia.</small></div>
+            </div>
+            <div class="attendance-preview">
+              <div><span>Periode Gaji Terakhir</span><strong id="payrollAdvanceSalaryPeriod">Belum tersedia</strong></div>
+              <div><span>Gaji Bersih Terakhir</span><strong id="payrollAdvanceSalaryLimit">Rp0</strong></div>
+              <div><span>Kasbon Bulan Ini</span><strong id="payrollAdvanceUsed">Rp0</strong></div>
+              <div class="net-wage-preview"><span>Maksimal Bisa Diinput</span><strong id="payrollAdvanceAvailable">Rp0</strong></div>
+            </div>
+            <div class="advance-preview-note" id="payrollAdvancePreviewNote">Pilih karyawan dan tanggal kasbon untuk melihat batas maksimal.</div>
+          </section>
+        </div>
+        <div class="modal-foot">
+          <button type="button" class="btn btn-light" data-close="payrollAdvanceModal">Batal</button>
+          <button type="submit" class="btn btn-primary" id="savePayrollAdvanceBtn">Simpan Kasbon</button>
         </div>
       </form>
     </div>
@@ -2551,9 +2628,89 @@ CREATE TABLE IF NOT EXISTS public.payroll_monthly_payments (
 );
 CREATE INDEX IF NOT EXISTS payroll_monthly_store_month_idx ON public.payroll_monthly_payments(store, payroll_month DESC);
 
+CREATE TABLE IF NOT EXISTS public.payroll_advances (
+  id text PRIMARY KEY,
+  employee_id text NOT NULL REFERENCES public.employees(id) ON DELETE CASCADE,
+  advance_date date NOT NULL,
+  payroll_month date NOT NULL,
+  store text NOT NULL CHECK (store IN ('Chickumbar Blok M','Susu Sore','Hi Fruit','Ngayamin','Chickumbar Barito')),
+  employee_name text NOT NULL,
+  amount numeric(15,2) NOT NULL CHECK (amount > 0),
+  salary_limit numeric(15,2) NOT NULL DEFAULT 0 CHECK (salary_limit >= 0),
+  salary_period date,
+  note text NOT NULL DEFAULT '',
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS payroll_advances_store_month_idx ON public.payroll_advances(store, payroll_month DESC);
+CREATE INDEX IF NOT EXISTS payroll_advances_employee_month_idx ON public.payroll_advances(employee_id, payroll_month DESC);
+
+CREATE OR REPLACE FUNCTION public.validate_payroll_advance()
+RETURNS trigger
+LANGUAGE plpgsql
+SET search_path = public
+AS $$
+DECLARE
+  v_month date;
+  v_salary_period date;
+  v_salary_limit numeric(15,2) := 0;
+  v_existing_total numeric(15,2) := 0;
+  v_store text;
+  v_employee_name text;
+BEGIN
+  SELECT store, name INTO v_store, v_employee_name FROM public.employees WHERE id = NEW.employee_id;
+  IF NOT FOUND THEN RAISE EXCEPTION 'Karyawan tidak ditemukan.'; END IF;
+
+  v_month := date_trunc('month', NEW.advance_date)::date;
+
+  SELECT salary_month, total_net INTO v_salary_period, v_salary_limit
+  FROM (
+    SELECT date_trunc('month', work_date)::date AS salary_month, SUM(net_wage)::numeric(15,2) AS total_net
+    FROM public.payroll_daily
+    WHERE employee_id = NEW.employee_id AND date_trunc('month', work_date)::date < v_month
+    GROUP BY 1 ORDER BY 1 DESC LIMIT 1
+  ) history;
+
+  IF v_salary_period IS NULL THEN
+    SELECT salary_month, total_net INTO v_salary_period, v_salary_limit
+    FROM (
+      SELECT date_trunc('month', work_date)::date AS salary_month, SUM(net_wage)::numeric(15,2) AS total_net
+      FROM public.payroll_daily
+      WHERE employee_id = NEW.employee_id AND date_trunc('month', work_date)::date <= v_month
+      GROUP BY 1 ORDER BY 1 DESC LIMIT 1
+    ) fallback_history;
+  END IF;
+
+  v_salary_limit := COALESCE(v_salary_limit, 0);
+  IF v_salary_limit <= 0 THEN RAISE EXCEPTION 'Gaji bersih terakhir belum tersedia untuk karyawan ini.'; END IF;
+
+  SELECT COALESCE(SUM(amount),0) INTO v_existing_total
+  FROM public.payroll_advances
+  WHERE employee_id = NEW.employee_id AND payroll_month = v_month AND id <> NEW.id;
+
+  IF COALESCE(NEW.amount,0) <= 0 THEN RAISE EXCEPTION 'Nominal kasbon harus lebih dari nol.'; END IF;
+  IF v_existing_total + NEW.amount > v_salary_limit THEN
+    RAISE EXCEPTION 'Total kasbon melebihi gaji bersih terakhir. Batas %, sudah terpakai %.', v_salary_limit, v_existing_total;
+  END IF;
+
+  NEW.payroll_month := v_month;
+  NEW.store := v_store;
+  NEW.employee_name := v_employee_name;
+  NEW.salary_limit := v_salary_limit;
+  NEW.salary_period := v_salary_period;
+  NEW.updated_at := now();
+  RETURN NEW;
+END;
+$$;
+DROP TRIGGER IF EXISTS payroll_advance_limit_trigger ON public.payroll_advances;
+CREATE TRIGGER payroll_advance_limit_trigger
+BEFORE INSERT OR UPDATE ON public.payroll_advances
+FOR EACH ROW EXECUTE FUNCTION public.validate_payroll_advance();
+
 ALTER TABLE public.employees ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.payroll_daily ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.payroll_monthly_payments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.payroll_advances ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Employees readable by payroll access" ON public.employees;
 DROP POLICY IF EXISTS "Employees manageable by admin" ON public.employees;
@@ -2561,6 +2718,8 @@ DROP POLICY IF EXISTS "Payroll daily readable by access" ON public.payroll_daily
 DROP POLICY IF EXISTS "Payroll daily manageable by admin" ON public.payroll_daily;
 DROP POLICY IF EXISTS "Payroll monthly readable by access" ON public.payroll_monthly_payments;
 DROP POLICY IF EXISTS "Payroll monthly manageable by admin" ON public.payroll_monthly_payments;
+DROP POLICY IF EXISTS "Payroll advances readable by access" ON public.payroll_advances;
+DROP POLICY IF EXISTS "Payroll advances manageable by admin" ON public.payroll_advances;
 
 CREATE POLICY "Employees readable by payroll access"
 ON public.employees FOR SELECT TO authenticated
@@ -2604,9 +2763,24 @@ ON public.payroll_monthly_payments FOR ALL TO authenticated
 USING (public.is_admin())
 WITH CHECK (public.is_admin());
 
+CREATE POLICY "Payroll advances readable by access"
+ON public.payroll_advances FOR SELECT TO authenticated
+USING (
+  EXISTS (
+    SELECT 1 FROM public.profiles p
+    WHERE p.user_id = auth.uid()
+      AND (p.role = 'admin' OR (p.role = 'owner' AND store = ANY(COALESCE(p.branches, '{}'::text[]))))
+  )
+);
+CREATE POLICY "Payroll advances manageable by admin"
+ON public.payroll_advances FOR ALL TO authenticated
+USING (public.is_admin())
+WITH CHECK (public.is_admin());
+
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.employees TO authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.payroll_daily TO authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.payroll_monthly_payments TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.payroll_advances TO authenticated;
 
 DO $$
 BEGIN
@@ -2619,11 +2793,14 @@ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname='supabase_realtime' AND schemaname='public' AND tablename='payroll_monthly_payments') THEN
     ALTER PUBLICATION supabase_realtime ADD TABLE public.payroll_monthly_payments;
   END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname='supabase_realtime' AND schemaname='public' AND tablename='payroll_advances') THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.payroll_advances;
+  END IF;
 END $$;
 
 NOTIFY pgrst, 'reload schema';`
 
-      const state = { transactions: [], inventory: [], inventoryDaily: [], events: [], employees: [], payrollDaily: [], payrollMonthlyPayments: [], profiles: [], profile: null, updatedAt: null };
+      const state = { transactions: [], inventory: [], inventoryDaily: [], events: [], employees: [], payrollDaily: [], payrollAdvances: [], payrollMonthlyPayments: [], profiles: [], profile: null, updatedAt: null };
       let activeView = 'dashboard';
       let activeEventTab = 'transactions';
       let activePayrollTab = 'employees';
@@ -2692,7 +2869,7 @@ NOTIFY pgrst, 'reload schema';`
       }
 
       function initStaticUI(){
-        [el('globalStore'),el('inventoryStoreFilter'),el('employeeStoreFilter'),el('payrollDailyStoreFilter'),el('payrollMonthlyStoreFilter')].forEach(s=>populateStoreSelect(s,true));
+        [el('globalStore'),el('inventoryStoreFilter'),el('employeeStoreFilter'),el('payrollDailyStoreFilter'),el('payrollAdvanceStoreFilter'),el('payrollMonthlyStoreFilter')].forEach(s=>populateStoreSelect(s,true));
         [el('transactionStore'),el('inventoryStore'),el('employeeStore')].forEach(s=>populateStoreSelect(s,false));
         el('transactionDateFilter').value=todayISO();
         el('transactionDateFilter').max=todayISO();
@@ -2701,6 +2878,8 @@ NOTIFY pgrst, 'reload schema';`
         el('payrollDateFilter').max=todayISO();
         el('payrollMonthFilter').value=currentMonth();
         el('payrollMonthFilter').max=currentMonth();
+        el('payrollAdvanceMonthFilter').value=currentMonth();
+        el('payrollAdvanceMonthFilter').max=currentMonth();
         el('inventoryDateFilter').value=todayISO();
         el('eventInventoryDateFilter').value=todayISO();
         el('todayText').textContent=new Intl.DateTimeFormat('id-ID',{timeZone:'Asia/Jakarta',weekday:'long',day:'numeric',month:'long',year:'numeric'}).format(new Date());
@@ -2728,7 +2907,7 @@ NOTIFY pgrst, 'reload schema';`
       }
 
       async function handleAuthState(event,session){
-        if(event==='SIGNED_OUT'||!session){stopCloudRefresh();currentSession=null;state.transactions=[];state.inventory=[];state.events=[];state.employees=[];state.payrollDaily=[];state.payrollMonthlyPayments=[];state.profiles=[];state.profile=null;renderAll();if(forceSetupScreen){forceSetupScreen=false;showSetup();}else showAuth();return;}
+        if(event==='SIGNED_OUT'||!session){stopCloudRefresh();currentSession=null;state.transactions=[];state.inventory=[];state.events=[];state.employees=[];state.payrollDaily=[];state.payrollAdvances=[];state.payrollMonthlyPayments=[];state.profiles=[];state.profile=null;renderAll();if(forceSetupScreen){forceSetupScreen=false;showSetup();}else showAuth();return;}
         if(event==='SIGNED_IN'||event==='INITIAL_SESSION'||event==='TOKEN_REFRESHED') await showApp(session);
       }
 
@@ -2814,6 +2993,7 @@ NOTIFY pgrst, 'reload schema';`
           populateStoreSelect(el('inventoryStore'),false);
           populateStoreSelect(el('employeeStoreFilter'),true);
           populateStoreSelect(el('payrollDailyStoreFilter'),true);
+          populateStoreSelect(el('payrollAdvanceStoreFilter'),true);
           populateStoreSelect(el('payrollMonthlyStoreFilter'),true);
           populateStoreSelect(el('employeeStore'),false);
           el('inventoryStoreFilter').disabled=false;
@@ -2840,10 +3020,11 @@ NOTIFY pgrst, 'reload schema';`
             populateStoreSelect(el('inventoryStore'),false,stores);
             populateStoreSelect(el('employeeStoreFilter'),includeAll,stores);
             populateStoreSelect(el('payrollDailyStoreFilter'),includeAll,stores);
+            populateStoreSelect(el('payrollAdvanceStoreFilter'),includeAll,stores);
             populateStoreSelect(el('payrollMonthlyStoreFilter'),includeAll,stores);
             populateStoreSelect(el('employeeStore'),false,stores);
           }else{
-            [...selectors,el('transactionStore'),el('inventoryStore'),el('employeeStoreFilter'),el('payrollDailyStoreFilter'),el('payrollMonthlyStoreFilter'),el('employeeStore')].forEach(select=>select.innerHTML='<option value="">Toko belum ditetapkan</option>');
+            [...selectors,el('transactionStore'),el('inventoryStore'),el('employeeStoreFilter'),el('payrollDailyStoreFilter'),el('payrollAdvanceStoreFilter'),el('payrollMonthlyStoreFilter'),el('employeeStore')].forEach(select=>select.innerHTML='<option value="">Toko belum ditetapkan</option>');
           }
           const allowedValues=includeAll?['all',...stores]:stores;
           if(!allowedValues.includes(selectedGlobalStore))selectedGlobalStore=includeAll?'all':(stores[0]||'');
@@ -3001,11 +3182,11 @@ NOTIFY pgrst, 'reload schema';`
         document.addEventListener('click',event=>{const go=event.target.closest('[data-go]');if(go)switchView(go.dataset.go);const close=event.target.closest('[data-close]');if(close)closeModal(close.dataset.close);});
         el('menuBtn').addEventListener('click',toggleSidebar);el('overlay').addEventListener('click',toggleSidebar);
         el('globalStore').addEventListener('change',event=>{selectedGlobalStore=event.target.value;const inventoryStore=el('inventoryStoreFilter');const materialsStore=el('materialsStoreFilter');if(inventoryStore&&[...inventoryStore.options].some(option=>option.value===event.target.value))inventoryStore.value=event.target.value;if(materialsStore&&[...materialsStore.options].some(option=>option.value===event.target.value))materialsStore.value=event.target.value;renderDashboard();renderTransactions();renderInventory();renderMaterials();});
-        el('addTransactionBtn').addEventListener('click',()=>openTransactionModal(null,'store'));el('addInventoryBtn').addEventListener('click',()=>openInventoryModal(null,'store'));el('closeDailyRecapBtn').addEventListener('click',()=>openDailyClosingModal('store'));el('fillNoUsageBtn').addEventListener('click',fillClosingWithAvailableStock);el('addEventBtn').addEventListener('click',()=>openEventModal());el('addEmployeeBtn').addEventListener('click',()=>openEmployeeModal());el('addPayrollDailyBtn').addEventListener('click',()=>openPayrollDailyModal());
+        el('addTransactionBtn').addEventListener('click',()=>openTransactionModal(null,'store'));el('addInventoryBtn').addEventListener('click',()=>openInventoryModal(null,'store'));el('closeDailyRecapBtn').addEventListener('click',()=>openDailyClosingModal('store'));el('fillNoUsageBtn').addEventListener('click',fillClosingWithAvailableStock);el('addEventBtn').addEventListener('click',()=>openEventModal());el('addEmployeeBtn').addEventListener('click',()=>openEmployeeModal());el('addPayrollAdvanceBtn').addEventListener('click',()=>openPayrollAdvanceModal());el('addPayrollDailyBtn').addEventListener('click',()=>openPayrollDailyModal());
         el('addEventTransactionBtn').addEventListener('click',()=>openTransactionModal(null,'event',selectedEventWorkspaceId()));
         el('addEventInventoryBtn').addEventListener('click',()=>openInventoryModal(null,'event',selectedEventWorkspaceId()));
         el('closeEventDailyRecapBtn').addEventListener('click',()=>openDailyClosingModal('event'));
-        el('transactionForm').addEventListener('submit',saveTransaction);el('transactionRows').addEventListener('click',handleTransactionRowClick);el('transactionRows').addEventListener('input',updateTransactionTotal);el('inventoryForm').addEventListener('submit',saveInventory);el('dailyClosingForm').addEventListener('submit',saveDailyClosing);el('dailyClosingRows').addEventListener('input',updateClosingUsagePreview);el('eventForm').addEventListener('submit',saveEvent);el('employeeForm').addEventListener('submit',saveEmployee);el('employeeForm').addEventListener('input',()=>setEmployeeFormAlert(''));el('payrollDailyForm').addEventListener('submit',savePayrollDaily);el('payrollDailyForm').addEventListener('input',()=>{setPayrollDailyFormAlert('');updatePayrollDailyPreview();});el('payrollDailyForm').addEventListener('change',()=>{setPayrollDailyFormAlert('');updatePayrollDailyPreview();});el('payrollEmployeeSelect').addEventListener('change',syncPayrollEmployeeSelection);
+        el('transactionForm').addEventListener('submit',saveTransaction);el('transactionRows').addEventListener('click',handleTransactionRowClick);el('transactionRows').addEventListener('input',updateTransactionTotal);el('inventoryForm').addEventListener('submit',saveInventory);el('dailyClosingForm').addEventListener('submit',saveDailyClosing);el('dailyClosingRows').addEventListener('input',updateClosingUsagePreview);el('eventForm').addEventListener('submit',saveEvent);el('employeeForm').addEventListener('submit',saveEmployee);el('employeeForm').addEventListener('input',()=>setEmployeeFormAlert(''));el('payrollDailyForm').addEventListener('submit',savePayrollDaily);el('payrollDailyForm').addEventListener('input',()=>{setPayrollDailyFormAlert('');updatePayrollDailyPreview();});el('payrollDailyForm').addEventListener('change',()=>{setPayrollDailyFormAlert('');updatePayrollDailyPreview();});el('payrollEmployeeSelect').addEventListener('change',syncPayrollEmployeeSelection);el('payrollAdvanceForm').addEventListener('submit',savePayrollAdvance);el('payrollAdvanceForm').addEventListener('input',()=>{setPayrollAdvanceFormAlert('');updatePayrollAdvancePreview();});el('payrollAdvanceForm').addEventListener('change',()=>{setPayrollAdvanceFormAlert('');updatePayrollAdvancePreview();});el('payrollAdvanceEmployeeSelect').addEventListener('change',syncPayrollAdvanceEmployeeSelection);
         ['transactionSearch','transactionTypeFilter','transactionPaymentFilter','transactionDateFilter'].forEach(id=>el(id).addEventListener('input',renderTransactions));
         ['inventorySearch','inventoryStatusFilter','inventoryStoreFilter'].forEach(id=>el(id).addEventListener('input',renderInventory));
         el('materialsSearch').addEventListener('input',renderMaterials);
@@ -3014,7 +3195,7 @@ NOTIFY pgrst, 'reload schema';`
         el('inventoryPrevDateBtn').addEventListener('click',()=>shiftInventoryDate(-1));
         el('inventoryNextDateBtn').addEventListener('click',()=>shiftInventoryDate(1));
         el('inventoryStoreFilter').addEventListener('change',renderInventory);
-        ['eventSearch','eventStatusFilter'].forEach(id=>el(id).addEventListener('input',renderEvents));['employeeSearch','employeeStoreFilter','employeeStatusFilter','payrollDailySearch','payrollDailyStoreFilter','payrollLateFilter','payrollMonthlySearch','payrollMonthlyStoreFilter','payrollPaymentStatusFilter'].forEach(id=>el(id).addEventListener('input',renderPayroll));el('payrollDateFilter').addEventListener('change',renderPayroll);el('payrollMonthFilter').addEventListener('change',renderPayroll);el('payrollTabs').addEventListener('click',event=>{const button=event.target.closest('[data-payroll-tab]');if(button)switchPayrollTab(button.dataset.payrollTab);});el('payrollPrevDateBtn').addEventListener('click',()=>shiftPayrollDate(-1));el('payrollNextDateBtn').addEventListener('click',()=>shiftPayrollDate(1));el('payrollTodayBtn').addEventListener('click',()=>changePayrollDate(todayISO()));
+        ['eventSearch','eventStatusFilter'].forEach(id=>el(id).addEventListener('input',renderEvents));['employeeSearch','employeeStoreFilter','employeeStatusFilter','payrollDailySearch','payrollDailyStoreFilter','payrollLateFilter','payrollAdvanceSearch','payrollAdvanceStoreFilter','payrollMonthlySearch','payrollMonthlyStoreFilter','payrollPaymentStatusFilter'].forEach(id=>el(id).addEventListener('input',renderPayroll));el('payrollDateFilter').addEventListener('change',renderPayroll);el('payrollAdvanceMonthFilter').addEventListener('change',renderPayroll);el('payrollMonthFilter').addEventListener('change',renderPayroll);el('payrollTabs').addEventListener('click',event=>{const button=event.target.closest('[data-payroll-tab]');if(button)switchPayrollTab(button.dataset.payrollTab);});el('payrollPrevDateBtn').addEventListener('click',()=>shiftPayrollDate(-1));el('payrollNextDateBtn').addEventListener('click',()=>shiftPayrollDate(1));el('payrollTodayBtn').addEventListener('click',()=>changePayrollDate(todayISO()));
         el('eventWorkspaceSelect').addEventListener('change',renderEvents);
         el('eventTabs').addEventListener('click',event=>{const button=event.target.closest('[data-event-tab]');if(button)switchEventTab(button.dataset.eventTab);});
         ['eventTransactionSearch','eventTransactionTypeFilter','eventTransactionPaymentFilter','eventTransactionMonthFilter'].forEach(id=>el(id).addEventListener('input',renderEventTransactions));
@@ -3026,7 +3207,7 @@ NOTIFY pgrst, 'reload schema';`
         el('eventInventoryNextDateBtn').addEventListener('click',()=>shiftEventInventoryDate(1));
         el('transactionsTable').addEventListener('click',handleTransactionTableClick);el('eventTransactionsTable').addEventListener('click',handleTransactionTableClick);
         el('materialsTable').addEventListener('click',handleInventoryTableClick);el('eventMaterialsTable').addEventListener('click',handleInventoryTableClick);
-        el('eventsTable').addEventListener('click',handleEventsTableClick);el('employeeTable').addEventListener('click',handleEmployeeTableClick);el('payrollDailyTable').addEventListener('click',handlePayrollDailyTableClick);el('payrollMonthlyTable').addEventListener('click',handlePayrollMonthlyTableClick);el('profilesTable').addEventListener('change',handleProfileAccessDraftChange);el('profilesTable').addEventListener('click',handleProfileAccessSave);
+        el('eventsTable').addEventListener('click',handleEventsTableClick);el('employeeTable').addEventListener('click',handleEmployeeTableClick);el('payrollDailyTable').addEventListener('click',handlePayrollDailyTableClick);el('payrollAdvanceTable').addEventListener('click',handlePayrollAdvanceTableClick);el('payrollMonthlyTable').addEventListener('click',handlePayrollMonthlyTableClick);el('profilesTable').addEventListener('change',handleProfileAccessDraftChange);el('profilesTable').addEventListener('click',handleProfileAccessSave);
         el('exportTransactionsBtn').addEventListener('click',exportTransactionsCSV);el('exportPayrollBtn').addEventListener('click',exportPayrollCSV);el('exportInventoryBtn').addEventListener('click',exportInventoryCSV);el('exportEventsBtn').addEventListener('click',exportEventsCSV);el('exportEventTransactionsBtn').addEventListener('click',exportEventTransactionsCSV);el('exportEventInventoryBtn').addEventListener('click',exportEventInventoryCSV);
         el('backupBtn').addEventListener('click',backupJSON);el('restoreBtn').addEventListener('click',()=>el('restoreInput').click());el('restoreInput').addEventListener('change',restoreJSON);el('demoBtn').addEventListener('click',loadDemoData);el('clearBtn').addEventListener('click',clearAllData);
         window.addEventListener('resize',renderChart);window.addEventListener('online',()=>loadCloudData(true));window.addEventListener('offline',()=>setCloudStatus('error','Offline'));
@@ -3321,6 +3502,8 @@ NOTIFY pgrst, 'reload schema';`
       function rowToEmployee(row){return{id:row.id,store:row.store,name:row.name,position:row.position||'',dailyWage:Number(row.daily_wage||0),shiftStart:formatTimeValue(row.shift_start)||'09:00',isActive:row.is_active!==false,note:row.note||'',createdAt:row.created_at,updatedAt:row.updated_at};}
       function payrollDailyToRow(item){const calculation=calculateDailyPayroll(item.dailyWage,item.lateStatus,item.attributeStatus);return{id:item.id,employee_id:item.employeeId,work_date:item.workDate,store:item.store,employee_name:item.employeeName,position:item.position||'',daily_wage:calculation.dailyWage,scheduled_time:item.scheduledTime,attendance_time:item.attendanceTime,late_status:calculation.lateStatus,attribute_status:calculation.attributeStatus,late_deduction:calculation.lateDeduction,attribute_deduction:calculation.attributeDeduction,net_wage:calculation.netWage,note:item.note||'',updated_at:new Date().toISOString()};}
       function rowToPayrollDaily(row){const dailyWage=Number(row.daily_wage||0),lateStatus=row.late_status==='late'?'late':'ontime',attributeStatus=row.attribute_status==='incomplete'?'incomplete':'complete',calculation=calculateDailyPayroll(dailyWage,lateStatus,attributeStatus);return{id:row.id,employeeId:row.employee_id,workDate:row.work_date,store:row.store,employeeName:row.employee_name,position:row.position||'',dailyWage,scheduledTime:formatTimeValue(row.scheduled_time),attendanceTime:formatTimeValue(row.attendance_time),lateStatus,attributeStatus,lateDeduction:Number(row.late_deduction??calculation.lateDeduction),attributeDeduction:Number(row.attribute_deduction??calculation.attributeDeduction),netWage:Number(row.net_wage??calculation.netWage),note:row.note||'',createdAt:row.created_at,updatedAt:row.updated_at};}
+      function payrollAdvanceToRow(item){return{id:item.id,employee_id:item.employeeId,advance_date:item.advanceDate,payroll_month:item.payrollMonth,store:item.store,employee_name:item.employeeName,amount:item.amount,salary_limit:item.salaryLimit,salary_period:item.salaryPeriod||null,note:item.note||'',updated_at:new Date().toISOString()};}
+      function rowToPayrollAdvance(row){return{id:row.id,employeeId:row.employee_id,advanceDate:row.advance_date,payrollMonth:String(row.payroll_month||row.advance_date||'').slice(0,10),store:row.store,employeeName:row.employee_name,amount:Number(row.amount||0),salaryLimit:Number(row.salary_limit||0),salaryPeriod:row.salary_period?String(row.salary_period).slice(0,10):'',note:row.note||'',createdAt:row.created_at,updatedAt:row.updated_at};}
       function payrollMonthlyPaymentToRow(item){return{id:item.id,employee_id:item.employeeId,payroll_month:item.payrollMonth,store:item.store,employee_name:item.employeeName,payment_status:item.paymentStatus,paid_at:item.paidAt||null,note:item.note||'',updated_at:new Date().toISOString()};}
       function rowToPayrollMonthlyPayment(row){return{id:row.id,employeeId:row.employee_id,payrollMonth:String(row.payroll_month||'').slice(0,10),store:row.store,employeeName:row.employee_name,paymentStatus:row.payment_status==='paid'?'paid':'unpaid',paidAt:row.paid_at||null,note:row.note||'',createdAt:row.created_at,updatedAt:row.updated_at};}
 
@@ -3394,16 +3577,18 @@ NOTIFY pgrst, 'reload schema';`
           const dailyPromise=stores.length||isAdmin()?dailyQuery:Promise.resolve({data:[],error:null});
           const employeesPromise=stores.length||isAdmin()?db.from('employees').select('*').in('store',stores.length?stores:STORES).order('store',{ascending:true}).order('name',{ascending:true}):Promise.resolve({data:[],error:null});
           const payrollDailyPromise=stores.length||isAdmin()?db.from('payroll_daily').select('*').in('store',stores.length?stores:STORES).order('work_date',{ascending:false}).order('employee_name',{ascending:true}):Promise.resolve({data:[],error:null});
+          const payrollAdvancePromise=stores.length||isAdmin()?db.from('payroll_advances').select('*').in('store',stores.length?stores:STORES).order('advance_date',{ascending:false}).order('employee_name',{ascending:true}):Promise.resolve({data:[],error:null});
           const payrollMonthlyPromise=stores.length||isAdmin()?db.from('payroll_monthly_payments').select('*').in('store',stores.length?stores:STORES).order('payroll_month',{ascending:false}).order('employee_name',{ascending:true}):Promise.resolve({data:[],error:null});
           const profilesPromise=isAdmin()?db.from('profiles').select('user_id,email,role,branch,branches,created_at').order('created_at',{ascending:true}):Promise.resolve({data:[state.profile],error:null});
-          const [eventResult,inventoryResult,txResult,dailyResult,employeesResult,payrollDailyResult,payrollMonthlyResult,profilesResult]=await Promise.all([eventPromise,inventoryPromise,transactionPromise,dailyPromise,employeesPromise,payrollDailyPromise,payrollMonthlyPromise,profilesPromise]);
-          for(const result of [eventResult,inventoryResult,txResult,dailyResult,employeesResult,payrollDailyResult,payrollMonthlyResult,profilesResult])if(result.error)throw result.error;
+          const [eventResult,inventoryResult,txResult,dailyResult,employeesResult,payrollDailyResult,payrollAdvanceResult,payrollMonthlyResult,profilesResult]=await Promise.all([eventPromise,inventoryPromise,transactionPromise,dailyPromise,employeesPromise,payrollDailyPromise,payrollAdvancePromise,payrollMonthlyPromise,profilesPromise]);
+          for(const result of [eventResult,inventoryResult,txResult,dailyResult,employeesResult,payrollDailyResult,payrollAdvanceResult,payrollMonthlyResult,profilesResult])if(result.error)throw result.error;
           state.events=(eventResult.data||[]).map(rowToEvent);
           state.inventory=(inventoryResult.data||[]).map(rowToInventory).filter(item=>canAccessStore(item.store));
           state.inventoryDaily=(dailyResult.data||[]).map(rowToDailyRecord).filter(item=>canAccessStore(item.store));
           state.transactions=(txResult.data||[]).map(rowToTransaction).filter(item=>item.eventId?isAdmin():canAccessStore(item.store));
           state.employees=(employeesResult.data||[]).map(rowToEmployee).filter(item=>canAccessStore(item.store));
           state.payrollDaily=(payrollDailyResult.data||[]).map(rowToPayrollDaily).filter(item=>canAccessStore(item.store));
+          state.payrollAdvances=(payrollAdvanceResult.data||[]).map(rowToPayrollAdvance).filter(item=>canAccessStore(item.store));
           state.payrollMonthlyPayments=(payrollMonthlyResult.data||[]).map(rowToPayrollMonthlyPayment).filter(item=>canAccessStore(item.store));
           state.profiles=profilesResult.data||[];
           state.updatedAt=new Date().toISOString();
@@ -3414,7 +3599,7 @@ NOTIFY pgrst, 'reload schema';`
         }catch(error){showSyncError(error);restoreSyncUiState(syncUiState);return false;}finally{dataLoading=false;}
       }
 
-      function startCloudRefresh(){stopCloudRefresh();refreshTimer=setInterval(()=>loadCloudData(true),30000);try{cloudChannel=db.channel('rekap-toko-cloud-v6').on('postgres_changes',{event:'*',schema:'public',table:'transactions'},scheduleRealtimeRefresh).on('postgres_changes',{event:'*',schema:'public',table:'inventory'},scheduleRealtimeRefresh).on('postgres_changes',{event:'*',schema:'public',table:'inventory_daily'},scheduleRealtimeRefresh).on('postgres_changes',{event:'*',schema:'public',table:'events'},scheduleRealtimeRefresh).on('postgres_changes',{event:'*',schema:'public',table:'employees'},scheduleRealtimeRefresh).on('postgres_changes',{event:'*',schema:'public',table:'payroll_daily'},scheduleRealtimeRefresh).on('postgres_changes',{event:'*',schema:'public',table:'payroll_monthly_payments'},scheduleRealtimeRefresh).on('postgres_changes',{event:'*',schema:'public',table:'profiles'},scheduleRealtimeRefresh).subscribe();}catch(error){console.warn('Realtime tidak aktif, polling tetap berjalan.',error);}}
+      function startCloudRefresh(){stopCloudRefresh();refreshTimer=setInterval(()=>loadCloudData(true),30000);try{cloudChannel=db.channel('rekap-toko-cloud-v6').on('postgres_changes',{event:'*',schema:'public',table:'transactions'},scheduleRealtimeRefresh).on('postgres_changes',{event:'*',schema:'public',table:'inventory'},scheduleRealtimeRefresh).on('postgres_changes',{event:'*',schema:'public',table:'inventory_daily'},scheduleRealtimeRefresh).on('postgres_changes',{event:'*',schema:'public',table:'events'},scheduleRealtimeRefresh).on('postgres_changes',{event:'*',schema:'public',table:'employees'},scheduleRealtimeRefresh).on('postgres_changes',{event:'*',schema:'public',table:'payroll_daily'},scheduleRealtimeRefresh).on('postgres_changes',{event:'*',schema:'public',table:'payroll_advances'},scheduleRealtimeRefresh).on('postgres_changes',{event:'*',schema:'public',table:'payroll_monthly_payments'},scheduleRealtimeRefresh).on('postgres_changes',{event:'*',schema:'public',table:'profiles'},scheduleRealtimeRefresh).subscribe();}catch(error){console.warn('Realtime tidak aktif, polling tetap berjalan.',error);}}
       function scheduleRealtimeRefresh(){clearTimeout(realtimeDebounce);realtimeDebounce=setTimeout(async()=>{if(currentSession)await loadCurrentProfile(currentSession.user);applyRoleUI();loadCloudData(true);},400);}
       function stopCloudRefresh(){clearInterval(refreshTimer);clearTimeout(realtimeDebounce);refreshTimer=null;if(cloudChannel&&db)db.removeChannel(cloudChannel);cloudChannel=null;}
 
@@ -3760,7 +3945,7 @@ NOTIFY pgrst, 'reload schema';`
       function employeeStatusBadge(item){return `<span class="badge employee-status-${item.isActive?'active':'inactive'}">${item.isActive?'Aktif':'Tidak Aktif'}</span>`;}
       function employeeById(id){return state.employees.find(item=>item.id===id);}
       function switchPayrollTab(tab='employees'){
-        activePayrollTab=['employees','daily','monthly'].includes(tab)?tab:'employees';
+        activePayrollTab=['employees','daily','advances','monthly'].includes(tab)?tab:'employees';
         document.querySelectorAll('[data-payroll-tab]').forEach(button=>{
           const active=button.dataset.payrollTab===activePayrollTab;
           button.classList.toggle('active',active);
@@ -3784,6 +3969,25 @@ NOTIFY pgrst, 'reload schema';`
         return state.payrollDaily.filter(item=>canAccessStore(item.store)&&item.workDate===date&&(store==='all'||item.store===store)&&(late==='all'||item.lateStatus===late)&&(!search||`${item.employeeName} ${item.position} ${item.store}`.toLowerCase().includes(search))).sort((a,b)=>a.store.localeCompare(b.store)||a.attendanceTime.localeCompare(b.attendanceTime)||a.employeeName.localeCompare(b.employeeName));
       }
       function selectedPayrollMonth(){return el('payrollMonthFilter')?.value||currentMonth();}
+      function selectedPayrollAdvanceMonth(){return el('payrollAdvanceMonthFilter')?.value||currentMonth();}
+      function monthDate(value){const month=String(value||currentMonth()).slice(0,7);return `${month}-01`;}
+      function latestNetSalaryInfo(employeeId,targetMonth=currentMonth()){
+        const month=String(targetMonth||currentMonth()).slice(0,7),totals=new Map();
+        state.payrollDaily.filter(item=>item.employeeId===employeeId&&String(item.workDate||'').slice(0,7)<=month).forEach(item=>{const key=String(item.workDate).slice(0,7);totals.set(key,(totals.get(key)||0)+Number(item.netWage??calculateDailyPayroll(item.dailyWage,item.lateStatus,item.attributeStatus).netWage));});
+        const months=[...totals.keys()].sort();
+        const previous=months.filter(item=>item<month).pop();
+        const selected=previous||months.filter(item=>item<=month).pop()||'';
+        return{period:selected?`${selected}-01`:'',amount:selected?Number(totals.get(selected)||0):0};
+      }
+      function advanceLimitInfo(employeeId,advanceDate,excludeId=''){
+        const month=String(advanceDate||todayISO()).slice(0,7),payrollMonth=monthDate(month),salary=latestNetSalaryInfo(employeeId,month);
+        const used=state.payrollAdvances.filter(item=>item.id!==excludeId&&item.employeeId===employeeId&&item.payrollMonth===payrollMonth).reduce((sum,item)=>sum+Number(item.amount||0),0);
+        return{payrollMonth,salaryPeriod:salary.period,salaryLimit:salary.amount,used,available:Math.max(0,salary.amount-used)};
+      }
+      function filteredPayrollAdvances(){
+        const monthDateValue=monthDate(selectedPayrollAdvanceMonth()),search=el('payrollAdvanceSearch')?.value.trim().toLowerCase()||'',store=el('payrollAdvanceStoreFilter')?.value||'all';
+        return state.payrollAdvances.filter(item=>canAccessStore(item.store)&&item.payrollMonth===monthDateValue&&(store==='all'||item.store===store)&&(!search||`${item.employeeName} ${item.store}`.toLowerCase().includes(search))).sort((a,b)=>String(b.advanceDate).localeCompare(String(a.advanceDate))||a.employeeName.localeCompare(b.employeeName));
+      }
       function paymentStatusLabel(value){return value==='paid'?'Sudah Dibayar':'Belum Dibayar';}
       function paymentStatusBadge(value){return `<span class="badge ${value==='paid'?'payroll-status-paid':'payroll-status-pending'}">${paymentStatusLabel(value)}</span>`;}
       function payrollMonthlyRows(){
@@ -3794,7 +3998,8 @@ NOTIFY pgrst, 'reload schema';`
           const row=groups.get(key),calculation=calculateDailyPayroll(item.dailyWage,item.lateStatus,item.attributeStatus);row.days+=1;row.grossWage+=calculation.dailyWage;row.totalDeduction+=Number(item.lateDeduction??calculation.lateDeduction)+Number(item.attributeDeduction??calculation.attributeDeduction);row.totalWage+=Number(item.netWage??calculation.netWage);if(item.lateStatus==='late')row.late+=1;else row.onTime+=1;if(item.attributeStatus==='incomplete')row.incompleteAttributes+=1;
         });
         const paymentMap=new Map(state.payrollMonthlyPayments.filter(item=>item.payrollMonth===monthDate).map(item=>[item.employeeId,item]));
-        return [...groups.values()].map(row=>{const payment=paymentMap.get(row.employeeId);return{...row,paymentId:payment?.id||'',paymentStatus:payment?.paymentStatus||'unpaid',paidAt:payment?.paidAt||null,paymentNote:payment?.note||''};});
+        const advanceMap=new Map();state.payrollAdvances.filter(item=>item.payrollMonth===monthDate).forEach(item=>advanceMap.set(item.employeeId,(advanceMap.get(item.employeeId)||0)+Number(item.amount||0)));
+        return [...groups.values()].map(row=>{const payment=paymentMap.get(row.employeeId),advanceTotal=Number(advanceMap.get(row.employeeId)||0),payableWage=Math.max(0,row.totalWage-advanceTotal);return{...row,advanceTotal,payableWage,paymentId:payment?.id||'',paymentStatus:payment?.paymentStatus||'unpaid',paidAt:payment?.paidAt||null,paymentNote:payment?.note||''};});
       }
       function filteredPayrollMonthly(){
         const search=el('payrollMonthlySearch')?.value.trim().toLowerCase()||'',store=el('payrollMonthlyStoreFilter')?.value||'all',status=el('payrollPaymentStatusFilter')?.value||'all';
@@ -3821,25 +4026,36 @@ NOTIFY pgrst, 'reload schema';`
         el('payrollDailyTableTitle').textContent=`Rekapan Gaji · ${formatLongDate(date)}`;
         el('payrollDailyTable').innerHTML=rows.length?`<table><thead><tr><th>Karyawan</th><th>Toko</th><th>Tanggal</th><th>Jam Absensi</th><th>Status Kehadiran</th><th>Atribut</th><th>Potongan</th><th>Gaji Bersih</th><th>Keterangan</th><th>Aksi</th></tr></thead><tbody>${rows.map(item=>{const calculation=calculateDailyPayroll(item.dailyWage,item.lateStatus,item.attributeStatus),lateDeduction=Number(item.lateDeduction??calculation.lateDeduction),attributeDeduction=Number(item.attributeDeduction??calculation.attributeDeduction),totalDeduction=lateDeduction+attributeDeduction,netWage=Number(item.netWage??calculation.netWage);return`<tr><td><div class="employee-name-cell"><strong>${escapeHtml(item.employeeName)}</strong><small>${escapeHtml(item.position||'Jabatan belum diisi')}</small></div></td><td>${escapeHtml(item.store)}</td><td>${formatDate(item.workDate)}</td><td><div class="attendance-time">${escapeHtml(item.attendanceTime||'-')} WIB<small>Standar ${escapeHtml(item.scheduledTime||'-')} WIB</small></div></td><td>${attendanceStatusBadge(item.lateStatus)}</td><td>${attributeStatusBadge(item.attributeStatus)}</td><td><div class="wage-breakdown"><strong class="deduction-value">${totalDeduction?`-${money(totalDeduction)}`:money(0)}</strong><small>${lateDeduction?`Terlambat ${money(lateDeduction)}`:'Tanpa potongan terlambat'}<br>${attributeDeduction?`Atribut ${money(attributeDeduction)}`:'Atribut lengkap'}</small></div></td><td><div class="wage-breakdown"><strong>${money(netWage)}</strong><small>Pokok ${money(item.dailyWage)}</small></div></td><td>${escapeHtml(item.note||'-')}</td><td><div class="table-actions">${isAdmin()?`<button class="icon-btn" data-payroll-daily-edit="${item.id}" title="Edit rekapan">✎</button><button class="icon-btn danger" data-payroll-daily-delete="${item.id}" title="Hapus rekapan">⌫</button>`:'-'}</div></td></tr>`;}).join('')}</tbody></table>`:emptyState('Belum ada rekapan pada tanggal ini','Isi jam absensi dan kelengkapan atribut karyawan untuk membuat rekapan gaji harian.');
       }
+      function renderPayrollAdvances(){
+        if(!el('payrollAdvanceTable'))return;
+        const month=selectedPayrollAdvanceMonth(),rows=filteredPayrollAdvances(),employeeGroups=new Map();
+        rows.forEach(item=>{if(!employeeGroups.has(item.employeeId))employeeGroups.set(item.employeeId,{limit:Number(item.salaryLimit||0),used:0});employeeGroups.get(item.employeeId).used+=Number(item.amount||0);});
+        const total=rows.reduce((sum,item)=>sum+Number(item.amount||0),0),limitTotal=[...employeeGroups.values()].reduce((sum,item)=>sum+item.limit,0),remaining=[...employeeGroups.values()].reduce((sum,item)=>sum+Math.max(0,item.limit-item.used),0);
+        el('payrollAdvanceTotal').textContent=money(total);el('payrollAdvanceEmployeeCount').textContent=number(employeeGroups.size);el('payrollAdvanceLimitTotal').textContent=money(limitTotal);el('payrollAdvanceRemainingTotal').textContent=money(remaining);
+        el('payrollAdvanceTableTitle').textContent=`Kasbon Karyawan · ${formatMonthYear(month)}`;
+        el('payrollAdvanceTable').innerHTML=rows.length?`<table><thead><tr><th>Tanggal</th><th>Karyawan</th><th>Toko</th><th>Gaji Bersih Terakhir</th><th>Nominal Kasbon</th><th>Total Kasbon Bulan Ini</th><th>Sisa Batas</th><th>Keterangan</th><th>Aksi</th></tr></thead><tbody>${rows.map(item=>{const totalEmployee=state.payrollAdvances.filter(row=>row.employeeId===item.employeeId&&row.payrollMonth===item.payrollMonth).reduce((sum,row)=>sum+Number(row.amount||0),0),remainingLimit=Math.max(0,Number(item.salaryLimit||0)-totalEmployee);return`<tr><td>${formatDate(item.advanceDate)}</td><td><div class="employee-name-cell"><strong>${escapeHtml(item.employeeName)}</strong><small>${item.salaryPeriod?`Dasar ${escapeHtml(formatMonthYear(String(item.salaryPeriod).slice(0,7)))}`:'Gaji terakhir belum tersedia'}</small></div></td><td>${escapeHtml(item.store)}</td><td><div class="advance-limit-summary"><strong>${money(item.salaryLimit)}</strong><small>Batas maksimal satu bulan</small></div></td><td class="advance-amount">${money(item.amount)}</td><td>${money(totalEmployee)}</td><td class="advance-remaining">${money(remainingLimit)}</td><td>${escapeHtml(item.note||'-')}</td><td><div class="table-actions">${isAdmin()?`<button class="icon-btn" data-payroll-advance-edit="${item.id}" title="Edit kasbon">✎</button><button class="icon-btn danger" data-payroll-advance-delete="${item.id}" title="Hapus kasbon">⌫</button>`:'-'}</div></td></tr>`;}).join('')}</tbody></table>`:emptyState('Belum ada kasbon pada bulan ini','Tambahkan kasbon karyawan. Batas maksimal mengikuti gaji bersih terakhir yang tersedia.');
+      }
       function renderPayrollMonthly(){
         if(!el('payrollMonthlyTable'))return;
         const month=selectedPayrollMonth(),rows=filteredPayrollMonthly();
-        const paidTotal=rows.filter(item=>item.paymentStatus==='paid').reduce((sum,item)=>sum+item.totalWage,0);
-        const total=rows.reduce((sum,item)=>sum+item.totalWage,0);
+        const paidTotal=rows.filter(item=>item.paymentStatus==='paid').reduce((sum,item)=>sum+item.payableWage,0);
+        const total=rows.reduce((sum,item)=>sum+item.totalWage,0),advanceTotal=rows.reduce((sum,item)=>sum+item.advanceTotal,0),payableTotal=rows.reduce((sum,item)=>sum+item.payableWage,0);
         el('payrollMonthlyEmployeeCount').textContent=number(rows.length);
         el('payrollMonthlyTotal').textContent=money(total);
+        el('payrollMonthlyAdvanceTotal').textContent=money(advanceTotal);
         el('payrollMonthlyPaidTotal').textContent=money(paidTotal);
-        el('payrollMonthlyUnpaidTotal').textContent=money(total-paidTotal);
+        el('payrollMonthlyUnpaidTotal').textContent=money(payableTotal-paidTotal);
         el('payrollMonthlyTableTitle').textContent=`Rekapan Gaji · ${formatMonthYear(month)}`;
-        el('payrollMonthlyTable').innerHTML=rows.length?`<table><thead><tr><th>Karyawan</th><th>Toko</th><th>Periode</th><th>Hari Direkap</th><th>Kehadiran</th><th>Gaji Bersih</th><th>Status Pembayaran</th><th>Tanggal Bayar</th><th>Aksi</th></tr></thead><tbody>${rows.map(item=>`<tr><td><div class="employee-name-cell"><strong>${escapeHtml(item.employeeName)}</strong><small>${escapeHtml(item.position||'Jabatan belum diisi')}</small></div></td><td>${escapeHtml(item.store)}</td><td>${escapeHtml(formatMonthYear(month))}</td><td><div class="monthly-payroll-summary"><strong>${number(item.days)} hari</strong><small>Berdasarkan rekapan harian</small></div></td><td><div class="monthly-payroll-summary"><strong>${number(item.onTime)} tepat waktu</strong><small>${number(item.late)} terlambat · ${number(item.incompleteAttributes)} atribut tidak lengkap</small></div></td><td><div class="wage-breakdown"><strong>${money(item.totalWage)}</strong><small>Pokok ${money(item.grossWage)} · Potongan ${money(item.totalDeduction)}</small></div></td><td>${paymentStatusBadge(item.paymentStatus)}</td><td><span class="monthly-payment-date">${item.paidAt?new Intl.DateTimeFormat('id-ID',{timeZone:'Asia/Jakarta',day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}).format(new Date(item.paidAt)):'-'}</span></td><td>${isAdmin()?`<button class="btn ${item.paymentStatus==='paid'?'btn-light':'btn-primary'} monthly-payment-btn" type="button" data-monthly-payment-toggle="${escapeHtml(item.employeeId)}">${item.paymentStatus==='paid'?'Batalkan Pembayaran':'Tandai Dibayar'}</button>`:'-'}</td></tr>`).join('')}</tbody></table>`:emptyState('Belum ada rekapan gaji bulanan','Isi Rekapan Gaji Harian terlebih dahulu. Total bulanan akan dihitung otomatis dari data tersebut.');
+        el('payrollMonthlyTable').innerHTML=rows.length?`<table><thead><tr><th>Karyawan</th><th>Toko</th><th>Periode</th><th>Hari Direkap</th><th>Kehadiran</th><th>Gaji Bersih</th><th>Kasbon</th><th>Dibayarkan</th><th>Status Pembayaran</th><th>Tanggal Bayar</th><th>Aksi</th></tr></thead><tbody>${rows.map(item=>`<tr><td><div class="employee-name-cell"><strong>${escapeHtml(item.employeeName)}</strong><small>${escapeHtml(item.position||'Jabatan belum diisi')}</small></div></td><td>${escapeHtml(item.store)}</td><td>${escapeHtml(formatMonthYear(month))}</td><td><div class="monthly-payroll-summary"><strong>${number(item.days)} hari</strong><small>Berdasarkan rekapan harian</small></div></td><td><div class="monthly-payroll-summary"><strong>${number(item.onTime)} tepat waktu</strong><small>${number(item.late)} terlambat · ${number(item.incompleteAttributes)} atribut tidak lengkap</small></div></td><td><div class="wage-breakdown"><strong>${money(item.totalWage)}</strong><small>Pokok ${money(item.grossWage)} · Potongan absensi ${money(item.totalDeduction)}</small></div></td><td class="advance-amount">${item.advanceTotal?`-${money(item.advanceTotal)}`:money(0)}</td><td><div class="wage-breakdown"><strong>${money(item.payableWage)}</strong><small>Setelah dikurangi kasbon</small></div></td><td>${paymentStatusBadge(item.paymentStatus)}</td><td><span class="monthly-payment-date">${item.paidAt?new Intl.DateTimeFormat('id-ID',{timeZone:'Asia/Jakarta',day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}).format(new Date(item.paidAt)):'-'}</span></td><td>${isAdmin()?`<button class="btn ${item.paymentStatus==='paid'?'btn-light':'btn-primary'} monthly-payment-btn" type="button" data-monthly-payment-toggle="${escapeHtml(item.employeeId)}">${item.paymentStatus==='paid'?'Batalkan Pembayaran':'Tandai Dibayar'}</button>`:'-'}</td></tr>`).join('')}</tbody></table>`:emptyState('Belum ada rekapan gaji bulanan','Isi Rekapan Gaji Harian terlebih dahulu. Total bulanan akan dihitung otomatis dari data tersebut.');
       }
       function renderPayroll(){
         if(!el('payrollTabs'))return;
         document.querySelectorAll('[data-payroll-panel]').forEach(panel=>panel.hidden=panel.dataset.payrollPanel!==activePayrollTab);
         document.querySelectorAll('[data-payroll-tab]').forEach(button=>{const active=button.dataset.payrollTab===activePayrollTab;button.classList.toggle('active',active);button.setAttribute('aria-selected',String(active));});
-        el('exportPayrollBtn').textContent=activePayrollTab==='employees'?'⇩ Ekspor Daftar':activePayrollTab==='daily'?'⇩ Ekspor Harian':'⇩ Ekspor Bulanan';
+        el('exportPayrollBtn').textContent=activePayrollTab==='employees'?'⇩ Ekspor Daftar':activePayrollTab==='daily'?'⇩ Ekspor Harian':activePayrollTab==='advances'?'⇩ Ekspor Kasbon':'⇩ Ekspor Bulanan';
         renderEmployees();
         renderPayrollDaily();
+        renderPayrollAdvances();
         renderPayrollMonthly();
       }
       function changePayrollDate(date){
@@ -3858,6 +4074,35 @@ NOTIFY pgrst, 'reload schema';`
       }
       function setPayrollDailyFormAlert(message=''){
         const alert=el('payrollDailyFormAlert');if(!alert)return;alert.hidden=!message;alert.textContent=message||'';
+      }
+      function setPayrollAdvanceFormAlert(message=''){
+        const alert=el('payrollAdvanceFormAlert');if(!alert)return;alert.hidden=!message;alert.textContent=message||'';
+      }
+      function refreshPayrollAdvanceEmployeeOptions(selectedId=''){
+        const select=el('payrollAdvanceEmployeeSelect'),current=selectedId||select.value;
+        const rows=state.employees.filter(item=>canAccessStore(item.store)&&(item.isActive||item.id===current)).sort((a,b)=>a.store.localeCompare(b.store)||a.name.localeCompare(b.name));
+        select.innerHTML='<option value="" disabled>Pilih karyawan</option>'+rows.map(item=>`<option value="${escapeHtml(item.id)}">${escapeHtml(item.name)} · ${escapeHtml(item.store)}</option>`).join('');select.value=rows.some(item=>item.id===current)?current:'';
+      }
+      function syncPayrollAdvanceEmployeeSelection(){
+        const employee=employeeById(el('payrollAdvanceEmployeeSelect').value);el('payrollAdvanceStorePreview').value=employee?.store||'';updatePayrollAdvancePreview();
+      }
+      function updatePayrollAdvancePreview(){
+        const employeeId=el('payrollAdvanceEmployeeSelect')?.value||'',date=el('payrollAdvanceDate')?.value||todayISO(),id=el('payrollAdvanceId')?.value||'',info=employeeId?advanceLimitInfo(employeeId,date,id):{salaryPeriod:'',salaryLimit:0,used:0,available:0};
+        el('payrollAdvanceSalaryPeriod').textContent=info.salaryPeriod?formatMonthYear(String(info.salaryPeriod).slice(0,7)):'Belum tersedia';
+        el('payrollAdvanceSalaryLimit').textContent=rawMoney(info.salaryLimit);el('payrollAdvanceUsed').textContent=rawMoney(info.used);el('payrollAdvanceAvailable').textContent=rawMoney(info.available);
+        const amountInput=el('payrollAdvanceAmount');amountInput.max=String(Math.floor(info.available));
+        el('payrollAdvancePreviewNote').textContent=!employeeId?'Pilih karyawan dan tanggal kasbon untuk melihat batas maksimal.':info.salaryLimit<=0?'Karyawan ini belum memiliki rekapan gaji bersih yang dapat digunakan sebagai batas kasbon.':`Maksimal kasbon tambahan ${rawMoney(info.available)}. Total yang sudah tercatat pada bulan ini ${rawMoney(info.used)}.`;
+      }
+      function openPayrollAdvanceModal(item=null){
+        if(!isAdmin())return;if(!state.employees.some(employee=>employee.isActive)){switchPayrollTab('employees');return toast('Tambahkan minimal satu karyawan aktif terlebih dahulu.');}
+        clearFormWarnings(el('payrollAdvanceForm'));setPayrollAdvanceFormAlert('');el('payrollAdvanceForm').reset();el('payrollAdvanceId').value=item?.id||'';el('payrollAdvanceModalTitle').textContent=item?'Ubah Kasbon Karyawan':'Tambah Kasbon Karyawan';el('payrollAdvanceDate').value=item?.advanceDate||todayISO();el('payrollAdvanceDate').max=todayISO();refreshPayrollAdvanceEmployeeOptions(item?.employeeId||'');el('payrollAdvanceEmployeeSelect').value=item?.employeeId||'';el('payrollAdvanceAmount').value=item?.amount||'';el('payrollAdvanceNote').value=item?.note||'';syncPayrollAdvanceEmployeeSelection();openModal('payrollAdvanceModal');setTimeout(()=>el('payrollAdvanceEmployeeSelect')?.focus(),80);
+      }
+      async function savePayrollAdvance(event){
+        event.preventDefault();if(!isAdmin())return;setPayrollAdvanceFormAlert('');const validation=validateFormFields(el('payrollAdvanceForm'),{message:'Lengkapi tanggal, nama karyawan, dan nominal kasbon.'});if(!validation.valid){setPayrollAdvanceFormAlert(`Kasbon belum dapat disimpan. Lengkapi: ${validation.labels.join(', ')}.`);return;}
+        const employee=employeeById(el('payrollAdvanceEmployeeSelect').value),advanceDate=el('payrollAdvanceDate').value,id=el('payrollAdvanceId').value||uid(),amount=Number(el('payrollAdvanceAmount').value);if(!employee){markFieldWarning(el('payrollAdvanceEmployeeSelect'),'Karyawan tidak ditemukan.');setPayrollAdvanceFormAlert('Pilih kembali nama karyawan.');return;}if(advanceDate>todayISO()){markFieldWarning(el('payrollAdvanceDate'),'Tanggal kasbon tidak boleh di masa mendatang.');setPayrollAdvanceFormAlert('Pilih hari ini atau tanggal sebelumnya.');return;}
+        const info=advanceLimitInfo(employee.id,advanceDate,el('payrollAdvanceId').value||'');if(info.salaryLimit<=0){markFieldWarning(el('payrollAdvanceEmployeeSelect'),'Gaji bersih terakhir belum tersedia.');setPayrollAdvanceFormAlert('Isi rekapan gaji harian terlebih dahulu sampai tersedia total gaji bersih terakhir.');return;}if(!Number.isFinite(amount)||amount<=0){markFieldWarning(el('payrollAdvanceAmount'),'Nominal harus lebih dari Rp0.');setPayrollAdvanceFormAlert('Masukkan nominal kasbon yang valid.');return;}if(amount>info.available){markFieldWarning(el('payrollAdvanceAmount'),`Maksimal ${rawMoney(info.available)}.`);setPayrollAdvanceFormAlert(`Kasbon melebihi batas. Maksimal yang masih dapat diinput ${rawMoney(info.available)}.`);return;}
+        const item={id,employeeId:employee.id,advanceDate,payrollMonth:info.payrollMonth,store:employee.store,employeeName:employee.name,amount,salaryLimit:info.salaryLimit,salaryPeriod:info.salaryPeriod,note:el('payrollAdvanceNote').value.trim()},button=event.submitter||el('savePayrollAdvanceBtn');setButtonBusy(button,true,'Menyimpan…');
+        try{const {error}=await db.from('payroll_advances').upsert(payrollAdvanceToRow(item),{onConflict:'id'});if(error)throw error;closeModal('payrollAdvanceModal');el('payrollAdvanceMonthFilter').value=advanceDate.slice(0,7);switchPayrollTab('advances');await loadCloudData(true);toast(`Kasbon ${employee.name} sebesar ${money(amount)} berhasil disimpan.`);}catch(error){showSyncError(error);}finally{setButtonBusy(button,false);}
       }
       function openEmployeeModal(item=null){
         if(!isAdmin())return;
@@ -3951,6 +4196,10 @@ NOTIFY pgrst, 'reload schema';`
         const edit=event.target.closest('[data-payroll-daily-edit]');if(edit){openPayrollDailyModal(state.payrollDaily.find(item=>item.id===edit.dataset.payrollDailyEdit));return;}
         const del=event.target.closest('[data-payroll-daily-delete]');if(del&&confirm('Hapus rekapan gaji harian ini?')){const {error}=await db.from('payroll_daily').delete().eq('id',del.dataset.payrollDailyDelete);if(error){showSyncError(error);return;}await loadCloudData(true);toast('Rekapan gaji harian berhasil dihapus.');}
       }
+      async function handlePayrollAdvanceTableClick(event){
+        const edit=event.target.closest('[data-payroll-advance-edit]');if(edit){openPayrollAdvanceModal(state.payrollAdvances.find(item=>item.id===edit.dataset.payrollAdvanceEdit));return;}
+        const del=event.target.closest('[data-payroll-advance-delete]');if(del&&confirm('Hapus data kasbon ini?')){const {error}=await db.from('payroll_advances').delete().eq('id',del.dataset.payrollAdvanceDelete);if(error){showSyncError(error);return;}await loadCloudData(true);switchPayrollTab('advances');toast('Data kasbon berhasil dihapus.');}
+      }
       async function handlePayrollMonthlyTableClick(event){
         const button=event.target.closest('[data-monthly-payment-toggle]');if(!button||!isAdmin())return;
         const month=selectedPayrollMonth(),monthDate=`${month}-01`,row=payrollMonthlyRows().find(item=>item.employeeId===button.dataset.monthlyPaymentToggle);
@@ -3972,8 +4221,13 @@ NOTIFY pgrst, 'reload schema';`
           const csvRows=[['Tanggal','Toko','Nama Karyawan','Jabatan','Jam Masuk Standar','Jam Absensi','Status Kehadiran','Kelengkapan Atribut','Gaji Pokok','Potongan Terlambat','Potongan Atribut','Total Potongan','Gaji Bersih','Keterangan'],...rows.map(item=>{const calculation=calculateDailyPayroll(item.dailyWage,item.lateStatus,item.attributeStatus),lateDeduction=Number(item.lateDeduction??calculation.lateDeduction),attributeDeduction=Number(item.attributeDeduction??calculation.attributeDeduction);return[item.workDate,item.store,item.employeeName,item.position,item.scheduledTime,item.attendanceTime,attendanceStatusLabel(item.lateStatus),attributeStatusLabel(item.attributeStatus),item.dailyWage,lateDeduction,attributeDeduction,lateDeduction+attributeDeduction,Number(item.netWage??calculation.netWage),item.note||''];})];
           downloadFile(`rekapan-gaji-harian-${selectedPayrollDate()}.csv`,'\ufeff'+toCSV(csvRows),'text/csv;charset=utf-8');toast('Rekapan gaji harian berhasil diekspor.');return;
         }
+        if(activePayrollTab==='advances'){
+          const rows=filteredPayrollAdvances();if(!rows.length){toast('Tidak ada data kasbon untuk diekspor.');return;}
+          const csvRows=[['Tanggal Kasbon','Periode Potong','Toko','Nama Karyawan','Gaji Bersih Terakhir','Periode Gaji Terakhir','Nominal Kasbon','Keterangan'],...rows.map(item=>[item.advanceDate,item.payrollMonth,item.store,item.employeeName,item.salaryLimit,item.salaryPeriod||'',item.amount,item.note||''])];
+          downloadFile(`kasbon-karyawan-${selectedPayrollAdvanceMonth()}.csv`,'\ufeff'+toCSV(csvRows),'text/csv;charset=utf-8');toast('Data kasbon berhasil diekspor.');return;
+        }
         const rows=filteredPayrollMonthly();if(!rows.length){toast('Tidak ada rekapan gaji bulanan untuk diekspor.');return;}
-        const csvRows=[['Periode','Toko','Nama Karyawan','Jabatan','Jumlah Hari','Tepat Waktu','Terlambat','Atribut Tidak Lengkap','Gaji Pokok','Total Potongan','Gaji Bersih','Status Pembayaran','Tanggal Pembayaran'],...rows.map(item=>[selectedPayrollMonth(),item.store,item.employeeName,item.position,item.days,item.onTime,item.late,item.incompleteAttributes,item.grossWage,item.totalDeduction,item.totalWage,paymentStatusLabel(item.paymentStatus),item.paidAt||''])];
+        const csvRows=[['Periode','Toko','Nama Karyawan','Jabatan','Jumlah Hari','Tepat Waktu','Terlambat','Atribut Tidak Lengkap','Gaji Pokok','Potongan Absensi','Gaji Bersih','Kasbon','Gaji Dibayarkan','Status Pembayaran','Tanggal Pembayaran'],...rows.map(item=>[selectedPayrollMonth(),item.store,item.employeeName,item.position,item.days,item.onTime,item.late,item.incompleteAttributes,item.grossWage,item.totalDeduction,item.totalWage,item.advanceTotal,item.payableWage,paymentStatusLabel(item.paymentStatus),item.paidAt||''])];
         downloadFile(`rekapan-gaji-bulanan-${selectedPayrollMonth()}.csv`,'\ufeff'+toCSV(csvRows),'text/csv;charset=utf-8');toast('Rekapan gaji bulanan berhasil diekspor.');
       }
 
@@ -4115,7 +4369,7 @@ NOTIFY pgrst, 'reload schema';`
       function setCloudStatus(status,text){el('cloudPill').className=`cloud-pill ${status}`;el('cloudStatusText').textContent=text;}
       function showSyncError(error){const message=friendlyError(error);setCloudStatus('error','Gagal sinkron');el('syncBanner').textContent=message;el('syncBanner').hidden=false;toast(message);}
       function hideSyncError(){el('syncBanner').hidden=true;el('syncBanner').textContent='';}
-      function friendlyError(error){const message=String(error?.message||error||'Terjadi kesalahan.');if(/payment_method.*schema cache|schema cache.*payment_method|Could not find the ['"]payment_method['"] column/i.test(message))return'Kolom metode pembayaran belum aktif di Supabase. Jalankan file fix_payment_method.sql, tunggu beberapa detik, lalu muat ulang halaman.';if(/Invalid login credentials/i.test(message))return'Email atau password salah.';if(/Email not confirmed/i.test(message))return'Email belum dikonfirmasi.';if(/Failed to fetch|NetworkError|fetch/i.test(message))return'Tidak dapat terhubung ke Supabase. Periksa internet, Project URL, dan publishable key.';if(/payroll_monthly_payments.*schema cache|Could not find the table ['"]?public\.payroll_monthly_payments|relation .*payroll_monthly_payments.* does not exist/i.test(message))return'Tabel Rekapan Gaji Bulanan belum aktif di Supabase. Jalankan file update_gaji_karyawan_lengkap.sql, tunggu beberapa detik, lalu refresh data.';if(/attribute_status|late_deduction|attribute_deduction|net_wage/i.test(message))return'Kolom potongan otomatis gaji harian belum aktif. Jalankan file update_gaji_potongan_otomatis.sql, tunggu beberapa detik, lalu refresh data.';if(/employees.*schema cache|payroll_daily.*schema cache|Could not find the table ['"]?public\.(employees|payroll_daily)|relation .*(employees|payroll_daily).* does not exist/i.test(message))return'Tabel Gaji Harian belum aktif di Supabase. Jalankan file update_gaji_karyawan_lengkap.sql, tunggu beberapa detik, lalu refresh data.';if(/relation .* does not exist|Could not find the table|column .* does not exist/i.test(message))return'Struktur Supabase belum diperbarui. Jalankan SQL terbaru yang tersedia pada halaman pengaturan koneksi.';if(/row-level security|permission denied|policy/i.test(message))return'Akses database ditolak. Jalankan SQL terbaru agar aturan Admin, Owner, dan Karyawan aktif dengan benar.';if(/JWT|apikey|API key|Unauthorized/i.test(message))return'Publishable key tidak valid atau sudah berubah.';return message;}
+      function friendlyError(error){const message=String(error?.message||error||'Terjadi kesalahan.');if(/payment_method.*schema cache|schema cache.*payment_method|Could not find the ['"]payment_method['"] column/i.test(message))return'Kolom metode pembayaran belum aktif di Supabase. Jalankan file fix_payment_method.sql, tunggu beberapa detik, lalu muat ulang halaman.';if(/Invalid login credentials/i.test(message))return'Email atau password salah.';if(/Email not confirmed/i.test(message))return'Email belum dikonfirmasi.';if(/Failed to fetch|NetworkError|fetch/i.test(message))return'Tidak dapat terhubung ke Supabase. Periksa internet, Project URL, dan publishable key.';if(/payroll_advances.*schema cache|Could not find the table ['"]?public\.payroll_advances|relation .*payroll_advances.* does not exist/i.test(message))return'Tabel Kasbon Karyawan belum aktif di Supabase. Jalankan file update_gaji_kasbon.sql, tunggu beberapa detik, lalu refresh data.';if(/Gaji bersih terakhir belum tersedia/i.test(message))return'Kasbon belum dapat disimpan karena gaji bersih terakhir karyawan belum tersedia.';if(/Total kasbon melebihi gaji bersih terakhir/i.test(message))return'Total kasbon melebihi batas gaji bersih terakhir karyawan.';if(/payroll_monthly_payments.*schema cache|Could not find the table ['"]?public\.payroll_monthly_payments|relation .*payroll_monthly_payments.* does not exist/i.test(message))return'Tabel Rekapan Gaji Bulanan belum aktif di Supabase. Jalankan file update_gaji_karyawan_lengkap.sql, tunggu beberapa detik, lalu refresh data.';if(/attribute_status|late_deduction|attribute_deduction|net_wage/i.test(message))return'Kolom potongan otomatis gaji harian belum aktif. Jalankan file update_gaji_potongan_otomatis.sql, tunggu beberapa detik, lalu refresh data.';if(/employees.*schema cache|payroll_daily.*schema cache|Could not find the table ['"]?public\.(employees|payroll_daily)|relation .*(employees|payroll_daily).* does not exist/i.test(message))return'Tabel Gaji Harian belum aktif di Supabase. Jalankan file update_gaji_karyawan_lengkap.sql, tunggu beberapa detik, lalu refresh data.';if(/relation .* does not exist|Could not find the table|column .* does not exist/i.test(message))return'Struktur Supabase belum diperbarui. Jalankan SQL terbaru yang tersedia pada halaman pengaturan koneksi.';if(/row-level security|permission denied|policy/i.test(message))return'Akses database ditolak. Jalankan SQL terbaru agar aturan Admin, Owner, dan Karyawan aktif dengan benar.';if(/JWT|apikey|API key|Unauthorized/i.test(message))return'Publishable key tidak valid atau sudah berubah.';return message;}
 
       function downloadFile(name,content,type){const blob=new Blob([content],{type});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);}
       function toCSV(rows){return rows.map(row=>row.map(value=>`"${String(value??'').replace(/"/g,'""')}"`).join(',')).join('\n');}
@@ -4155,11 +4409,11 @@ NOTIFY pgrst, 'reload schema';`
       }
 
       function exportEventsCSV(){if(!canViewAll())return;const rows=[['Nama Event','Tanggal Mulai','Tanggal Selesai','Lokasi','Penyelenggara','Status','Pemasukan','Pengeluaran','Pengeluaran Cash','Cash Bersih','Saldo','Jumlah Bahan','Keterangan']];state.events.forEach(e=>{const tx=state.transactions.filter(t=>t.eventId===e.id),materials=state.inventory.filter(i=>i.eventId===e.id),income=sumByType(tx,'income'),expense=sumByType(tx,'expense'),cash=cashSummary(tx);rows.push([e.name,e.eventDate,e.endDate,e.location,e.organizer,getEventStatus(e).label,income,expense,cash.cashExpense,cash.net,income-expense,materials.length,e.note||'']);});downloadFile(`rekap-event-${todayISO()}.csv`,'\ufeff'+toCSV(rows),'text/csv;charset=utf-8');toast('File event berhasil diekspor.');}
-      function backupJSON(){if(!isAdmin())return;downloadFile(`cadangan-rekap-toko-cloud-${todayISO()}.json`,JSON.stringify({version:12,exportedAt:new Date().toISOString(),stores:STORES,transactions:state.transactions,inventory:state.inventory,inventoryDaily:state.inventoryDaily,events:state.events,employees:state.employees,payrollDaily:state.payrollDaily,payrollMonthlyPayments:state.payrollMonthlyPayments},null,2),'application/json');toast('Cadangan data berhasil diunduh.');}
+      function backupJSON(){if(!isAdmin())return;downloadFile(`cadangan-rekap-toko-cloud-${todayISO()}.json`,JSON.stringify({version:13,exportedAt:new Date().toISOString(),stores:STORES,transactions:state.transactions,inventory:state.inventory,inventoryDaily:state.inventoryDaily,events:state.events,employees:state.employees,payrollDaily:state.payrollDaily,payrollAdvances:state.payrollAdvances,payrollMonthlyPayments:state.payrollMonthlyPayments},null,2),'application/json');toast('Cadangan data berhasil diunduh.');}
 
-      async function restoreJSON(event){if(!isAdmin())return;const file=event.target.files[0];if(!file)return;try{const data=JSON.parse(await file.text());if(!Array.isArray(data.transactions)||!Array.isArray(data.inventory))throw new Error('Format file tidak sesuai.');if(!confirm('Ganti seluruh data cloud dengan isi file cadangan ini?'))return;el('loadingCover').hidden=false;await deleteAllCloudRows();await upsertInChunks('events',(data.events||[]).map(item=>eventToRow({...item,id:item.id||uid()})));await upsertInChunks('transactions',data.transactions.map(item=>transactionToRow({...item,id:item.id||uid()})));await upsertInChunks('inventory',data.inventory.map(item=>inventoryToRow({...item,id:item.id||uid()})));await upsertInChunks('inventory_daily',(data.inventoryDaily||[]).map(item=>dailyRecordToRow({...item,id:item.id||uid()})));await upsertInChunks('employees',(data.employees||[]).map(item=>employeeToRow({...item,id:item.id||uid()})));await upsertInChunks('payroll_daily',(data.payrollDaily||[]).map(item=>payrollDailyToRow({...item,id:item.id||uid()})));await upsertInChunks('payroll_monthly_payments',(data.payrollMonthlyPayments||[]).map(item=>payrollMonthlyPaymentToRow({...item,id:item.id||uid()})));await loadCloudData(true);toast('Data cloud berhasil dipulihkan.');}catch(error){showSyncError(error);}finally{event.target.value='';el('loadingCover').hidden=true;}}
+      async function restoreJSON(event){if(!isAdmin())return;const file=event.target.files[0];if(!file)return;try{const data=JSON.parse(await file.text());if(!Array.isArray(data.transactions)||!Array.isArray(data.inventory))throw new Error('Format file tidak sesuai.');if(!confirm('Ganti seluruh data cloud dengan isi file cadangan ini?'))return;el('loadingCover').hidden=false;await deleteAllCloudRows();await upsertInChunks('events',(data.events||[]).map(item=>eventToRow({...item,id:item.id||uid()})));await upsertInChunks('transactions',data.transactions.map(item=>transactionToRow({...item,id:item.id||uid()})));await upsertInChunks('inventory',data.inventory.map(item=>inventoryToRow({...item,id:item.id||uid()})));await upsertInChunks('inventory_daily',(data.inventoryDaily||[]).map(item=>dailyRecordToRow({...item,id:item.id||uid()})));await upsertInChunks('employees',(data.employees||[]).map(item=>employeeToRow({...item,id:item.id||uid()})));await upsertInChunks('payroll_daily',(data.payrollDaily||[]).map(item=>payrollDailyToRow({...item,id:item.id||uid()})));await upsertInChunks('payroll_advances',(data.payrollAdvances||[]).map(item=>payrollAdvanceToRow({...item,id:item.id||uid()})));await upsertInChunks('payroll_monthly_payments',(data.payrollMonthlyPayments||[]).map(item=>payrollMonthlyPaymentToRow({...item,id:item.id||uid()})));await loadCloudData(true);toast('Data cloud berhasil dipulihkan.');}catch(error){showSyncError(error);}finally{event.target.value='';el('loadingCover').hidden=true;}}
       async function clearAllData(){if(!isAdmin())return;if(!confirm('Yakin menghapus SEMUA transaksi, bahan, dan event dari Supabase?'))return;if(!confirm('Konfirmasi terakhir: tindakan ini tidak dapat dibatalkan.'))return;try{el('loadingCover').hidden=false;await deleteAllCloudRows();await loadCloudData(true);toast('Semua data cloud berhasil dihapus.');}catch(error){showSyncError(error);}finally{el('loadingCover').hidden=true;}}
-      async function deleteAllCloudRows(){const payrollMonthly=await db.from('payroll_monthly_payments').delete().neq('id','');if(payrollMonthly.error)throw payrollMonthly.error;const payrollDaily=await db.from('payroll_daily').delete().neq('id','');if(payrollDaily.error)throw payrollDaily.error;const daily=await db.from('inventory_daily').delete().neq('id','');if(daily.error)throw daily.error;const [tx,inventory,employees,legacyPayroll,events]=await Promise.all([db.from('transactions').delete().neq('id',''),db.from('inventory').delete().neq('id',''),db.from('employees').delete().neq('id',''),db.from('payroll').delete().neq('id',''),db.from('events').delete().neq('id','')]);if(tx.error)throw tx.error;if(inventory.error)throw inventory.error;if(employees.error)throw employees.error;if(legacyPayroll.error)throw legacyPayroll.error;if(events.error)throw events.error;}
+      async function deleteAllCloudRows(){const payrollAdvances=await db.from('payroll_advances').delete().neq('id','');if(payrollAdvances.error)throw payrollAdvances.error;const payrollMonthly=await db.from('payroll_monthly_payments').delete().neq('id','');if(payrollMonthly.error)throw payrollMonthly.error;const payrollDaily=await db.from('payroll_daily').delete().neq('id','');if(payrollDaily.error)throw payrollDaily.error;const daily=await db.from('inventory_daily').delete().neq('id','');if(daily.error)throw daily.error;const [tx,inventory,employees,legacyPayroll,events]=await Promise.all([db.from('transactions').delete().neq('id',''),db.from('inventory').delete().neq('id',''),db.from('employees').delete().neq('id',''),db.from('payroll').delete().neq('id',''),db.from('events').delete().neq('id','')]);if(tx.error)throw tx.error;if(inventory.error)throw inventory.error;if(employees.error)throw employees.error;if(legacyPayroll.error)throw legacyPayroll.error;if(events.error)throw events.error;}
       async function upsertInChunks(table,rows){for(let i=0;i<rows.length;i+=500){const {error}=await db.from(table).upsert(rows.slice(i,i+500));if(error)throw error;}}
 
       async function loadDemoData(){if(!isAdmin())return;if((state.transactions.length||state.inventory.length||state.events.length)&&!confirm('Data contoh akan ditambahkan ke data yang sudah ada. Lanjutkan?'))return;const start=todayISO();const endDate=new Date();endDate.setDate(endDate.getDate()+2);const demoEvent={id:uid(),name:'Festival Kuliner Contoh',eventDate:start,endDate:jakartaDate(endDate),location:'Jakarta',organizer:'Tim Event',note:'Contoh rekapan event',createdAt:new Date().toISOString()};const tx=[{id:uid(),date:start,store:'Chickumbar Blok M',eventId:null,type:'income',paymentMethod:'cash',category:'Penjualan Harian',amount:2850000,note:'Penjualan outlet',createdAt:new Date().toISOString()},{id:uid(),date:start,store:EVENT_STORE,eventId:demoEvent.id,type:'income',paymentMethod:'cash',category:'Penjualan Event',amount:4200000,note:'Penjualan hari pertama event',createdAt:new Date().toISOString()},{id:uid(),date:start,store:EVENT_STORE,eventId:demoEvent.id,type:'expense',paymentMethod:'cash',category:'Sewa Booth Event',amount:1200000,note:'Biaya booth',createdAt:new Date().toISOString()}].map(transactionToRow);const inv=[{id:uid(),store:'Chickumbar Blok M',eventId:null,name:'Ayam fillet',unit:'kg',stock:18,min:10,price:42000,note:'Supplier utama',updatedAt:new Date().toISOString()},{id:uid(),store:EVENT_STORE,eventId:demoEvent.id,name:'Mangga',unit:'kg',stock:12,min:5,price:28000,note:'Kebutuhan event',updatedAt:new Date().toISOString()}].map(inventoryToRow);try{el('loadingCover').hidden=false;await upsertInChunks('events',[eventToRow(demoEvent)]);await upsertInChunks('transactions',tx);await upsertInChunks('inventory',inv);await loadCloudData(true);toast('Data contoh berhasil ditambahkan.');}catch(error){showSyncError(error);}finally{el('loadingCover').hidden=true;}}
