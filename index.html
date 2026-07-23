@@ -1721,8 +1721,6 @@
           <section class="payroll-panel" id="payrollMonthlyPanel" data-payroll-panel="monthly" hidden>
             <div class="grid stats payroll-monthly-stats">
               <article class="card stat-card"><div class="stat-label">Karyawan Direkap</div><div class="stat-value" id="payrollMonthlyEmployeeCount">0</div></article>
-              <article class="card stat-card income"><div class="stat-label">Total Gaji Bersih Bulanan</div><div class="stat-value" id="payrollMonthlyTotal">Rp0</div></article>
-              <article class="card stat-card expense"><div class="stat-label">Total Kasbon</div><div class="stat-value" id="payrollMonthlyAdvanceTotal">Rp0</div></article>
               <article class="card stat-card profit"><div class="stat-label">Sudah Dibayar</div><div class="stat-value" id="payrollMonthlyPaidTotal">Rp0</div></article>
               <article class="card stat-card expense"><div class="stat-label">Belum Dibayar</div><div class="stat-value" id="payrollMonthlyUnpaidTotal">Rp0</div></article>
             </div>
@@ -4038,10 +4036,8 @@ NOTIFY pgrst, 'reload schema';`
         if(!el('payrollMonthlyTable'))return;
         const month=selectedPayrollMonth(),rows=filteredPayrollMonthly();
         const paidTotal=rows.filter(item=>item.paymentStatus==='paid').reduce((sum,item)=>sum+item.payableWage,0);
-        const total=rows.reduce((sum,item)=>sum+item.totalWage,0),advanceTotal=rows.reduce((sum,item)=>sum+item.advanceTotal,0),payableTotal=rows.reduce((sum,item)=>sum+item.payableWage,0);
+        const payableTotal=rows.reduce((sum,item)=>sum+item.payableWage,0);
         el('payrollMonthlyEmployeeCount').textContent=number(rows.length);
-        el('payrollMonthlyTotal').textContent=money(total);
-        el('payrollMonthlyAdvanceTotal').textContent=money(advanceTotal);
         el('payrollMonthlyPaidTotal').textContent=money(paidTotal);
         el('payrollMonthlyUnpaidTotal').textContent=money(payableTotal-paidTotal);
         el('payrollMonthlyTableTitle').textContent=`Rekapan Gaji · ${formatMonthYear(month)}`;
