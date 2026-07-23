@@ -915,7 +915,7 @@
     .employee-stats { grid-template-columns:repeat(3,minmax(0,1fr)); margin-bottom:16px; }
     .payroll-daily-stats { grid-template-columns:repeat(4,minmax(0,1fr)); margin-bottom:16px; }
     .payroll-monthly-stats { grid-template-columns:repeat(5,minmax(0,1fr)); margin-bottom:16px; }
-    .payroll-advance-stats { grid-template-columns:repeat(4,minmax(0,1fr)); margin-bottom:16px; }
+    .payroll-advance-stats { grid-template-columns:minmax(260px,360px); margin-bottom:16px; }
     .employee-filters { grid-template-columns:1.3fr repeat(2,minmax(170px,.65fr)); }
     .payroll-daily-filters { grid-template-columns:minmax(260px,1fr) minmax(180px,.8fr) minmax(180px,.8fr) minmax(170px,.7fr); }
     .payroll-monthly-filters { grid-template-columns:minmax(190px,.7fr) minmax(230px,1.15fr) minmax(180px,.8fr) minmax(180px,.75fr); }
@@ -1702,10 +1702,10 @@
 
           <section class="payroll-panel" id="payrollAdvancesPanel" data-payroll-panel="advances" hidden>
             <div class="grid stats payroll-advance-stats">
-              <article class="card stat-card expense"><div class="stat-label">Total Kasbon</div><div class="stat-value" id="payrollAdvanceTotal">Rp0</div></article>
-              <article class="card stat-card"><div class="stat-label">Karyawan Kasbon</div><div class="stat-value" id="payrollAdvanceEmployeeCount">0</div></article>
-              <article class="card stat-card income"><div class="stat-label">Batas dari Gaji Terakhir</div><div class="stat-value" id="payrollAdvanceLimitTotal">Rp0</div></article>
-              <article class="card stat-card profit"><div class="stat-label">Sisa Batas Kasbon</div><div class="stat-value" id="payrollAdvanceRemainingTotal">Rp0</div></article>
+              <article class="card stat-card">
+                <div class="stat-label">Total Karyawan yang Telah Kasbon</div>
+                <div class="stat-value" id="payrollAdvanceEmployeeCount">0</div>
+              </article>
             </div>
             <div class="card filters payroll-advance-filters">
               <input class="input" id="payrollAdvanceMonthFilter" type="month" aria-label="Pilih bulan kasbon" />
@@ -4030,8 +4030,7 @@ NOTIFY pgrst, 'reload schema';`
         if(!el('payrollAdvanceTable'))return;
         const month=selectedPayrollAdvanceMonth(),rows=filteredPayrollAdvances(),employeeGroups=new Map();
         rows.forEach(item=>{if(!employeeGroups.has(item.employeeId))employeeGroups.set(item.employeeId,{limit:Number(item.salaryLimit||0),used:0});employeeGroups.get(item.employeeId).used+=Number(item.amount||0);});
-        const total=rows.reduce((sum,item)=>sum+Number(item.amount||0),0),limitTotal=[...employeeGroups.values()].reduce((sum,item)=>sum+item.limit,0),remaining=[...employeeGroups.values()].reduce((sum,item)=>sum+Math.max(0,item.limit-item.used),0);
-        el('payrollAdvanceTotal').textContent=money(total);el('payrollAdvanceEmployeeCount').textContent=number(employeeGroups.size);el('payrollAdvanceLimitTotal').textContent=money(limitTotal);el('payrollAdvanceRemainingTotal').textContent=money(remaining);
+        el('payrollAdvanceEmployeeCount').textContent=number(employeeGroups.size);
         el('payrollAdvanceTableTitle').textContent=`Kasbon Karyawan · ${formatMonthYear(month)}`;
         el('payrollAdvanceTable').innerHTML=rows.length?`<table><thead><tr><th>Tanggal</th><th>Karyawan</th><th>Toko</th><th>Gaji Bersih Terakhir</th><th>Nominal Kasbon</th><th>Total Kasbon Bulan Ini</th><th>Sisa Batas</th><th>Keterangan</th><th>Aksi</th></tr></thead><tbody>${rows.map(item=>{const totalEmployee=state.payrollAdvances.filter(row=>row.employeeId===item.employeeId&&row.payrollMonth===item.payrollMonth).reduce((sum,row)=>sum+Number(row.amount||0),0),remainingLimit=Math.max(0,Number(item.salaryLimit||0)-totalEmployee);return`<tr><td>${formatDate(item.advanceDate)}</td><td><div class="employee-name-cell"><strong>${escapeHtml(item.employeeName)}</strong><small>${item.salaryPeriod?`Dasar ${escapeHtml(formatMonthYear(String(item.salaryPeriod).slice(0,7)))}`:'Gaji terakhir belum tersedia'}</small></div></td><td>${escapeHtml(item.store)}</td><td><div class="advance-limit-summary"><strong>${money(item.salaryLimit)}</strong><small>Batas maksimal satu bulan</small></div></td><td class="advance-amount">${money(item.amount)}</td><td>${money(totalEmployee)}</td><td class="advance-remaining">${money(remainingLimit)}</td><td>${escapeHtml(item.note||'-')}</td><td><div class="table-actions">${isAdmin()?`<button class="icon-btn" data-payroll-advance-edit="${item.id}" title="Edit kasbon">✎</button><button class="icon-btn danger" data-payroll-advance-delete="${item.id}" title="Hapus kasbon">⌫</button>`:'-'}</div></td></tr>`;}).join('')}</tbody></table>`:emptyState('Belum ada kasbon pada bulan ini','Tambahkan kasbon karyawan. Batas maksimal mengikuti gaji bersih terakhir yang tersedia.');
       }
