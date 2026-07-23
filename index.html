@@ -1068,39 +1068,50 @@
     .event-workspace-head { display:flex; align-items:flex-end; justify-content:space-between; gap:16px; padding:18px 20px; border-bottom:1px solid var(--border); background:linear-gradient(135deg,#fff7ed,#ffffff); }
     .event-workspace-head h3 { margin:0 0 4px; }
     .event-workspace-head p { margin:0; color:var(--muted); font-size:12px; }
-    .event-selector-wrap { min-width:280px; }
-    .event-selector-wrap label { display:block; margin-bottom:6px; color:var(--muted); font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; }
-    .event-toolbar-actions { align-items:flex-end; }
-    .event-page-toolbar { align-items:flex-end; gap:24px; padding:2px 0 4px; }
-    .event-page-title { flex:1 1 auto; min-width:150px; }
-    .event-toolbar-actions {
-      display:flex;
-      align-items:flex-end;
-      justify-content:flex-end;
-      gap:12px;
-      margin-left:auto;
-      flex-wrap:nowrap;
+    .event-selector-wrap { min-width:0; }
+    .event-selector-wrap label { display:block; margin-bottom:7px; color:var(--muted); font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; }
+    .event-page-toolbar {
+      display:grid;
+      grid-template-columns:minmax(0, 1fr) auto;
+      align-items:end;
+      gap:18px 24px;
+      padding:2px 0 4px;
     }
-    .event-toolbar-actions .event-selector-wrap { width:230px; min-width:230px; }
-    .event-toolbar-actions .event-selector-wrap label { margin:0 0 7px; }
-    .event-toolbar-actions .select,
-    .event-toolbar-actions .btn { min-height:46px; }
-    .event-action-buttons { display:flex; align-items:center; gap:10px; }
-    .event-action-buttons .btn { white-space:nowrap; }
+    .event-page-left {
+      min-width:0;
+      display:flex;
+      flex-direction:column;
+      align-items:flex-start;
+      gap:14px;
+    }
+    .event-page-left .event-selector-wrap {
+      width:min(100%, 670px);
+    }
+    .event-page-left .event-selector-wrap .select {
+      width:100%;
+      min-height:46px;
+    }
+    .event-page-title { min-width:0; }
+    .event-page-actions {
+      align-self:end;
+      display:flex;
+      align-items:center;
+      justify-content:flex-end;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+    .event-page-actions .btn { min-height:46px; white-space:nowrap; }
     @media (max-width:980px){
-      .event-page-toolbar { align-items:stretch; }
-      .event-toolbar-actions { width:100%; margin-left:0; justify-content:flex-start; }
-      .event-toolbar-actions .event-selector-wrap { flex:1 1 230px; width:auto; min-width:200px; }
+      .event-page-toolbar { grid-template-columns:1fr; align-items:stretch; }
+      .event-page-left .event-selector-wrap { width:100%; }
+      .event-page-actions { width:100%; justify-content:flex-start; }
     }
     @media (max-width:680px){
-      .event-toolbar-actions { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
-      .event-toolbar-actions .event-selector-wrap { grid-column:1 / -1; width:100%; min-width:0; }
-      .event-action-buttons { display:contents; }
-      .event-action-buttons .btn { width:100%; }
+      .event-page-actions { display:grid; grid-template-columns:1fr 1fr; }
+      .event-page-actions .btn { width:100%; }
     }
     @media (max-width:430px){
-      .event-toolbar-actions { grid-template-columns:1fr; }
-      .event-toolbar-actions .event-selector-wrap { grid-column:auto; }
+      .event-page-actions { grid-template-columns:1fr; }
     }
     .event-tabs { display:flex; gap:8px; padding:12px 20px; border-bottom:1px solid var(--border); background:#f8fafc; overflow-x:auto; }
     .event-tab-btn { border:1px solid var(--border); background:#fff; color:#475569; border-radius:10px; padding:9px 13px; font:inherit; font-size:12px; font-weight:800; cursor:pointer; white-space:nowrap; }
@@ -1560,16 +1571,16 @@
 
         <section class="view" data-full-view id="view-events">
           <div class="toolbar event-page-toolbar">
-            <div class="event-page-title"><h3>Event</h3><p id="eventAccessText">Event berdiri sendiri dan tidak digabungkan dengan transaksi maupun bahan operasional toko.</p></div>
-            <div class="toolbar-actions event-toolbar-actions">
+            <div class="event-page-left">
               <div class="event-selector-wrap">
                 <label for="eventWorkspaceSelect">Pilih Event</label>
                 <select class="select" id="eventWorkspaceSelect"></select>
               </div>
-              <div class="event-action-buttons">
-                <button class="btn btn-light" id="exportEventsBtn">⇩ Ekspor Daftar Event</button>
-                <button class="btn btn-primary" id="addEventBtn" data-admin-write>＋ Tambah Event</button>
-              </div>
+              <div class="event-page-title"><h3>Event</h3><p id="eventAccessText">Event berdiri sendiri dan tidak digabungkan dengan transaksi maupun bahan operasional toko.</p></div>
+            </div>
+            <div class="event-page-actions">
+              <button class="btn btn-light" id="exportEventsBtn">⇩ Ekspor Daftar Event</button>
+              <button class="btn btn-primary" id="addEventBtn" data-admin-write>＋ Tambah Event</button>
             </div>
           </div>
           <div class="grid stats event-main-stats">
