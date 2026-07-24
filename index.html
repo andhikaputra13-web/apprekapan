@@ -1291,6 +1291,11 @@
     }
     .event-material-source-banner span { color: var(--muted); font-size: 12px; }
     .event-material-source-banner strong { display: block; margin-top: 3px; font-size: 14px; }
+    .event-material-catalog-block { margin-bottom: 24px; }
+    .event-material-selection-block { padding-top: 22px; border-top: 1px solid var(--line); }
+    .event-material-catalog-status { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 12px; }
+    .event-material-catalog-status::before { content: ''; width: 8px; height: 8px; border-radius: 999px; background: #22c55e; box-shadow: 0 0 0 4px rgba(34,197,94,.12); }
+    .event-material-catalog-status.warning::before { background: #f59e0b; box-shadow: 0 0 0 4px rgba(245,158,11,.12); }
     .event-material-picker-panel { width: min(760px, calc(100vw - 28px)); }
     .event-material-picker-tools {
       display: flex;
@@ -1728,14 +1733,29 @@
             </section>
 
             <section class="event-panel" id="eventPanelMaterials" data-event-panel="materials" hidden>
-              <p class="event-scope-note">Nama bahan cukup didaftarkan satu kali pada Daftar Bahan toko. Untuk event, Admin hanya memilih bahan yang dibutuhkan dari toko yang terhubung ke event.</p>
-              <div class="toolbar"><div><h3>Daftar Bahan Event</h3><p>Pilih bahan dari katalog toko tanpa mengetik ulang nama dan satuannya.</p></div><div class="toolbar-actions"><button class="btn btn-primary" id="addEventInventoryBtn" data-admin-write>＋ Pilih Bahan Toko</button></div></div>
-              <div class="event-material-source-banner" id="eventMaterialSourceNotice"><div><span>Toko sumber bahan</span><strong>Pilih satu event terlebih dahulu</strong></div></div>
-              <div class="card filters"><input class="input" id="eventMaterialsSearch" placeholder="Cari bahan yang sudah dipilih..." /></div>
-              <article class="card table-card">
-                <div class="card-head"><div><h3>Bahan Event Aktif</h3><p>Bahan terpilih tetap memiliki stok dan closing yang terpisah dari toko.</p></div></div>
-                <div class="table-wrap" id="eventMaterialsTable"></div>
-              </article>
+              <p class="event-scope-note">Daftar bahan pada halaman Event berdiri sendiri dan tidak mengambil data dari menu Daftar Bahan toko. Setiap toko cukup mendaftarkan master bahan event satu kali, lalu bahan tersebut dapat dipilih untuk event berikutnya.</p>
+
+              <div class="event-material-catalog-block" id="eventMaterialCatalogBlock">
+                <div class="toolbar"><div><h3>Master Bahan Event per Toko</h3><p>Daftarkan nama bahan khusus kebutuhan event satu kali untuk setiap toko atau brand.</p></div><div class="toolbar-actions"><button class="btn btn-primary" id="addEventCatalogMaterialBtn" data-admin-write>＋ Daftarkan Bahan Event</button></div></div>
+                <div class="card filters">
+                  <select class="select" id="eventCatalogStoreFilter" aria-label="Pilih toko master bahan event"></select>
+                  <input class="input" id="eventCatalogSearch" placeholder="Cari master bahan event..." />
+                </div>
+                <article class="card table-card">
+                  <div class="card-head"><div><h3>Daftar Bahan Event Tersimpan</h3><p>Daftar ini hanya digunakan pada halaman Event.</p></div><small class="event-material-catalog-status" id="eventCatalogStatus">Tersimpan terpisah dari bahan toko</small></div>
+                  <div class="table-wrap" id="eventCatalogTable"></div>
+                </article>
+              </div>
+
+              <div class="event-material-selection-block">
+                <div class="toolbar"><div><h3>Bahan untuk Event Terpilih</h3><p>Pilih bahan dari master Event sesuai toko atau brand event.</p></div><div class="toolbar-actions"><button class="btn btn-primary" id="addEventInventoryBtn" data-admin-write>＋ Pilih dari Daftar Bahan Event</button></div></div>
+                <div class="event-material-source-banner" id="eventMaterialSourceNotice"><div><span>Master bahan untuk toko</span><strong>Pilih satu event terlebih dahulu</strong></div></div>
+                <div class="card filters"><input class="input" id="eventMaterialsSearch" placeholder="Cari bahan yang sudah dipilih..." /></div>
+                <article class="card table-card">
+                  <div class="card-head"><div><h3>Bahan Event Aktif</h3><p>Bahan terpilih memiliki stok dan closing sendiri untuk event.</p></div></div>
+                  <div class="table-wrap" id="eventMaterialsTable"></div>
+                </article>
+              </div>
             </section>
           </article>
         </section>
@@ -2088,15 +2108,34 @@
     </div>
   </div>
 
+  <div class="modal" id="eventCatalogModal" role="dialog" aria-modal="true">
+    <div class="modal-panel">
+      <div class="modal-head"><h3 id="eventCatalogModalTitle">Daftarkan Bahan Event</h3><button class="close-btn" data-close="eventCatalogModal">✕</button></div>
+      <form id="eventCatalogForm" novalidate>
+        <div class="modal-body">
+          <input type="hidden" id="eventCatalogId" />
+          <div class="form-grid">
+            <div class="field full"><label for="eventCatalogStore">Toko/Brand</label><select class="select" id="eventCatalogStore" data-placeholder="Pilih toko/brand" required><option value="" disabled selected>Pilih toko/brand</option></select><small class="field-help">Bahan ini tersimpan khusus di halaman Event dan tidak masuk ke Daftar Bahan toko.</small></div>
+            <div class="field full"><label for="eventCatalogName">Nama Bahan</label><input class="input" id="eventCatalogName" placeholder="Contoh: cup 16 oz, mangga, sedotan" required /></div>
+            <div class="field full"><label for="eventCatalogUnit">Satuan Bahan</label><input class="input" id="eventCatalogUnit" list="inventoryUnitList" placeholder="Pilih atau ketik satuan" autocomplete="off" required /></div>
+            <div class="field full"><label for="eventCatalogMin">Stok Minimum Event</label><input class="input" type="number" id="eventCatalogMin" min="0" step="0.01" placeholder="Masukkan stok minimum" required /></div>
+            <div class="field full"><label for="eventCatalogNote">Keterangan</label><textarea class="textarea" id="eventCatalogNote" placeholder="Keterangan opsional untuk kebutuhan event"></textarea></div>
+          </div>
+        </div>
+        <div class="modal-foot"><button type="button" class="btn btn-light" data-close="eventCatalogModal">Batal</button><button type="submit" class="btn btn-primary">Simpan Bahan Event</button></div>
+      </form>
+    </div>
+  </div>
+
   <div class="modal" id="eventMaterialPickerModal" role="dialog" aria-modal="true">
     <div class="modal-panel event-material-picker-panel">
-      <div class="modal-head"><h3>Pilih Bahan dari Toko</h3><button class="close-btn" data-close="eventMaterialPickerModal">✕</button></div>
+      <div class="modal-head"><h3>Pilih dari Daftar Bahan Event</h3><button class="close-btn" data-close="eventMaterialPickerModal">✕</button></div>
       <form id="eventMaterialPickerForm" novalidate>
         <div class="modal-body">
           <input type="hidden" id="eventMaterialPickerEventId" />
           <div class="material-store-summary"><span>Daftar bahan untuk event</span><strong id="eventMaterialPickerEventName">-</strong></div>
           <div class="form-grid">
-            <div class="field full"><label for="eventMaterialSourceStore">Toko Sumber Bahan</label><select class="select" id="eventMaterialSourceStore" disabled></select><small class="field-help">Toko mengikuti pilihan Toko/Brand pada data event. Daftarkan nama bahan toko hanya satu kali melalui menu Daftar Bahan.</small></div>
+            <div class="field full"><label for="eventMaterialSourceStore">Toko/Brand Event</label><select class="select" id="eventMaterialSourceStore" disabled></select><small class="field-help">Pilihan bahan berasal dari Master Bahan Event pada halaman Event, bukan dari menu Daftar Bahan toko.</small></div>
             <div class="field full"><label for="eventMaterialPickerSearch">Cari Bahan</label><input class="input" id="eventMaterialPickerSearch" placeholder="Cari nama atau satuan bahan..." autocomplete="off" /></div>
           </div>
           <div class="event-material-picker-tools">
@@ -2105,7 +2144,7 @@
           </div>
           <div class="event-material-picker-list" id="eventMaterialPickerList"></div>
         </div>
-        <div class="modal-foot"><button type="button" class="btn btn-light" data-close="eventMaterialPickerModal">Batal</button><button type="submit" class="btn btn-primary" id="saveEventMaterialSelectionBtn">Tambahkan Bahan Terpilih</button></div>
+        <div class="modal-foot"><button type="button" class="btn btn-light" data-close="eventMaterialPickerModal">Batal</button><button type="submit" class="btn btn-primary" id="saveEventMaterialSelectionBtn">Tambahkan ke Event</button></div>
       </form>
     </div>
   </div>
@@ -2285,6 +2324,19 @@ CREATE TABLE IF NOT EXISTS public.inventory (
   note text NOT NULL DEFAULT '',
   updated_at timestamptz NOT NULL DEFAULT now()
 );
+
+-- Master bahan khusus halaman Event. Data ini tidak terhubung dengan Daftar Bahan toko.
+CREATE TABLE IF NOT EXISTS public.event_material_catalog (
+  id text PRIMARY KEY,
+  store text NOT NULL CHECK (store IN ('Chickumbar Blok M','Susu Sore','Hi Fruit','Ngayamin','Chickumbar Barito')),
+  name text NOT NULL,
+  unit text NOT NULL,
+  min_stock numeric(15,2) NOT NULL DEFAULT 0 CHECK (min_stock >= 0),
+  note text NOT NULL DEFAULT '',
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS event_material_catalog_store_name_unit_uidx
+  ON public.event_material_catalog(store, lower(name), lower(unit));
 
 
 CREATE TABLE IF NOT EXISTS public.inventory_daily (
@@ -2555,6 +2607,7 @@ ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.transactions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.inventory ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.event_material_catalog ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.inventory_daily ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Profiles readable by owner or admin" ON public.profiles;
@@ -2611,6 +2664,15 @@ CREATE POLICY "Inventory delete by admin"
 ON public.inventory FOR DELETE TO authenticated
 USING (public.is_admin());
 
+DROP POLICY IF EXISTS "Event material catalog readable by admin" ON public.event_material_catalog;
+DROP POLICY IF EXISTS "Event material catalog manageable by admin" ON public.event_material_catalog;
+CREATE POLICY "Event material catalog readable by admin"
+ON public.event_material_catalog FOR SELECT TO authenticated
+USING (public.is_admin());
+CREATE POLICY "Event material catalog manageable by admin"
+ON public.event_material_catalog FOR ALL TO authenticated
+USING (public.is_admin()) WITH CHECK (public.is_admin());
+
 DROP POLICY IF EXISTS "Daily inventory readable by access" ON public.inventory_daily;
 DROP POLICY IF EXISTS "Daily inventory insert by manager" ON public.inventory_daily;
 DROP POLICY IF EXISTS "Daily inventory update by manager" ON public.inventory_daily;
@@ -2659,6 +2721,7 @@ GRANT UPDATE (role, branch, branches, event_id) ON public.profiles TO authentica
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.events TO authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.transactions TO authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.inventory TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.event_material_catalog TO authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.inventory_daily TO authenticated;
 
 
@@ -3018,6 +3081,9 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON public.payroll_advances TO authenticated
 
 DO $$
 BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname='supabase_realtime' AND schemaname='public' AND tablename='event_material_catalog') THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.event_material_catalog;
+  END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname='supabase_realtime' AND schemaname='public' AND tablename='employees') THEN
     ALTER PUBLICATION supabase_realtime ADD TABLE public.employees;
   END IF;
@@ -3034,7 +3100,7 @@ END $$;
 
 NOTIFY pgrst, 'reload schema';`
 
-      const state = { transactions: [], inventory: [], inventoryDaily: [], events: [], employees: [], payrollDaily: [], payrollAdvances: [], payrollMonthlyPayments: [], profiles: [], profile: null, updatedAt: null };
+      const state = { transactions: [], inventory: [], eventMaterialCatalog: [], inventoryDaily: [], events: [], employees: [], payrollDaily: [], payrollAdvances: [], payrollMonthlyPayments: [], profiles: [], profile: null, updatedAt: null };
       let activeView = 'dashboard';
       let activeEventTab = 'transactions';
       let activePayrollTab = 'employees';
@@ -3052,6 +3118,7 @@ NOTIFY pgrst, 'reload schema';`
       let eventsBound = false;
       let forceSetupScreen = false;
       let activeClosingRows = [];
+      let eventMaterialCatalogAvailable = true;
 
       const el = id => document.getElementById(id);
       const rawMoney = value => new Intl.NumberFormat('id-ID',{style:'currency',currency:'IDR',maximumFractionDigits:0}).format(Number(value||0));
@@ -3467,9 +3534,9 @@ NOTIFY pgrst, 'reload schema';`
         el('globalStore').addEventListener('change',event=>{selectedGlobalStore=event.target.value;const inventoryStore=el('inventoryStoreFilter');const materialsStore=el('materialsStoreFilter');if(inventoryStore&&[...inventoryStore.options].some(option=>option.value===event.target.value))inventoryStore.value=event.target.value;if(materialsStore&&[...materialsStore.options].some(option=>option.value===event.target.value))materialsStore.value=event.target.value;renderDashboard();renderTransactions();renderInventory();renderMaterials();});
         el('addTransactionBtn').addEventListener('click',()=>openTransactionModal(null,'store'));el('addInventoryBtn').addEventListener('click',()=>openInventoryModal(null,'store'));el('closeDailyRecapBtn').addEventListener('click',()=>openDailyClosingModal('store'));el('fillNoUsageBtn').addEventListener('click',fillClosingWithAvailableStock);el('addEventBtn').addEventListener('click',()=>openEventModal());el('addEmployeeBtn').addEventListener('click',()=>openEmployeeModal());el('addPayrollAdvanceBtn').addEventListener('click',()=>openPayrollAdvanceModal());el('addPayrollDailyBtn').addEventListener('click',()=>openPayrollDailyModal());
         el('addEventTransactionBtn').addEventListener('click',()=>openTransactionModal(null,'event',selectedEventWorkspaceId()));
-        el('addEventInventoryBtn').addEventListener('click',openEventMaterialPicker);
+        el('addEventInventoryBtn').addEventListener('click',openEventMaterialPicker);el('addEventCatalogMaterialBtn').addEventListener('click',()=>openEventCatalogModal());
         el('closeEventDailyRecapBtn').addEventListener('click',()=>openDailyClosingModal('event'));
-        el('transactionForm').addEventListener('submit',saveTransaction);el('transactionRows').addEventListener('click',handleTransactionRowClick);el('transactionRows').addEventListener('input',updateTransactionTotal);el('inventoryForm').addEventListener('submit',saveInventory);el('eventMaterialPickerForm').addEventListener('submit',saveEventMaterialSelection);el('eventMaterialPickerSearch').addEventListener('input',renderEventMaterialPickerList);el('eventMaterialSelectAllBtn').addEventListener('click',()=>setEventMaterialPickerChecks(true));el('eventMaterialClearBtn').addEventListener('click',()=>setEventMaterialPickerChecks(false));el('dailyClosingForm').addEventListener('submit',saveDailyClosing);el('dailyClosingRows').addEventListener('input',updateClosingUsagePreview);el('eventForm').addEventListener('submit',saveEvent);el('employeeForm').addEventListener('submit',saveEmployee);el('employeeForm').addEventListener('input',()=>setEmployeeFormAlert(''));el('payrollDailyForm').addEventListener('submit',savePayrollDaily);el('payrollDailyForm').addEventListener('input',()=>{setPayrollDailyFormAlert('');updatePayrollDailyPreview();});el('payrollDailyForm').addEventListener('change',()=>{setPayrollDailyFormAlert('');updatePayrollDailyPreview();});el('payrollEmployeeSelect').addEventListener('change',syncPayrollEmployeeSelection);el('payrollAdvanceForm').addEventListener('submit',savePayrollAdvance);el('payrollAdvanceForm').addEventListener('input',()=>{setPayrollAdvanceFormAlert('');updatePayrollAdvancePreview();});el('payrollAdvanceForm').addEventListener('change',()=>{setPayrollAdvanceFormAlert('');updatePayrollAdvancePreview();});el('payrollAdvanceEmployeeSelect').addEventListener('change',syncPayrollAdvanceEmployeeSelection);
+        el('transactionForm').addEventListener('submit',saveTransaction);el('transactionRows').addEventListener('click',handleTransactionRowClick);el('transactionRows').addEventListener('input',updateTransactionTotal);el('inventoryForm').addEventListener('submit',saveInventory);el('eventCatalogForm').addEventListener('submit',saveEventCatalogMaterial);el('eventMaterialPickerForm').addEventListener('submit',saveEventMaterialSelection);el('eventMaterialPickerSearch').addEventListener('input',renderEventMaterialPickerList);el('eventMaterialSelectAllBtn').addEventListener('click',()=>setEventMaterialPickerChecks(true));el('eventMaterialClearBtn').addEventListener('click',()=>setEventMaterialPickerChecks(false));el('dailyClosingForm').addEventListener('submit',saveDailyClosing);el('dailyClosingRows').addEventListener('input',updateClosingUsagePreview);el('eventForm').addEventListener('submit',saveEvent);el('employeeForm').addEventListener('submit',saveEmployee);el('employeeForm').addEventListener('input',()=>setEmployeeFormAlert(''));el('payrollDailyForm').addEventListener('submit',savePayrollDaily);el('payrollDailyForm').addEventListener('input',()=>{setPayrollDailyFormAlert('');updatePayrollDailyPreview();});el('payrollDailyForm').addEventListener('change',()=>{setPayrollDailyFormAlert('');updatePayrollDailyPreview();});el('payrollEmployeeSelect').addEventListener('change',syncPayrollEmployeeSelection);el('payrollAdvanceForm').addEventListener('submit',savePayrollAdvance);el('payrollAdvanceForm').addEventListener('input',()=>{setPayrollAdvanceFormAlert('');updatePayrollAdvancePreview();});el('payrollAdvanceForm').addEventListener('change',()=>{setPayrollAdvanceFormAlert('');updatePayrollAdvancePreview();});el('payrollAdvanceEmployeeSelect').addEventListener('change',syncPayrollAdvanceEmployeeSelection);
         ['transactionSearch','transactionTypeFilter','transactionPaymentFilter','transactionDateFilter'].forEach(id=>el(id).addEventListener('input',renderTransactions));
         ['inventorySearch','inventoryStatusFilter','inventoryStoreFilter'].forEach(id=>el(id).addEventListener('input',renderInventory));
         el('materialsSearch').addEventListener('input',renderMaterials);
@@ -3479,17 +3546,17 @@ NOTIFY pgrst, 'reload schema';`
         el('inventoryNextDateBtn').addEventListener('click',()=>shiftInventoryDate(1));
         el('inventoryStoreFilter').addEventListener('change',renderInventory);
         ['eventSearch','eventStatusFilter'].forEach(id=>el(id).addEventListener('input',renderEvents));['employeeSearch','employeeStoreFilter','employeeStatusFilter','payrollDailySearch','payrollDailyStoreFilter','payrollLateFilter','payrollAdvanceSearch','payrollAdvanceStoreFilter','payrollMonthlySearch','payrollMonthlyStoreFilter','payrollPaymentStatusFilter'].forEach(id=>el(id).addEventListener('input',renderPayroll));el('payrollDateFilter').addEventListener('change',renderPayroll);el('payrollAdvanceMonthFilter').addEventListener('change',renderPayroll);el('payrollMonthFilter').addEventListener('change',renderPayroll);el('payrollTabs').addEventListener('click',event=>{const button=event.target.closest('[data-payroll-tab]');if(button)switchPayrollTab(button.dataset.payrollTab);});el('payrollPrevDateBtn').addEventListener('click',()=>shiftPayrollDate(-1));el('payrollNextDateBtn').addEventListener('click',()=>shiftPayrollDate(1));el('payrollTodayBtn').addEventListener('click',()=>changePayrollDate(todayISO()));
-        el('eventWorkspaceSelect').addEventListener('change',renderEvents);
+        el('eventWorkspaceSelect').addEventListener('change',()=>{const selected=eventById(selectedEventWorkspaceId());if(selected?.store&&el('eventCatalogStoreFilter')){populateStoreSelect(el('eventCatalogStoreFilter'),false);el('eventCatalogStoreFilter').value=selected.store;}renderEvents();});
         el('eventTabs').addEventListener('click',event=>{const button=event.target.closest('[data-event-tab]');if(button)switchEventTab(button.dataset.eventTab);});
         ['eventTransactionSearch','eventTransactionTypeFilter','eventTransactionPaymentFilter','eventTransactionDateFilter'].forEach(id=>el(id).addEventListener('input',renderEventTransactions));
         ['eventInventorySearch','eventInventoryStatusFilter'].forEach(id=>el(id).addEventListener('input',renderEventInventory));
-        el('eventMaterialsSearch').addEventListener('input',renderEventMaterials);
+        el('eventMaterialsSearch').addEventListener('input',renderEventMaterials);el('eventCatalogSearch').addEventListener('input',renderEventMaterialCatalog);el('eventCatalogStoreFilter').addEventListener('change',renderEventMaterialCatalog);
         el('eventInventoryDateFilter').addEventListener('change',renderEventInventory);
         el('eventInventoryTodayBtn').addEventListener('click',()=>changeEventInventoryDate(todayISO()));
         el('eventInventoryPrevDateBtn').addEventListener('click',()=>shiftEventInventoryDate(-1));
         el('eventInventoryNextDateBtn').addEventListener('click',()=>shiftEventInventoryDate(1));
         el('transactionsTable').addEventListener('click',handleTransactionTableClick);el('eventTransactionsTable').addEventListener('click',handleTransactionTableClick);
-        el('materialsTable').addEventListener('click',handleInventoryTableClick);el('eventMaterialsTable').addEventListener('click',handleInventoryTableClick);
+        el('materialsTable').addEventListener('click',handleInventoryTableClick);el('eventMaterialsTable').addEventListener('click',handleInventoryTableClick);el('eventCatalogTable').addEventListener('click',handleEventCatalogTableClick);
         el('eventsTable').addEventListener('click',handleEventsTableClick);el('employeeTable').addEventListener('click',handleEmployeeTableClick);el('payrollDailyTable').addEventListener('click',handlePayrollDailyTableClick);el('payrollAdvanceTable').addEventListener('click',handlePayrollAdvanceTableClick);el('payrollMonthlyTable').addEventListener('click',handlePayrollMonthlyTableClick);el('profilesTable').addEventListener('change',handleProfileAccessDraftChange);el('profilesTable').addEventListener('click',handleProfileAccessSave);
         el('exportTransactionsBtn').addEventListener('click',exportTransactionsCSV);el('exportPayrollBtn').addEventListener('click',exportPayrollCSV);el('exportInventoryBtn').addEventListener('click',exportInventoryCSV);el('exportEventsBtn').addEventListener('click',exportEventsCSV);el('exportEventTransactionsBtn').addEventListener('click',exportEventTransactionsCSV);el('exportEventInventoryBtn').addEventListener('click',exportEventInventoryCSV);
         el('backupBtn').addEventListener('click',backupJSON);el('restoreBtn').addEventListener('click',()=>el('restoreInput').click());el('restoreInput').addEventListener('change',restoreJSON);el('demoBtn').addEventListener('click',loadDemoData);el('clearBtn').addEventListener('click',clearAllData);
@@ -3621,7 +3688,7 @@ NOTIFY pgrst, 'reload schema';`
       function selectedEventInventoryDate(){return el('eventInventoryDateFilter').value||todayISO();}
       function shiftEventInventoryDate(days){const current=new Date(`${selectedEventInventoryDate()}T12:00:00`);current.setDate(current.getDate()+days);changeEventInventoryDate(jakartaDate(current));}
       function changeEventInventoryDate(date){el('eventInventoryDateFilter').value=date;renderEventInventory();}
-      function selectEventWorkspace(eventId,tab='transactions'){if(isEventEmployee()){activeEventTab='inventory';renderEvents();return;}if(eventId&&[...el('eventWorkspaceSelect').options].some(option=>option.value===eventId))el('eventWorkspaceSelect').value=eventId;activeEventTab=['transactions','inventory','materials'].includes(tab)?tab:'transactions';renderEvents();setTimeout(()=>el('eventWorkspace').scrollIntoView({behavior:'smooth',block:'start'}),40);}
+      function selectEventWorkspace(eventId,tab='transactions'){if(isEventEmployee()){activeEventTab='inventory';renderEvents();return;}if(eventId&&[...el('eventWorkspaceSelect').options].some(option=>option.value===eventId))el('eventWorkspaceSelect').value=eventId;const selected=eventById(eventId);if(selected?.store&&el('eventCatalogStoreFilter')){populateStoreSelect(el('eventCatalogStoreFilter'),false);el('eventCatalogStoreFilter').value=selected.store;}activeEventTab=['transactions','inventory','materials'].includes(tab)?tab:'transactions';renderEvents();setTimeout(()=>el('eventWorkspace').scrollIntoView({behavior:'smooth',block:'start'}),40);}
       function switchEventTab(tab){activeEventTab=isEventEmployee()?'inventory':(['transactions','inventory','materials'].includes(tab)?tab:'transactions');document.querySelectorAll('[data-event-tab]').forEach(button=>button.classList.toggle('active',button.dataset.eventTab===activeEventTab));document.querySelectorAll('[data-event-panel]').forEach(panel=>panel.hidden=panel.dataset.eventPanel!==activeEventTab);applyEventEmployeeUI();if(activeEventTab==='transactions')renderEventTransactions();if(activeEventTab==='inventory')renderEventInventory();if(activeEventTab==='materials')renderEventMaterials();}
 
       function shiftInventoryDate(days){const current=new Date(`${selectedInventoryDate()}T12:00:00`);current.setDate(current.getDate()+days);changeInventoryDate(jakartaDate(current));}
@@ -3727,8 +3794,110 @@ NOTIFY pgrst, 'reload schema';`
         return eventById(eventId)?.store||'';
       }
 
+      function selectedEventCatalogStore(){
+        const select=el('eventCatalogStoreFilter');
+        if(!select)return STORES[0];
+        const previous=select.value;
+        if(!select.options.length)populateStoreSelect(select,false);
+        const selectedEventStore=eventMaterialSourceStore(selectedEventWorkspaceId());
+        const next=STORES.includes(previous)?previous:(STORES.includes(selectedEventStore)?selectedEventStore:STORES[0]);
+        select.value=next;
+        return next;
+      }
+
+      function renderEventMaterialCatalog(){
+        if(!isAdmin())return;
+        const store=selectedEventCatalogStore();
+        const query=el('eventCatalogSearch').value.toLowerCase().trim();
+        const status=el('eventCatalogStatus');
+        el('addEventCatalogMaterialBtn').hidden=false;
+        el('addEventCatalogMaterialBtn').disabled=!eventMaterialCatalogAvailable;
+        if(!eventMaterialCatalogAvailable){
+          status.className='event-material-catalog-status warning';
+          status.textContent='Jalankan SQL master bahan event terlebih dahulu';
+          el('eventCatalogTable').innerHTML=emptyState('Database master bahan event belum aktif','Jalankan file SQL pembaruan melalui Supabase SQL Editor, lalu muat ulang halaman.');
+          return;
+        }
+        status.className='event-material-catalog-status';
+        const total=state.eventMaterialCatalog.filter(item=>item.store===store).length;
+        status.textContent=`${total} bahan khusus Event untuk ${store}`;
+        const rows=state.eventMaterialCatalog.filter(item=>item.store===store&&(!query||`${item.name} ${item.unit} ${item.note}`.toLowerCase().includes(query))).sort((a,b)=>a.name.localeCompare(b.name));
+        if(!rows.length){
+          el('eventCatalogTable').innerHTML=emptyState(total?'Bahan tidak ditemukan':'Master bahan Event masih kosong',total?'Ubah kata pencarian untuk melihat bahan lainnya.':`Tekan Daftarkan Bahan Event untuk membuat daftar khusus ${store}.`);
+          return;
+        }
+        el('eventCatalogTable').innerHTML=`<table><thead><tr><th>Nama Bahan</th><th>Satuan</th><th>Stok Minimum</th><th>Keterangan</th><th>Terakhir Diperbarui</th><th>Aksi</th></tr></thead><tbody>${rows.map(item=>`<tr><td><strong>${escapeHtml(item.name)}</strong><br><small class="muted">Khusus halaman Event</small></td><td>${escapeHtml(item.unit||'unit')}</td><td><strong>${number(item.min)}</strong> ${escapeHtml(item.unit||'unit')}</td><td class="muted">${escapeHtml(item.note||'-')}</td><td>${item.updatedAt?new Intl.DateTimeFormat('id-ID',{day:'2-digit',month:'short',year:'numeric'}).format(new Date(item.updatedAt)):'-'}</td><td><div class="actions"><button class="icon-btn" data-edit-event-catalog="${item.id}" title="Ubah master bahan event">✎</button><button class="icon-btn danger" data-delete-event-catalog="${item.id}" title="Hapus master bahan event">🗑</button></div></td></tr>`).join('')}</tbody></table>`;
+      }
+
+      function openEventCatalogModal(id=null){
+        if(!isAdmin())return toast('Hanya Admin yang dapat mengelola master bahan event.');
+        if(!eventMaterialCatalogAvailable)return toast('Jalankan SQL master bahan event terlebih dahulu.');
+        const existing=id?state.eventMaterialCatalog.find(item=>item.id===id):null;
+        el('eventCatalogForm').reset();
+        clearFormWarnings(el('eventCatalogForm'));
+        el('eventCatalogId').value=existing?.id||'';
+        populateStoreSelect(el('eventCatalogStore'),false);
+        el('eventCatalogStore').value=existing?.store||selectedEventCatalogStore();
+        el('eventCatalogName').value=existing?.name||'';
+        el('eventCatalogUnit').value=existing?.unit||'';
+        el('eventCatalogMin').value=existing?.min??'';
+        el('eventCatalogNote').value=existing?.note||'';
+        el('eventCatalogModalTitle').textContent=existing?'Ubah Master Bahan Event':'Daftarkan Bahan Event';
+        openModal('eventCatalogModal');
+        setTimeout(()=>el('eventCatalogName').focus(),80);
+      }
+
+      async function saveEventCatalogMaterial(event){
+        event.preventDefault();
+        if(!isAdmin())return toast('Hanya Admin yang dapat mengelola master bahan event.');
+        if(!eventMaterialCatalogAvailable)return toast('Jalankan SQL master bahan event terlebih dahulu.');
+        const validation=validateFormFields(el('eventCatalogForm'),{message:'Lengkapi toko, nama bahan, satuan, dan stok minimum.'});
+        if(!validation.valid)return;
+        const id=el('eventCatalogId').value||uid();
+        const store=el('eventCatalogStore').value;
+        const name=el('eventCatalogName').value.trim();
+        const unit=el('eventCatalogUnit').value.trim().toLowerCase();
+        const min=Number(el('eventCatalogMin').value);
+        const note=el('eventCatalogNote').value.trim();
+        if(!STORES.includes(store))return toast('Pilih toko atau brand yang valid.');
+        if(!name||!unit)return toast('Nama dan satuan bahan wajib diisi.');
+        if(!Number.isFinite(min)||min<0)return toast('Stok minimum harus berupa angka nol atau lebih.');
+        const duplicate=state.eventMaterialCatalog.some(item=>item.id!==id&&item.store===store&&normalizedMaterialKey(item)===normalizedMaterialKey({name,unit}));
+        if(duplicate){markFieldWarning(el('eventCatalogName'),'Bahan dengan nama dan satuan tersebut sudah terdaftar untuk toko ini.');return toast('Master bahan event tersebut sudah terdaftar.');}
+        const item={id,store,name,unit,min,note,updatedAt:new Date().toISOString()};
+        const button=event.submitter;setButtonBusy(button,true,'Menyimpan…');
+        try{
+          const {error}=await db.from('event_material_catalog').upsert(eventMaterialCatalogToRow(item),{onConflict:'id'});
+          if(error)throw error;
+          closeModal('eventCatalogModal');
+          await loadCloudData(true);
+          populateStoreSelect(el('eventCatalogStoreFilter'),false);
+          el('eventCatalogStoreFilter').value=store;
+          renderEventMaterialCatalog();
+          toast(el('eventCatalogId').value?'Master bahan event berhasil diperbarui.':'Bahan event berhasil didaftarkan.');
+        }catch(error){showSyncError(error);}finally{setButtonBusy(button,false);}
+      }
+
+      async function handleEventCatalogTableClick(event){
+        if(!isAdmin())return;
+        const edit=event.target.closest('[data-edit-event-catalog]');
+        const remove=event.target.closest('[data-delete-event-catalog]');
+        if(edit)return openEventCatalogModal(edit.dataset.editEventCatalog);
+        if(remove){
+          const item=state.eventMaterialCatalog.find(row=>row.id===remove.dataset.deleteEventCatalog);
+          if(!item||!confirm(`Hapus ${item.name} dari master bahan Event ${item.store}? Bahan yang sudah dipilih ke event tetap tersimpan.`))return;
+          try{
+            const {error}=await db.from('event_material_catalog').delete().eq('id',item.id);
+            if(error)throw error;
+            await loadCloudData(true);
+            toast('Master bahan event berhasil dihapus.');
+          }catch(error){showSyncError(error);}
+        }
+      }
+
       function openEventMaterialPicker(){
         if(!isAdmin())return toast('Hanya Admin yang dapat memilih bahan event.');
+        if(!eventMaterialCatalogAvailable)return toast('Jalankan SQL master bahan event terlebih dahulu.');
         const eventId=selectedEventWorkspaceId();
         if(!eventId||eventId==='all')return toast('Pilih satu event terlebih dahulu.');
         const selected=eventById(eventId);
@@ -3751,9 +3920,9 @@ NOTIFY pgrst, 'reload schema';`
         const sourceStore=eventMaterialSourceStore(eventId);
         const query=el('eventMaterialPickerSearch').value.toLowerCase().trim();
         const existingKeys=new Set(state.inventory.filter(item=>item.eventId===eventId).map(normalizedMaterialKey));
-        return state.inventory
-          .filter(item=>!item.eventId&&item.store===sourceStore)
-          .filter(item=>!query||`${item.name} ${item.unit}`.toLowerCase().includes(query))
+        return state.eventMaterialCatalog
+          .filter(item=>item.store===sourceStore)
+          .filter(item=>!query||`${item.name} ${item.unit} ${item.note}`.toLowerCase().includes(query))
           .sort((a,b)=>a.name.localeCompare(b.name))
           .map(item=>({item,alreadyAdded:existingKeys.has(normalizedMaterialKey(item))}));
       }
@@ -3763,21 +3932,21 @@ NOTIFY pgrst, 'reload schema';`
         const sourceStore=eventMaterialSourceStore(eventId);
         const rows=eventMaterialPickerRows();
         const available=rows.filter(row=>!row.alreadyAdded);
-        const totalCatalog=state.inventory.filter(item=>!item.eventId&&item.store===sourceStore).length;
-        el('eventMaterialPickerCount').textContent=sourceStore?`${available.length} belum dipilih dari ${totalCatalog} bahan ${sourceStore}`:'Toko sumber belum ditentukan';
+        const totalCatalog=state.eventMaterialCatalog.filter(item=>item.store===sourceStore).length;
+        el('eventMaterialPickerCount').textContent=sourceStore?`${available.length} belum dipilih dari ${totalCatalog} bahan Event ${sourceStore}`:'Toko event belum ditentukan';
         if(!sourceStore){
           el('eventMaterialPickerList').innerHTML='<div class="event-material-picker-empty"><strong>Toko event belum dipilih</strong><span>Edit data event lalu tentukan Toko/Brand sebelum memilih bahan.</span></div>';
           return;
         }
         if(!totalCatalog){
-          el('eventMaterialPickerList').innerHTML=`<div class="event-material-picker-empty"><strong>Daftar bahan ${escapeHtml(sourceStore)} masih kosong</strong><span>Daftarkan bahan satu kali melalui menu Daftar Bahan, kemudian kembali ke event untuk memilih bahan yang diperlukan.</span></div>`;
+          el('eventMaterialPickerList').innerHTML=`<div class="event-material-picker-empty"><strong>Master bahan Event ${escapeHtml(sourceStore)} masih kosong</strong><span>Daftarkan bahan melalui bagian Master Bahan Event pada halaman ini, kemudian pilih bahan yang diperlukan.</span></div>`;
           return;
         }
         if(!rows.length){
           el('eventMaterialPickerList').innerHTML='<div class="event-material-picker-empty"><strong>Bahan tidak ditemukan</strong><span>Ubah kata pencarian untuk melihat bahan lainnya.</span></div>';
           return;
         }
-        el('eventMaterialPickerList').innerHTML=rows.map(({item,alreadyAdded})=>`<label class="event-material-option${alreadyAdded?' is-added':''}"><input type="checkbox" value="${item.id}" data-event-material-source ${alreadyAdded?'disabled':''}><span class="event-material-option-copy"><strong>${escapeHtml(item.name)}</strong><small>${escapeHtml(item.unit||'unit')} • minimum ${number(item.min)} • stok toko ${number(item.stock)}</small></span><span class="event-material-option-meta"><strong>${alreadyAdded?'Sudah dipilih':'Siap dipilih'}</strong><small>${escapeHtml(sourceStore)}</small></span></label>`).join('');
+        el('eventMaterialPickerList').innerHTML=rows.map(({item,alreadyAdded})=>`<label class="event-material-option${alreadyAdded?' is-added':''}"><input type="checkbox" value="${item.id}" data-event-material-source ${alreadyAdded?'disabled':''}><span class="event-material-option-copy"><strong>${escapeHtml(item.name)}</strong><small>${escapeHtml(item.unit||'unit')} • minimum ${number(item.min)} • khusus halaman Event</small></span><span class="event-material-option-meta"><strong>${alreadyAdded?'Sudah dipilih':'Siap dipilih'}</strong><small>${escapeHtml(sourceStore)}</small></span></label>`).join('');
       }
 
       function setEventMaterialPickerChecks(checked){
@@ -3792,10 +3961,10 @@ NOTIFY pgrst, 'reload schema';`
         const sourceStore=selectedEvent?.store||'';
         if(!selectedEvent||!sourceStore)return toast('Event atau toko sumber tidak ditemukan.');
         const selectedIds=[...el('eventMaterialPickerList').querySelectorAll('[data-event-material-source]:checked')].map(input=>input.value);
-        if(!selectedIds.length)return toast('Pilih minimal satu bahan dari daftar toko.');
+        if(!selectedIds.length)return toast('Pilih minimal satu bahan dari Daftar Bahan Event.');
         const existingKeys=new Set(state.inventory.filter(item=>item.eventId===eventId).map(normalizedMaterialKey));
         const now=new Date().toISOString();
-        const items=selectedIds.map(id=>state.inventory.find(item=>item.id===id)).filter(Boolean).filter(item=>!existingKeys.has(normalizedMaterialKey(item))).map(source=>({
+        const items=selectedIds.map(id=>state.eventMaterialCatalog.find(item=>item.id===id)).filter(Boolean).filter(item=>!existingKeys.has(normalizedMaterialKey(item))).map(source=>({
           id:uid(),
           store:EVENT_STORE,
           eventId,
@@ -3803,8 +3972,8 @@ NOTIFY pgrst, 'reload schema';`
           unit:source.unit||'unit',
           stock:0,
           min:Number(source.min||0),
-          price:Number(source.price||0),
-          note:`Dipilih dari Daftar Bahan ${sourceStore}`,
+          price:0,
+          note:`Dipilih dari Master Bahan Event ${sourceStore}`,
           updatedAt:now
         }));
         if(!items.length)return toast('Semua bahan terpilih sudah ada pada event ini.');
@@ -3814,7 +3983,7 @@ NOTIFY pgrst, 'reload schema';`
           closeModal('eventMaterialPickerModal');
           await loadCloudData(true);
           switchEventTab('materials');
-          toast(`${items.length} bahan dari ${sourceStore} berhasil ditambahkan ke event.`);
+          toast(`${items.length} bahan dari daftar Event ${sourceStore} berhasil ditambahkan.`);
         }catch(error){showSyncError(error);}finally{setButtonBusy(button,false);}
       }
 
@@ -3878,9 +4047,11 @@ NOTIFY pgrst, 'reload schema';`
 
       function transactionToRow(item){return{id:item.id,transaction_date:item.date,store:item.store,event_id:item.eventId||null,type:item.type,payment_method:normalizePaymentMethod(item.paymentMethod),category:item.category,amount:item.amount,note:item.note||'',created_at:item.createdAt||new Date().toISOString()};}
       function inventoryToRow(item){return{id:item.id,store:item.store,event_id:item.eventId||null,name:item.name,unit:item.unit,stock:item.stock,min_stock:item.min,price:item.price,note:item.note||'',updated_at:item.updatedAt||new Date().toISOString()};}
+      function eventMaterialCatalogToRow(item){return{id:item.id,store:item.store,name:item.name,unit:item.unit,min_stock:item.min,note:item.note||'',updated_at:item.updatedAt||new Date().toISOString()};}
       function eventToRow(item){return{id:item.id,name:item.name,store:item.store||null,event_date:item.eventDate,end_date:item.endDate,location:item.location,organizer:item.organizer||'',note:item.note||'',created_at:item.createdAt||new Date().toISOString()};}
       function rowToTransaction(row){return{id:row.id,date:row.transaction_date,store:row.store,eventId:row.event_id||null,type:row.type,paymentMethod:normalizePaymentMethod(row.payment_method),category:row.category,amount:Number(row.amount),note:row.note||'',createdAt:row.created_at};}
       function rowToInventory(row){return{id:row.id,store:row.store,eventId:row.event_id||null,name:row.name,unit:row.unit,stock:Number(row.stock),min:Number(row.min_stock),price:Number(row.price),note:row.note||'',updatedAt:row.updated_at};}
+      function rowToEventMaterialCatalog(row){return{id:row.id,store:row.store,name:row.name,unit:row.unit,min:Number(row.min_stock||0),note:row.note||'',updatedAt:row.updated_at};}
       function rowToEvent(row){return{id:row.id,name:row.name,store:row.store||'',eventDate:row.event_date,endDate:row.end_date,location:row.location||'',organizer:row.organizer||'',note:row.note||'',createdAt:row.created_at};}
       function employeeToRow(item){return{id:item.id,store:item.store,name:item.name,position:item.position||'',daily_wage:item.dailyWage,shift_start:item.shiftStart,is_active:item.isActive,note:item.note||'',updated_at:new Date().toISOString()};}
       function rowToEmployee(row){return{id:row.id,store:row.store,name:row.name,position:row.position||'',dailyWage:Number(row.daily_wage||0),shiftStart:formatTimeValue(row.shift_start)||'09:00',isActive:row.is_active!==false,note:row.note||'',createdAt:row.created_at,updatedAt:row.updated_at};}
@@ -3959,6 +4130,9 @@ NOTIFY pgrst, 'reload schema';`
               : stores.length
                 ? db.from('inventory').select('*').in('store',stores).is('event_id',null).order('store',{ascending:true}).order('name',{ascending:true})
                 : Promise.resolve({data:[],error:null});
+          const eventMaterialCatalogPromise=isAdmin()
+            ? db.from('event_material_catalog').select('*').order('store',{ascending:true}).order('name',{ascending:true})
+            : Promise.resolve({data:[],error:null});
           const transactionPromise=isAdmin()
             ? db.from('transactions').select('*').order('transaction_date',{ascending:false}).order('created_at',{ascending:false})
             : isOwner()&&stores.length
@@ -3973,10 +4147,14 @@ NOTIFY pgrst, 'reload schema';`
           const payrollAdvancePromise=stores.length||isAdmin()?db.from('payroll_advances').select('*').in('store',stores.length?stores:STORES).order('advance_date',{ascending:false}).order('employee_name',{ascending:true}):Promise.resolve({data:[],error:null});
           const payrollMonthlyPromise=stores.length||isAdmin()?db.from('payroll_monthly_payments').select('*').in('store',stores.length?stores:STORES).order('payroll_month',{ascending:false}).order('employee_name',{ascending:true}):Promise.resolve({data:[],error:null});
           const profilesPromise=isAdmin()?db.from('profiles').select('user_id,email,role,branch,branches,event_id,created_at').order('created_at',{ascending:true}):Promise.resolve({data:[state.profile],error:null});
-          const [eventResult,inventoryResult,txResult,dailyResult,employeesResult,payrollDailyResult,payrollAdvanceResult,payrollMonthlyResult,profilesResult]=await Promise.all([eventPromise,inventoryPromise,transactionPromise,dailyPromise,employeesPromise,payrollDailyPromise,payrollAdvancePromise,payrollMonthlyPromise,profilesPromise]);
+          const [eventResult,inventoryResult,eventMaterialCatalogResult,txResult,dailyResult,employeesResult,payrollDailyResult,payrollAdvanceResult,payrollMonthlyResult,profilesResult]=await Promise.all([eventPromise,inventoryPromise,eventMaterialCatalogPromise,transactionPromise,dailyPromise,employeesPromise,payrollDailyPromise,payrollAdvancePromise,payrollMonthlyPromise,profilesPromise]);
           for(const result of [eventResult,inventoryResult,txResult,dailyResult,employeesResult,payrollDailyResult,payrollAdvanceResult,payrollMonthlyResult,profilesResult])if(result.error)throw result.error;
+          const missingCatalogTable=eventMaterialCatalogResult.error&&(['42P01','PGRST205'].includes(eventMaterialCatalogResult.error.code)||/event_material_catalog/i.test(`${eventMaterialCatalogResult.error.message||''} ${eventMaterialCatalogResult.error.details||''}`));
+          if(eventMaterialCatalogResult.error&&!missingCatalogTable)throw eventMaterialCatalogResult.error;
+          eventMaterialCatalogAvailable=!missingCatalogTable;
           state.events=(eventResult.data||[]).map(rowToEvent);
           state.inventory=(inventoryResult.data||[]).map(rowToInventory).filter(canAccessInventoryRecord);
+          state.eventMaterialCatalog=missingCatalogTable?[]:(eventMaterialCatalogResult.data||[]).map(rowToEventMaterialCatalog);
           state.inventoryDaily=(dailyResult.data||[]).map(rowToDailyRecord).filter(canAccessInventoryRecord);
           state.transactions=(txResult.data||[]).map(rowToTransaction).filter(item=>item.eventId?isAdmin():canAccessStore(item.store));
           state.employees=(employeesResult.data||[]).map(rowToEmployee).filter(item=>canAccessStore(item.store));
@@ -3993,7 +4171,7 @@ NOTIFY pgrst, 'reload schema';`
         }catch(error){showSyncError(error);restoreSyncUiState(syncUiState);return false;}finally{dataLoading=false;}
       }
 
-      function startCloudRefresh(){stopCloudRefresh();refreshTimer=setInterval(()=>loadCloudData(true),30000);try{cloudChannel=db.channel('rekap-toko-cloud-v7').on('postgres_changes',{event:'*',schema:'public',table:'transactions'},scheduleRealtimeRefresh).on('postgres_changes',{event:'*',schema:'public',table:'inventory'},scheduleRealtimeRefresh).on('postgres_changes',{event:'*',schema:'public',table:'inventory_daily'},scheduleRealtimeRefresh).on('postgres_changes',{event:'*',schema:'public',table:'events'},scheduleRealtimeRefresh).on('postgres_changes',{event:'*',schema:'public',table:'employees'},scheduleRealtimeRefresh).on('postgres_changes',{event:'*',schema:'public',table:'payroll_daily'},scheduleRealtimeRefresh).on('postgres_changes',{event:'*',schema:'public',table:'payroll_advances'},scheduleRealtimeRefresh).on('postgres_changes',{event:'*',schema:'public',table:'payroll_monthly_payments'},scheduleRealtimeRefresh).on('postgres_changes',{event:'*',schema:'public',table:'profiles'},scheduleRealtimeRefresh).subscribe();}catch(error){console.warn('Realtime tidak aktif, polling tetap berjalan.',error);}}
+      function startCloudRefresh(){stopCloudRefresh();refreshTimer=setInterval(()=>loadCloudData(true),30000);try{cloudChannel=db.channel('rekap-toko-cloud-v7').on('postgres_changes',{event:'*',schema:'public',table:'transactions'},scheduleRealtimeRefresh).on('postgres_changes',{event:'*',schema:'public',table:'inventory'},scheduleRealtimeRefresh).on('postgres_changes',{event:'*',schema:'public',table:'event_material_catalog'},scheduleRealtimeRefresh).on('postgres_changes',{event:'*',schema:'public',table:'inventory_daily'},scheduleRealtimeRefresh).on('postgres_changes',{event:'*',schema:'public',table:'events'},scheduleRealtimeRefresh).on('postgres_changes',{event:'*',schema:'public',table:'employees'},scheduleRealtimeRefresh).on('postgres_changes',{event:'*',schema:'public',table:'payroll_daily'},scheduleRealtimeRefresh).on('postgres_changes',{event:'*',schema:'public',table:'payroll_advances'},scheduleRealtimeRefresh).on('postgres_changes',{event:'*',schema:'public',table:'payroll_monthly_payments'},scheduleRealtimeRefresh).on('postgres_changes',{event:'*',schema:'public',table:'profiles'},scheduleRealtimeRefresh).subscribe();}catch(error){console.warn('Realtime tidak aktif, polling tetap berjalan.',error);}}
       function scheduleRealtimeRefresh(){clearTimeout(realtimeDebounce);realtimeDebounce=setTimeout(async()=>{if(currentSession)await loadCurrentProfile(currentSession.user);applyRoleUI();loadCloudData(true);},400);}
       function stopCloudRefresh(){clearInterval(refreshTimer);clearTimeout(realtimeDebounce);refreshTimer=null;if(cloudChannel&&db)db.removeChannel(cloudChannel);cloudChannel=null;}
 
@@ -4287,33 +4465,36 @@ NOTIFY pgrst, 'reload schema';`
         el('eventDailyTableTitle').textContent=`Daftar Bahan Event — ${formatDate(date)}`;
         el('eventDailyTableSubtitle').textContent=eventName(eventId);
         applyEventDailyActionState(date,eventId);
-        if(!rows.length){el('eventInventoryTable').innerHTML=emptyState('Belum ada bahan event',isAdmin()?'Pilih bahan dari katalog toko melalui tab Daftar Bahan Event.':'Admin belum memilih bahan toko untuk event ini.');return;}
+        if(!rows.length){el('eventInventoryTable').innerHTML=emptyState('Belum ada bahan event',isAdmin()?'Pilih bahan dari Master Bahan Event melalui tab Daftar Bahan.':'Admin belum memilih bahan dari Master Bahan Event untuk event ini.');return;}
         el('eventInventoryTable').innerHTML=`<table><thead><tr><th>Nama Bahan</th><th>Satuan</th><th>Stok Awal</th><th>Stok Masuk</th><th>Stok Akhir</th><th>Terpakai</th><th>Status Bahan</th><th>Status Closing</th></tr></thead><tbody>${rows.map(item=>{const savedAt=item.closedAt||item.updatedAt;const closeBadge=item.isClosed?`<span class="badge badge-closed">Sudah Closing</span><small class="status-detail">Disimpan ${escapeHtml(formatSavedDateTime(savedAt))}</small>`:'<span class="badge badge-open">Belum Closing</span><small class="status-detail">Belum pernah disimpan</small>';const materialStatus=getDailyMaterialStatus(item);return`<tr class="material-status-row material-status-${materialStatus.key}"><td><strong>${escapeHtml(item.name)}</strong></td><td>${escapeHtml(item.unit||'unit')}</td><td>${number(item.openingStock)}</td><td>${item.isClosed?number(item.stockIn):'<span class="muted">—</span>'}</td><td>${item.closingStock==null?'<span class="muted">Belum diisi</span>':number(item.closingStock)}</td><td><strong class="${item.usedStock>0?'used-value':'muted'}">${item.isClosed?number(item.usedStock):'—'}</strong></td><td><span class="badge ${materialStatus.className}">${materialStatus.label}</span><small class="status-detail">Stok acuan ${number(materialStatus.stock)} · Minimum ${number(materialStatus.min)} ${escapeHtml(item.unit||'unit')}</small></td><td>${closeBadge}</td></tr>`;}).join('')}</tbody></table>`;
       }
 
       function renderEventMaterials(){
         if(!canViewEvents()||isEventEmployee())return;
+        renderEventMaterialCatalog();
         const eventId=selectedEventWorkspaceId();
         const sourceNotice=el('eventMaterialSourceNotice');
         if(!eventId||eventId==='all'){
-          sourceNotice.innerHTML='<div><span>Toko sumber bahan</span><strong>Pilih satu event terlebih dahulu</strong></div>';
+          sourceNotice.innerHTML='<div><span>Master bahan untuk toko</span><strong>Pilih satu event terlebih dahulu</strong></div>';
           el('eventMaterialsTable').innerHTML=emptyState(eventId==='all'?'Semua Event dipilih untuk rekapan':'Belum ada event yang dipilih',eventId==='all'?'Pilih satu event tertentu untuk membuka daftar bahan event.':'Pilih event untuk membuka daftar bahan event.');
           el('addEventInventoryBtn').disabled=true;
           return;
         }
         const selected=eventById(eventId);
         const sourceStore=selected?.store||'';
-        const storeMaterialCount=state.inventory.filter(item=>!item.eventId&&item.store===sourceStore).length;
-        sourceNotice.innerHTML=`<div><span>Toko sumber bahan</span><strong>${sourceStore?escapeHtml(sourceStore):'Belum ditentukan'}</strong></div><small class="muted">${sourceStore?`${storeMaterialCount} bahan terdaftar satu kali pada katalog toko`:'Edit event dan pilih Toko/Brand terlebih dahulu'}</small>`;
+        const catalogCount=state.eventMaterialCatalog.filter(item=>item.store===sourceStore).length;
+        sourceNotice.innerHTML=`<div><span>Master bahan untuk toko</span><strong>${sourceStore?escapeHtml(sourceStore):'Belum ditentukan'}</strong></div><small class="muted">${!eventMaterialCatalogAvailable?'Database master bahan belum aktif':sourceStore?`${catalogCount} bahan terdaftar khusus pada halaman Event`:'Edit event dan pilih Toko/Brand terlebih dahulu'}</small>`;
         const query=el('eventMaterialsSearch').value.toLowerCase().trim();
         const rows=state.inventory.filter(item=>item.eventId===eventId&&(!query||`${item.name} ${item.unit}`.toLowerCase().includes(query))).sort((a,b)=>a.name.localeCompare(b.name));
         el('addEventInventoryBtn').hidden=!isAdmin();
-        el('addEventInventoryBtn').disabled=!isAdmin()||!sourceStore;
+        el('addEventInventoryBtn').disabled=!isAdmin()||!sourceStore||!eventMaterialCatalogAvailable||!catalogCount;
+        el('addEventInventoryBtn').title=!eventMaterialCatalogAvailable?'Jalankan SQL master bahan event':!sourceStore?'Tentukan toko pada data event':!catalogCount?`Daftarkan master bahan Event ${sourceStore} terlebih dahulu`:'Pilih bahan untuk event ini';
         if(!rows.length){
-          el('eventMaterialsTable').innerHTML=emptyState('Belum ada bahan yang dipilih',isAdmin()?(sourceStore?`Tekan Pilih Bahan Toko untuk mengambil bahan dari Daftar Bahan ${sourceStore}.`:'Tentukan Toko/Brand pada data event terlebih dahulu.'):'Admin belum memilih bahan untuk event ini.');
+          const detail=!eventMaterialCatalogAvailable?'Jalankan SQL pembaruan master bahan event terlebih dahulu.':sourceStore?(catalogCount?`Tekan Pilih dari Daftar Bahan Event untuk memilih kebutuhan ${sourceStore}.`:`Daftarkan dahulu bahan khusus Event untuk ${sourceStore} pada bagian Master Bahan Event di atas.`):'Tentukan Toko/Brand pada data event terlebih dahulu.';
+          el('eventMaterialsTable').innerHTML=emptyState('Belum ada bahan yang dipilih',isAdmin()?detail:'Admin belum memilih bahan untuk event ini.');
           return;
         }
-        el('eventMaterialsTable').innerHTML=`<table><thead><tr><th>Nama Bahan</th><th>Sumber</th><th>Stok Event</th><th>Stok Minimum</th><th>Status Bahan</th><th>Terakhir Diperbarui</th>${isAdmin()?'<th>Aksi</th>':''}</tr></thead><tbody>${rows.map(item=>{const status=getStockStatus(item);return`<tr class="material-status-row material-status-${status.key}"><td><strong>${escapeHtml(item.name)}</strong><br><small class="muted">${escapeHtml(item.unit||'unit')}</small></td><td><strong>${escapeHtml(sourceStore||'-')}</strong><br><small class="muted">Dipilih dari katalog toko</small></td><td><div class="material-stock-value"><strong>${number(item.stock)}</strong><small>${escapeHtml(item.unit||'unit')}</small></div></td><td><div class="material-stock-value"><strong>${number(item.min)}</strong><small>${escapeHtml(item.unit||'unit')}</small></div></td><td><span class="badge ${status.className}">${status.label}</span>${status.key==='low'?`<small class="status-detail">Kurang ${number(Math.max(0,item.min-item.stock))} ${escapeHtml(item.unit||'unit')} menuju batas minimum</small>`:status.key==='empty'?'<small class="status-detail">Stok event belum tersedia atau sudah habis</small>':'<small class="status-detail">Stok event masih di atas batas minimum</small>'}</td><td>${item.updatedAt?new Intl.DateTimeFormat('id-ID',{day:'2-digit',month:'short',year:'numeric'}).format(new Date(item.updatedAt)):'-'}</td>${isAdmin()?`<td><div class="actions"><button class="icon-btn" data-edit-inventory="${item.id}" title="Ubah stok minimum bahan event">✎</button><button class="icon-btn danger" data-delete-inventory="${item.id}" title="Hapus bahan dari event">🗑</button></div></td>`:''}</tr>`;}).join('')}</tbody></table>`;
+        el('eventMaterialsTable').innerHTML=`<table><thead><tr><th>Nama Bahan</th><th>Sumber</th><th>Stok Event</th><th>Stok Minimum</th><th>Status Bahan</th><th>Terakhir Diperbarui</th>${isAdmin()?'<th>Aksi</th>':''}</tr></thead><tbody>${rows.map(item=>{const status=getStockStatus(item);return`<tr class="material-status-row material-status-${status.key}"><td><strong>${escapeHtml(item.name)}</strong><br><small class="muted">${escapeHtml(item.unit||'unit')}</small></td><td><strong>${escapeHtml(sourceStore||'-')}</strong><br><small class="muted">Master bahan halaman Event</small></td><td><div class="material-stock-value"><strong>${number(item.stock)}</strong><small>${escapeHtml(item.unit||'unit')}</small></div></td><td><div class="material-stock-value"><strong>${number(item.min)}</strong><small>${escapeHtml(item.unit||'unit')}</small></div></td><td><span class="badge ${status.className}">${status.label}</span>${status.key==='low'?`<small class="status-detail">Kurang ${number(Math.max(0,item.min-item.stock))} ${escapeHtml(item.unit||'unit')} menuju batas minimum</small>`:status.key==='empty'?'<small class="status-detail">Stok event belum tersedia atau sudah habis</small>':'<small class="status-detail">Stok event masih di atas batas minimum</small>'}</td><td>${item.updatedAt?new Intl.DateTimeFormat('id-ID',{day:'2-digit',month:'short',year:'numeric'}).format(new Date(item.updatedAt)):'-'}</td>${isAdmin()?`<td><div class="actions"><button class="icon-btn" data-edit-inventory="${item.id}" title="Ubah stok minimum bahan event">✎</button><button class="icon-btn danger" data-delete-inventory="${item.id}" title="Hapus bahan dari event">🗑</button></div></td>`:''}</tr>`;}).join('')}</tbody></table>`;
       }
 
       function renderEventDailyRecapSummary(date,eventId,rows){
@@ -4840,14 +5021,14 @@ NOTIFY pgrst, 'reload schema';`
       }
 
       function exportEventsCSV(){if(!canViewAll())return;const rows=[['Nama Event','Toko/Brand','Tanggal Mulai','Tanggal Selesai','Lokasi','Penyelenggara','Status','Pemasukan','Pengeluaran','Pengeluaran Cash','Cash Bersih','Saldo','Jumlah Bahan','Keterangan']];state.events.forEach(e=>{const tx=state.transactions.filter(t=>t.eventId===e.id),materials=state.inventory.filter(i=>i.eventId===e.id),income=sumByType(tx,'income'),expense=sumByType(tx,'expense'),cash=cashSummary(tx);rows.push([e.name,e.store||'',e.eventDate,e.endDate,e.location,e.organizer,getEventStatus(e).label,income,expense,cash.cashExpense,cash.net,income-expense,materials.length,e.note||'']);});downloadFile(`rekap-event-${todayISO()}.csv`,'\ufeff'+toCSV(rows),'text/csv;charset=utf-8');toast('File event berhasil diekspor.');}
-      function backupJSON(){if(!isAdmin())return;downloadFile(`cadangan-rekap-toko-cloud-${todayISO()}.json`,JSON.stringify({version:14,exportedAt:new Date().toISOString(),stores:STORES,transactions:state.transactions,inventory:state.inventory,inventoryDaily:state.inventoryDaily,events:state.events,employees:state.employees,payrollDaily:state.payrollDaily,payrollAdvances:state.payrollAdvances,payrollMonthlyPayments:state.payrollMonthlyPayments},null,2),'application/json');toast('Cadangan data berhasil diunduh.');}
+      function backupJSON(){if(!isAdmin())return;downloadFile(`cadangan-rekap-toko-cloud-${todayISO()}.json`,JSON.stringify({version:15,exportedAt:new Date().toISOString(),stores:STORES,transactions:state.transactions,inventory:state.inventory,eventMaterialCatalog:state.eventMaterialCatalog,inventoryDaily:state.inventoryDaily,events:state.events,employees:state.employees,payrollDaily:state.payrollDaily,payrollAdvances:state.payrollAdvances,payrollMonthlyPayments:state.payrollMonthlyPayments},null,2),'application/json');toast('Cadangan data berhasil diunduh.');}
 
-      async function restoreJSON(event){if(!isAdmin())return;const file=event.target.files[0];if(!file)return;try{const data=JSON.parse(await file.text());if(!Array.isArray(data.transactions)||!Array.isArray(data.inventory))throw new Error('Format file tidak sesuai.');if(!confirm('Ganti seluruh data cloud dengan isi file cadangan ini?'))return;el('loadingCover').hidden=false;await deleteAllCloudRows();await upsertInChunks('events',(data.events||[]).map(item=>eventToRow({...item,id:item.id||uid()})));await upsertInChunks('transactions',data.transactions.map(item=>transactionToRow({...item,id:item.id||uid()})));await upsertInChunks('inventory',data.inventory.map(item=>inventoryToRow({...item,id:item.id||uid()})));await upsertInChunks('inventory_daily',(data.inventoryDaily||[]).map(item=>dailyRecordToRow({...item,id:item.id||uid()})));await upsertInChunks('employees',(data.employees||[]).map(item=>employeeToRow({...item,id:item.id||uid()})));await upsertInChunks('payroll_daily',(data.payrollDaily||[]).map(item=>payrollDailyToRow({...item,id:item.id||uid()})));await upsertInChunks('payroll_advances',(data.payrollAdvances||[]).map(item=>payrollAdvanceToRow({...item,id:item.id||uid()})));await upsertInChunks('payroll_monthly_payments',(data.payrollMonthlyPayments||[]).map(item=>payrollMonthlyPaymentToRow({...item,id:item.id||uid()})));await loadCloudData(true);toast('Data cloud berhasil dipulihkan.');}catch(error){showSyncError(error);}finally{event.target.value='';el('loadingCover').hidden=true;}}
+      async function restoreJSON(event){if(!isAdmin())return;const file=event.target.files[0];if(!file)return;try{const data=JSON.parse(await file.text());if(!Array.isArray(data.transactions)||!Array.isArray(data.inventory))throw new Error('Format file tidak sesuai.');if(!confirm('Ganti seluruh data cloud dengan isi file cadangan ini?'))return;el('loadingCover').hidden=false;await deleteAllCloudRows();await upsertInChunks('events',(data.events||[]).map(item=>eventToRow({...item,id:item.id||uid()})));await upsertInChunks('transactions',data.transactions.map(item=>transactionToRow({...item,id:item.id||uid()})));await upsertInChunks('inventory',data.inventory.map(item=>inventoryToRow({...item,id:item.id||uid()})));if(eventMaterialCatalogAvailable)await upsertInChunks('event_material_catalog',(data.eventMaterialCatalog||[]).map(item=>eventMaterialCatalogToRow({...item,id:item.id||uid()})));await upsertInChunks('inventory_daily',(data.inventoryDaily||[]).map(item=>dailyRecordToRow({...item,id:item.id||uid()})));await upsertInChunks('employees',(data.employees||[]).map(item=>employeeToRow({...item,id:item.id||uid()})));await upsertInChunks('payroll_daily',(data.payrollDaily||[]).map(item=>payrollDailyToRow({...item,id:item.id||uid()})));await upsertInChunks('payroll_advances',(data.payrollAdvances||[]).map(item=>payrollAdvanceToRow({...item,id:item.id||uid()})));await upsertInChunks('payroll_monthly_payments',(data.payrollMonthlyPayments||[]).map(item=>payrollMonthlyPaymentToRow({...item,id:item.id||uid()})));await loadCloudData(true);toast('Data cloud berhasil dipulihkan.');}catch(error){showSyncError(error);}finally{event.target.value='';el('loadingCover').hidden=true;}}
       async function clearAllData(){if(!isAdmin())return;if(!confirm('Yakin menghapus SEMUA transaksi, bahan, dan event dari Supabase?'))return;if(!confirm('Konfirmasi terakhir: tindakan ini tidak dapat dibatalkan.'))return;try{el('loadingCover').hidden=false;await deleteAllCloudRows();await loadCloudData(true);toast('Semua data cloud berhasil dihapus.');}catch(error){showSyncError(error);}finally{el('loadingCover').hidden=true;}}
-      async function deleteAllCloudRows(){const payrollAdvances=await db.from('payroll_advances').delete().neq('id','');if(payrollAdvances.error)throw payrollAdvances.error;const payrollMonthly=await db.from('payroll_monthly_payments').delete().neq('id','');if(payrollMonthly.error)throw payrollMonthly.error;const payrollDaily=await db.from('payroll_daily').delete().neq('id','');if(payrollDaily.error)throw payrollDaily.error;const daily=await db.from('inventory_daily').delete().neq('id','');if(daily.error)throw daily.error;const [tx,inventory,employees,legacyPayroll,events]=await Promise.all([db.from('transactions').delete().neq('id',''),db.from('inventory').delete().neq('id',''),db.from('employees').delete().neq('id',''),db.from('payroll').delete().neq('id',''),db.from('events').delete().neq('id','')]);if(tx.error)throw tx.error;if(inventory.error)throw inventory.error;if(employees.error)throw employees.error;if(legacyPayroll.error)throw legacyPayroll.error;if(events.error)throw events.error;}
+      async function deleteAllCloudRows(){const payrollAdvances=await db.from('payroll_advances').delete().neq('id','');if(payrollAdvances.error)throw payrollAdvances.error;const payrollMonthly=await db.from('payroll_monthly_payments').delete().neq('id','');if(payrollMonthly.error)throw payrollMonthly.error;const payrollDaily=await db.from('payroll_daily').delete().neq('id','');if(payrollDaily.error)throw payrollDaily.error;const daily=await db.from('inventory_daily').delete().neq('id','');if(daily.error)throw daily.error;const catalog=eventMaterialCatalogAvailable?await db.from('event_material_catalog').delete().neq('id',''):{error:null};if(catalog.error)throw catalog.error;const [tx,inventory,employees,legacyPayroll,events]=await Promise.all([db.from('transactions').delete().neq('id',''),db.from('inventory').delete().neq('id',''),db.from('employees').delete().neq('id',''),db.from('payroll').delete().neq('id',''),db.from('events').delete().neq('id','')]);if(tx.error)throw tx.error;if(inventory.error)throw inventory.error;if(employees.error)throw employees.error;if(legacyPayroll.error)throw legacyPayroll.error;if(events.error)throw events.error;}
       async function upsertInChunks(table,rows){for(let i=0;i<rows.length;i+=500){const {error}=await db.from(table).upsert(rows.slice(i,i+500));if(error)throw error;}}
 
-      async function loadDemoData(){if(!isAdmin())return;if((state.transactions.length||state.inventory.length||state.events.length)&&!confirm('Data contoh akan ditambahkan ke data yang sudah ada. Lanjutkan?'))return;const start=todayISO();const endDate=new Date();endDate.setDate(endDate.getDate()+2);const demoEvent={id:uid(),name:'Festival Kuliner Contoh',store:'Hi Fruit',eventDate:start,endDate:jakartaDate(endDate),location:'Jakarta',organizer:'Tim Event',note:'Contoh rekapan event',createdAt:new Date().toISOString()};const tx=[{id:uid(),date:start,store:'Chickumbar Blok M',eventId:null,type:'income',paymentMethod:'cash',category:'Penjualan Harian',amount:2850000,note:'Penjualan outlet',createdAt:new Date().toISOString()},{id:uid(),date:start,store:EVENT_STORE,eventId:demoEvent.id,type:'income',paymentMethod:'cash',category:'Penjualan Event',amount:4200000,note:'Penjualan hari pertama event',createdAt:new Date().toISOString()},{id:uid(),date:start,store:EVENT_STORE,eventId:demoEvent.id,type:'expense',paymentMethod:'cash',category:'Sewa Booth Event',amount:1200000,note:'Biaya booth',createdAt:new Date().toISOString()}].map(transactionToRow);const inv=[{id:uid(),store:'Chickumbar Blok M',eventId:null,name:'Ayam fillet',unit:'kg',stock:18,min:10,price:42000,note:'Supplier utama',updatedAt:new Date().toISOString()},{id:uid(),store:EVENT_STORE,eventId:demoEvent.id,name:'Mangga',unit:'kg',stock:12,min:5,price:28000,note:'Kebutuhan event',updatedAt:new Date().toISOString()}].map(inventoryToRow);try{el('loadingCover').hidden=false;await upsertInChunks('events',[eventToRow(demoEvent)]);await upsertInChunks('transactions',tx);await upsertInChunks('inventory',inv);await loadCloudData(true);toast('Data contoh berhasil ditambahkan.');}catch(error){showSyncError(error);}finally{el('loadingCover').hidden=true;}}
+      async function loadDemoData(){if(!isAdmin())return;if((state.transactions.length||state.inventory.length||state.events.length)&&!confirm('Data contoh akan ditambahkan ke data yang sudah ada. Lanjutkan?'))return;const start=todayISO();const endDate=new Date();endDate.setDate(endDate.getDate()+2);const demoEvent={id:uid(),name:'Festival Kuliner Contoh',store:'Hi Fruit',eventDate:start,endDate:jakartaDate(endDate),location:'Jakarta',organizer:'Tim Event',note:'Contoh rekapan event',createdAt:new Date().toISOString()};const tx=[{id:uid(),date:start,store:'Chickumbar Blok M',eventId:null,type:'income',paymentMethod:'cash',category:'Penjualan Harian',amount:2850000,note:'Penjualan outlet',createdAt:new Date().toISOString()},{id:uid(),date:start,store:EVENT_STORE,eventId:demoEvent.id,type:'income',paymentMethod:'cash',category:'Penjualan Event',amount:4200000,note:'Penjualan hari pertama event',createdAt:new Date().toISOString()},{id:uid(),date:start,store:EVENT_STORE,eventId:demoEvent.id,type:'expense',paymentMethod:'cash',category:'Sewa Booth Event',amount:1200000,note:'Biaya booth',createdAt:new Date().toISOString()}].map(transactionToRow);const inv=[{id:uid(),store:'Chickumbar Blok M',eventId:null,name:'Ayam fillet',unit:'kg',stock:18,min:10,price:42000,note:'Supplier utama',updatedAt:new Date().toISOString()},{id:uid(),store:EVENT_STORE,eventId:demoEvent.id,name:'Mangga',unit:'kg',stock:12,min:5,price:28000,note:'Kebutuhan event',updatedAt:new Date().toISOString()}].map(inventoryToRow);const eventCatalog=[eventMaterialCatalogToRow({id:uid(),store:'Hi Fruit',name:'Mangga',unit:'kg',min:5,note:'Master bahan khusus event',updatedAt:new Date().toISOString()})];try{el('loadingCover').hidden=false;await upsertInChunks('events',[eventToRow(demoEvent)]);await upsertInChunks('transactions',tx);await upsertInChunks('inventory',inv);if(eventMaterialCatalogAvailable)await upsertInChunks('event_material_catalog',eventCatalog);await loadCloudData(true);toast('Data contoh berhasil ditambahkan.');}catch(error){showSyncError(error);}finally{el('loadingCover').hidden=true;}}
 
       async function copyDatabaseSql(){try{await navigator.clipboard.writeText(DATABASE_SQL);}catch(_){el('setupSql').select();document.execCommand('copy');}toast('SQL terbaru berhasil disalin.');}
 
