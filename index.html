@@ -1121,7 +1121,9 @@
     .event-recap-stats { grid-template-columns: repeat(4, minmax(0, 1fr)); }
     @media (max-width:1100px){ .event-recap-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
     @media (max-width:560px){ .event-recap-stats { grid-template-columns: 1fr; } }
-    .event-transaction-stats { margin:14px 0 16px; }
+    .event-transaction-stats { grid-template-columns: repeat(4, minmax(0, 1fr)); margin:14px 0 16px; }
+    @media (max-width:1100px){ .event-transaction-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    @media (max-width:560px){ .event-transaction-stats { grid-template-columns: 1fr; } }
     .event-scope-note { margin:0 0 14px; padding:11px 13px; border:1px solid #fed7aa; border-radius:10px; background:#fff7ed; color:#9a3412; font-size:12px; line-height:1.5; }
     .event-panel .daily-recap-summary { margin-top:14px; }
     .event-panel .table-card { margin-top:14px; }
@@ -1626,6 +1628,7 @@
                 <article class="card stat-card income"><div class="stat-label">Pemasukan Event</div><div class="stat-value" id="eventTransactionIncome">Rp0</div><div class="stat-sub" id="eventTransactionIncomeSub">Total pemasukan periode terpilih</div></article>
                 <article class="card stat-card expense"><div class="stat-label">Pengeluaran Event</div><div class="stat-value" id="eventTransactionExpense">Rp0</div><div class="stat-sub" id="eventTransactionExpenseSub">Total pengeluaran periode terpilih</div></article>
                 <article class="card stat-card cash-net"><div class="stat-label">Cash Bersih Event</div><div class="stat-value" id="eventTransactionCashNet">Rp0</div><div class="stat-sub" id="eventTransactionCashNetSub">Pemasukan Cash dikurangi pengeluaran Cash</div></article>
+                <article class="card stat-card profit"><div class="stat-label">Saldo Bersih Event</div><div class="stat-value" id="eventTransactionProfit">Rp0</div><div class="stat-sub" id="eventTransactionProfitSub">Pemasukan dikurangi seluruh pengeluaran</div></article>
               </div>
               <article class="card table-card"><div class="table-wrap" id="eventTransactionsTable"></div></article>
             </section>
@@ -3872,11 +3875,12 @@ NOTIFY pgrst, 'reload schema';`
         const month=el('eventTransactionMonthFilter').value;
         const periodLabel=month?new Intl.DateTimeFormat('id-ID',{month:'long',year:'numeric',timeZone:'Asia/Jakarta'}).format(new Date(`${month}-01T12:00:00`)):'seluruh periode';
         if(!eventId||eventId==='all'){
-          ['eventTransactionIncome','eventTransactionExpense','eventTransactionCashNet'].forEach(id=>el(id).textContent=money(0));
+          ['eventTransactionIncome','eventTransactionExpense','eventTransactionCashNet','eventTransactionProfit'].forEach(id=>el(id).textContent=money(0));
           const selectMessage=eventId==='all'?'Pilih satu event untuk data operasional':'Pilih event terlebih dahulu';
           el('eventTransactionIncomeSub').textContent=selectMessage;
           el('eventTransactionExpenseSub').textContent=selectMessage;
           el('eventTransactionCashNetSub').textContent=selectMessage;
+          el('eventTransactionProfitSub').textContent=selectMessage;
           el('eventTransactionsTable').innerHTML=emptyState(eventId==='all'?'Semua Event dipilih untuk rekapan':'Belum ada event yang dipilih',eventId==='all'?'Pilih satu event tertentu pada slicer untuk melihat dan mengelola transaksinya.':'Pilih event pada slicer Rekapan Event.');
           return;
         }
@@ -3890,9 +3894,11 @@ NOTIFY pgrst, 'reload schema';`
         el('eventTransactionIncome').textContent=money(income);
         el('eventTransactionExpense').textContent=money(expense);
         el('eventTransactionCashNet').textContent=money(cash.net);
+        el('eventTransactionProfit').textContent=money(income-expense);
         el('eventTransactionIncomeSub').textContent=`Total pemasukan ${periodLabel}`;
         el('eventTransactionExpenseSub').textContent=`Total pengeluaran ${periodLabel}`;
         el('eventTransactionCashNetSub').textContent=`Dikurangi pengeluaran Cash ${money(cash.cashExpense)}`;
+        el('eventTransactionProfitSub').textContent=`Pemasukan dikurangi seluruh pengeluaran ${periodLabel}`;
         const rows=periodRows.filter(t=>{
           const matchesQuery=!query||`${t.category} ${t.note||''} ${paymentMethodLabel(t.paymentMethod)}`.toLowerCase().includes(query);
           const matchesType=type==='all'||t.type===type;
