@@ -1622,11 +1622,11 @@
                 <input class="input" id="eventTransactionSearch" placeholder="Cari kategori atau keterangan..." />
                 <select class="select" id="eventTransactionTypeFilter"><option value="all">Semua Jenis</option><option value="income">Pemasukan</option><option value="expense">Pengeluaran</option></select>
                 <select class="select" id="eventTransactionPaymentFilter"><option value="all">Semua Pembayaran</option><option value="cash">Cash</option><option value="qris">QRIS</option></select>
-                <input class="input" type="month" id="eventTransactionMonthFilter" />
+                <input class="input" type="date" id="eventTransactionDateFilter" aria-label="Pilih tanggal transaksi event" />
               </div>
               <div class="grid stats event-transaction-stats transaction-cash-summary">
-                <article class="card stat-card income"><div class="stat-label">Pemasukan Event</div><div class="stat-value" id="eventTransactionIncome">Rp0</div><div class="stat-sub" id="eventTransactionIncomeSub">Total pemasukan periode terpilih</div></article>
-                <article class="card stat-card expense"><div class="stat-label">Pengeluaran Event</div><div class="stat-value" id="eventTransactionExpense">Rp0</div><div class="stat-sub" id="eventTransactionExpenseSub">Total pengeluaran periode terpilih</div></article>
+                <article class="card stat-card income"><div class="stat-label">Pemasukan Event</div><div class="stat-value" id="eventTransactionIncome">Rp0</div><div class="stat-sub" id="eventTransactionIncomeSub">Total pemasukan tanggal terpilih</div></article>
+                <article class="card stat-card expense"><div class="stat-label">Pengeluaran Event</div><div class="stat-value" id="eventTransactionExpense">Rp0</div><div class="stat-sub" id="eventTransactionExpenseSub">Total pengeluaran tanggal terpilih</div></article>
                 <article class="card stat-card cash-net"><div class="stat-label">Cash Bersih Event</div><div class="stat-value" id="eventTransactionCashNet">Rp0</div><div class="stat-sub" id="eventTransactionCashNetSub">Pemasukan Cash dikurangi pengeluaran Cash</div></article>
                 <article class="card stat-card profit"><div class="stat-label">Saldo Bersih Event</div><div class="stat-value" id="eventTransactionProfit">Rp0</div><div class="stat-sub" id="eventTransactionProfitSub">Pemasukan dikurangi seluruh pengeluaran</div></article>
               </div>
@@ -2918,7 +2918,8 @@ NOTIFY pgrst, 'reload schema';`
         [el('transactionStore'),el('inventoryStore'),el('employeeStore')].forEach(s=>populateStoreSelect(s,false));
         el('transactionDateFilter').value=todayISO();
         el('transactionDateFilter').max=todayISO();
-        el('eventTransactionMonthFilter').value=currentMonth();
+        el('eventTransactionDateFilter').value=todayISO();
+        el('eventTransactionDateFilter').max=todayISO();
         el('payrollDateFilter').value=todayISO();
         el('payrollDateFilter').max=todayISO();
         el('payrollMonthFilter').value=currentMonth();
@@ -3243,7 +3244,7 @@ NOTIFY pgrst, 'reload schema';`
         ['eventSearch','eventStatusFilter'].forEach(id=>el(id).addEventListener('input',renderEvents));['employeeSearch','employeeStoreFilter','employeeStatusFilter','payrollDailySearch','payrollDailyStoreFilter','payrollLateFilter','payrollAdvanceSearch','payrollAdvanceStoreFilter','payrollMonthlySearch','payrollMonthlyStoreFilter','payrollPaymentStatusFilter'].forEach(id=>el(id).addEventListener('input',renderPayroll));el('payrollDateFilter').addEventListener('change',renderPayroll);el('payrollAdvanceMonthFilter').addEventListener('change',renderPayroll);el('payrollMonthFilter').addEventListener('change',renderPayroll);el('payrollTabs').addEventListener('click',event=>{const button=event.target.closest('[data-payroll-tab]');if(button)switchPayrollTab(button.dataset.payrollTab);});el('payrollPrevDateBtn').addEventListener('click',()=>shiftPayrollDate(-1));el('payrollNextDateBtn').addEventListener('click',()=>shiftPayrollDate(1));el('payrollTodayBtn').addEventListener('click',()=>changePayrollDate(todayISO()));
         el('eventWorkspaceSelect').addEventListener('change',renderEvents);
         el('eventTabs').addEventListener('click',event=>{const button=event.target.closest('[data-event-tab]');if(button)switchEventTab(button.dataset.eventTab);});
-        ['eventTransactionSearch','eventTransactionTypeFilter','eventTransactionPaymentFilter','eventTransactionMonthFilter'].forEach(id=>el(id).addEventListener('input',renderEventTransactions));
+        ['eventTransactionSearch','eventTransactionTypeFilter','eventTransactionPaymentFilter','eventTransactionDateFilter'].forEach(id=>el(id).addEventListener('input',renderEventTransactions));
         ['eventInventorySearch','eventInventoryStatusFilter'].forEach(id=>el(id).addEventListener('input',renderEventInventory));
         el('eventMaterialsSearch').addEventListener('input',renderEventMaterials);
         el('eventInventoryDateFilter').addEventListener('change',renderEventInventory);
@@ -3872,8 +3873,8 @@ NOTIFY pgrst, 'reload schema';`
       function renderEventTransactions(){
         if(!canViewAll())return;
         const eventId=selectedEventWorkspaceId();
-        const month=el('eventTransactionMonthFilter').value;
-        const periodLabel=month?new Intl.DateTimeFormat('id-ID',{month:'long',year:'numeric',timeZone:'Asia/Jakarta'}).format(new Date(`${month}-01T12:00:00`)):'seluruh periode';
+        const date=el('eventTransactionDateFilter').value;
+        const periodLabel=date?formatDate(date):'seluruh periode';
         if(!eventId||eventId==='all'){
           ['eventTransactionIncome','eventTransactionExpense','eventTransactionCashNet','eventTransactionProfit'].forEach(id=>el(id).textContent=money(0));
           const selectMessage=eventId==='all'?'Pilih satu event untuk data operasional':'Pilih event terlebih dahulu';
@@ -3887,7 +3888,7 @@ NOTIFY pgrst, 'reload schema';`
         const query=el('eventTransactionSearch').value.toLowerCase().trim();
         const type=el('eventTransactionTypeFilter').value;
         const payment=el('eventTransactionPaymentFilter').value;
-        const periodRows=state.transactions.filter(t=>t.eventId===eventId&&(!month||t.date.startsWith(month)));
+        const periodRows=state.transactions.filter(t=>t.eventId===eventId&&(!date||t.date===date));
         const income=sumByType(periodRows,'income');
         const expense=sumByType(periodRows,'expense');
         const cash=cashSummary(periodRows);
