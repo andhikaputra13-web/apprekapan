@@ -2335,8 +2335,8 @@ CREATE TABLE IF NOT EXISTS public.event_material_catalog (
   note text NOT NULL DEFAULT '',
   updated_at timestamptz NOT NULL DEFAULT now()
 );
-CREATE UNIQUE INDEX IF NOT EXISTS event_material_catalog_store_name_unit_uidx
-  ON public.event_material_catalog(store, lower(name), lower(unit));
+CREATE UNIQUE INDEX IF NOT EXISTS event_material_catalog_store_name_uidx
+  ON public.event_material_catalog(store, lower(trim(name)));
 
 
 CREATE TABLE IF NOT EXISTS public.inventory_daily (
@@ -3789,6 +3789,7 @@ NOTIFY pgrst, 'reload schema';`
       }
 
       const normalizedMaterialKey = item => `${String(item?.name||'').trim().toLowerCase()}|${String(item?.unit||'').trim().toLowerCase()}`;
+      const normalizedMaterialNameKey = item => String(item?.name||'').trim().toLowerCase();
 
       function eventMaterialSourceStore(eventId){
         return eventById(eventId)?.store||'';
@@ -3862,8 +3863,8 @@ NOTIFY pgrst, 'reload schema';`
         if(!STORES.includes(store))return toast('Pilih toko atau brand yang valid.');
         if(!name||!unit)return toast('Nama dan satuan bahan wajib diisi.');
         if(!Number.isFinite(min)||min<0)return toast('Stok minimum harus berupa angka nol atau lebih.');
-        const duplicate=state.eventMaterialCatalog.some(item=>item.id!==id&&item.store===store&&normalizedMaterialKey(item)===normalizedMaterialKey({name,unit}));
-        if(duplicate){markFieldWarning(el('eventCatalogName'),'Bahan dengan nama dan satuan tersebut sudah terdaftar untuk toko ini.');return toast('Master bahan event tersebut sudah terdaftar.');}
+        const duplicate=state.eventMaterialCatalog.some(item=>item.id!==id&&item.store===store&&normalizedMaterialNameKey(item)===normalizedMaterialNameKey({name}));
+        if(duplicate){markFieldWarning(el('eventCatalogName'),'Nama bahan tersebut sudah terdaftar untuk toko ini. Ubah data bahan yang sudah ada agar tidak ganda.');return toast('Satu nama bahan hanya dapat didaftarkan sekali untuk setiap toko.');}
         const item={id,store,name,unit,min,note,updatedAt:new Date().toISOString()};
         const button=event.submitter;setButtonBusy(button,true,'Menyimpan…');
         try{
@@ -3875,7 +3876,12 @@ NOTIFY pgrst, 'reload schema';`
           el('eventCatalogStoreFilter').value=store;
           renderEventMaterialCatalog();
           toast(el('eventCatalogId').value?'Master bahan event berhasil diperbarui.':'Bahan event berhasil didaftarkan.');
-        }catch(error){showSyncError(error);}finally{setButtonBusy(button,false);}
+        }catch(error){
+          if(error?.code==='23505'||/duplicate key|event_material_catalog_store_name/i.test(`${error?.message||''} ${error?.details||''}`)){
+            markFieldWarning(el('eventCatalogName'),'Nama bahan tersebut sudah terdaftar untuk toko ini.');
+            toast('Satu nama bahan hanya dapat didaftarkan sekali untuk setiap toko.');
+          }else showSyncError(error);
+        }finally{setButtonBusy(button,false);}
       }
 
       async function handleEventCatalogTableClick(event){
@@ -3919,12 +3925,16 @@ NOTIFY pgrst, 'reload schema';`
         const eventId=el('eventMaterialPickerEventId').value;
         const sourceStore=eventMaterialSourceStore(eventId);
         const query=el('eventMaterialPickerSearch').value.toLowerCase().trim();
-        const existingKeys=new Set(state.inventory.filter(item=>item.eventId===eventId).map(normalizedMaterialKey));
-        return state.eventMaterialCatalog
+        const existingKeys=new Set(state.inventory.filter(item=>item.eventId===eventId).map(normalizedMaterialNameKey));
+        const uniqueCatalog=new Map();
+        state.eventMaterialCatalog
           .filter(item=>item.store===sourceStore)
+          .sort((a,b)=>String(b.updatedAt||'').localeCompare(String(a.updatedAt||'')))
+          .forEach(item=>{const key=normalizedMaterialNameKey(item);if(key&&!uniqueCatalog.has(key))uniqueCatalog.set(key,item);});
+        return [...uniqueCatalog.values()]
           .filter(item=>!query||`${item.name} ${item.unit} ${item.note}`.toLowerCase().includes(query))
           .sort((a,b)=>a.name.localeCompare(b.name))
-          .map(item=>({item,alreadyAdded:existingKeys.has(normalizedMaterialKey(item))}));
+          .map(item=>({item,alreadyAdded:existingKeys.has(normalizedMaterialNameKey(item))}));
       }
 
       function renderEventMaterialPickerList(){
@@ -3962,28 +3972,54 @@ NOTIFY pgrst, 'reload schema';`
         if(!selectedEvent||!sourceStore)return toast('Event atau toko sumber tidak ditemukan.');
         const selectedIds=[...el('eventMaterialPickerList').querySelectorAll('[data-event-material-source]:checked')].map(input=>input.value);
         if(!selectedIds.length)return toast('Pilih minimal satu bahan dari Daftar Bahan Event.');
-        const existingKeys=new Set(state.inventory.filter(item=>item.eventId===eventId).map(normalizedMaterialKey));
-        const now=new Date().toISOString();
-        const items=selectedIds.map(id=>state.eventMaterialCatalog.find(item=>item.id===id)).filter(Boolean).filter(item=>!existingKeys.has(normalizedMaterialKey(item))).map(source=>({
-          id:uid(),
-          store:EVENT_STORE,
-          eventId,
-          name:source.name,
-          unit:source.unit||'unit',
-          stock:0,
-          min:Number(source.min||0),
-          price:0,
-          note:`Dipilih dari Master Bahan Event ${sourceStore}`,
-          updatedAt:now
-        }));
-        if(!items.length)return toast('Semua bahan terpilih sudah ada pada event ini.');
+
+        const selectedSources=[];
+        const selectedNameKeys=new Set();
+        selectedIds.forEach(id=>{
+          const source=state.eventMaterialCatalog.find(item=>item.id===id);
+          const key=normalizedMaterialNameKey(source);
+          if(source&&key&&!selectedNameKeys.has(key)){selectedSources.push(source);selectedNameKeys.add(key);}
+        });
+        if(!selectedSources.length)return toast('Bahan yang dipilih tidak ditemukan.');
+
         const button=event.submitter;setButtonBusy(button,true,'Menambahkan…');
         try{
-          await upsertInChunks('inventory',items.map(inventoryToRow));
+          const {data:liveRows,error:liveError}=await db.from('inventory').select('id,name').eq('event_id',eventId);
+          if(liveError)throw liveError;
+          const existingKeys=new Set((liveRows||[]).map(normalizedMaterialNameKey));
+          const now=new Date().toISOString();
+          let added=0,skipped=0;
+
+          for(const source of selectedSources){
+            const key=normalizedMaterialNameKey(source);
+            if(existingKeys.has(key)){skipped++;continue;}
+            const item={
+              id:uid(),
+              store:EVENT_STORE,
+              eventId,
+              name:source.name.trim(),
+              unit:(source.unit||'unit').trim().toLowerCase(),
+              stock:0,
+              min:Number(source.min||0),
+              price:0,
+              note:`Dipilih dari Master Bahan Event ${sourceStore}`,
+              updatedAt:now
+            };
+            const {error}=await db.from('inventory').insert(inventoryToRow(item));
+            if(error){
+              const duplicate=error.code==='23505'||/duplicate key|inventory_event_name_unique_idx/i.test(`${error.message||''} ${error.details||''}`);
+              if(duplicate){skipped++;existingKeys.add(key);continue;}
+              throw error;
+            }
+            existingKeys.add(key);added++;
+          }
+
           closeModal('eventMaterialPickerModal');
           await loadCloudData(true);
           switchEventTab('materials');
-          toast(`${items.length} bahan dari daftar Event ${sourceStore} berhasil ditambahkan.`);
+          if(added&&skipped)toast(`${added} bahan ditambahkan. ${skipped} bahan yang sudah tersedia dilewati otomatis.`);
+          else if(added)toast(`${added} bahan dari daftar Event ${sourceStore} berhasil ditambahkan.`);
+          else toast('Semua bahan terpilih sudah tersedia pada event ini. Tidak ada data ganda yang dibuat.');
         }catch(error){showSyncError(error);}finally{setButtonBusy(button,false);}
       }
 
