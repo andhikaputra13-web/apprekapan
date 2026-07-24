@@ -695,6 +695,7 @@
     .role-admin { background:#dbeafe; color:#1d4ed8; }
     .role-owner { background:#fef3c7; color:#92400e; }
     .role-employee { background:#dcfce7; color:#166534; }
+    .role-event-employee { background:#ede9fe; color:#6d28d9; }
     .balance-toggle { min-width:42px; }
     .balance-toggle .privacy-icon { display:inline-flex; align-items:center; justify-content:center; line-height:1; }
     .balance-toggle .privacy-icon svg { width:17px; height:17px; display:block; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
@@ -708,6 +709,7 @@
     .profiles-note { margin:0 0 12px; color:var(--muted); font-size:12px; line-height:1.6; }
     .role-select { min-width:120px; }
     .branch-select { min-width:190px; }
+    .event-access-select { min-width:230px; }
     .owner-store-picker { display:grid; gap:6px; min-width:230px; max-width:290px; padding:9px 10px; border:1px solid var(--border); border-radius:10px; background:#fff; }
     .owner-store-picker[hidden] { display:none; }
     .owner-store-option { display:flex; align-items:center; gap:8px; font-size:12px; color:var(--text); cursor:pointer; }
@@ -1222,6 +1224,7 @@
     html[data-theme="dark"] .badge-income,
     html[data-theme="dark"] .badge-ok,
     html[data-theme="dark"] .role-employee,
+    html[data-theme="dark"] .role-event-employee,
     html[data-theme="dark"] .event-status-ongoing,
     html[data-theme="dark"] .badge-closed { background: #153a2a; color: #86efac; }
     html[data-theme="dark"] .badge-expense,
@@ -1566,7 +1569,7 @@
         </section>
 
         <section class="view" data-full-view id="view-events">
-          <div class="toolbar event-page-toolbar">
+          <div class="toolbar event-page-toolbar" id="eventPageToolbar">
             <div class="event-page-left">
               <div class="event-page-title"><h3>Event</h3><p id="eventAccessText">Event berdiri sendiri dan tidak digabungkan dengan transaksi maupun bahan operasional toko.</p></div>
             </div>
@@ -1575,28 +1578,28 @@
               <button class="btn btn-primary" id="addEventBtn" data-admin-write>＋ Tambah Event</button>
             </div>
           </div>
-          <div class="grid stats event-main-stats">
+          <div class="grid stats event-main-stats" id="eventMainStats">
             <article class="card stat-card"><div class="stat-label">Total Event</div><div class="stat-value" id="statEventCount">0</div><div class="stat-sub">Seluruh kegiatan tercatat</div></article>
             <article class="card stat-card income"><div class="stat-label">Event Aktif/Mendatang</div><div class="stat-value" id="statEventActive">0</div><div class="stat-sub">Belum selesai</div></article>
           </div>
 
-          <div class="event-recap-heading">
+          <div class="event-recap-heading" id="eventRecapHeading">
             <div class="event-recap-heading-copy">
               <h3>Rekapan Event</h3>
               <p id="eventRecapSubtitle">Pilih event untuk melihat ringkasan keuangannya.</p>
             </div>
           </div>
-          <div class="grid stats event-recap-stats">
+          <div class="grid stats event-recap-stats" id="eventRecapStats">
             <article class="card stat-card income"><div class="stat-label">Pemasukan Event</div><div class="stat-value" id="statEventIncome">Rp0</div><div class="stat-sub">Tidak masuk ke rekapan toko</div></article>
             <article class="card stat-card expense"><div class="stat-label">Pengeluaran Event</div><div class="stat-value" id="statEventExpense">Rp0</div><div class="stat-sub">Total seluruh pengeluaran event terpilih</div></article>
             <article class="card stat-card cash-net"><div class="stat-label">Cash Bersih Event</div><div class="stat-value" id="statEventCashNet">Rp0</div><div class="stat-sub">Pemasukan Cash dikurangi pengeluaran Cash</div></article>
             <article class="card stat-card profit"><div class="stat-label">Saldo Bersih Event</div><div class="stat-value" id="statEventProfit">Rp0</div><div class="stat-sub">Pemasukan dikurangi seluruh pengeluaran</div></article>
           </div>
-          <div class="card filters" style="margin-top:18px">
+          <div class="card filters" id="eventListFilters" style="margin-top:18px">
             <input class="input" id="eventSearch" placeholder="Cari nama, lokasi, atau penyelenggara..." />
             <select class="select" id="eventStatusFilter"><option value="all">Semua Status</option><option value="upcoming">Akan Datang</option><option value="ongoing">Berlangsung</option><option value="completed">Selesai</option></select>
           </div>
-          <article class="card table-card"><div class="table-wrap" id="eventsTable"></div></article>
+          <article class="card table-card" id="eventListCard"><div class="table-wrap" id="eventsTable"></div></article>
 
           <article class="card event-workspace" id="eventWorkspace">
             <div class="event-workspace-head">
@@ -1610,9 +1613,9 @@
               </div>
             </div>
             <div class="event-tabs" id="eventTabs">
-              <button class="event-tab-btn active" type="button" data-event-tab="transactions">Pemasukan & Pengeluaran</button>
-              <button class="event-tab-btn" type="button" data-event-tab="inventory">Rekapan Bahan</button>
-              <button class="event-tab-btn" type="button" data-event-tab="materials">Daftar Bahan</button>
+              <button class="event-tab-btn active" id="eventTransactionsTabBtn" type="button" data-event-tab="transactions">Pemasukan & Pengeluaran</button>
+              <button class="event-tab-btn" id="eventInventoryTabBtn" type="button" data-event-tab="inventory">Rekapan Bahan</button>
+              <button class="event-tab-btn" id="eventMaterialsTabBtn" type="button" data-event-tab="materials">Daftar Bahan</button>
             </div>
 
             <section class="event-panel" id="eventPanelTransactions" data-event-panel="transactions">
@@ -1635,7 +1638,7 @@
 
             <section class="event-panel" id="eventPanelInventory" data-event-panel="inventory" hidden>
               <p class="event-scope-note">Closing bahan event terpisah dari closing bahan toko. Stok event tidak akan muncul pada cabang mana pun.</p>
-              <div class="toolbar"><div><h3>Rekapan Bahan Event</h3><p>Closing harian bahan khusus event yang dipilih.</p></div><div class="toolbar-actions"><button class="btn btn-light" id="exportEventInventoryBtn">⇩ Ekspor CSV</button><button class="btn btn-dark" id="closeEventDailyRecapBtn" data-admin-write>✓ Closing Tanggal Ini</button></div></div>
+              <div class="toolbar"><div><h3>Rekapan Bahan Event</h3><p>Closing harian bahan khusus event yang dipilih.</p></div><div class="toolbar-actions"><button class="btn btn-light" id="exportEventInventoryBtn">⇩ Ekspor CSV</button><button class="btn btn-dark" id="closeEventDailyRecapBtn">✓ Closing Tanggal Ini</button></div></div>
               <div class="card filters">
                 <div class="date-slicer" aria-label="Pilih tanggal rekapan event">
                   <button class="btn btn-light date-nav-btn" id="eventInventoryPrevDateBtn" type="button" title="Hari sebelumnya">‹</button>
@@ -1786,7 +1789,7 @@
           </div>
           <article class="card table-card" style="margin-top:18px">
             <div class="card-head"><div><h3>Hak Akses Akun</h3><p>Admin dapat mengatur akses akun. Owner dapat melihat akses akunnya sendiri dalam mode hanya lihat.</p></div></div>
-            <div class="card-body"><p class="profiles-note" id="profilesAccessNote">Buat akun baru melalui Supabase Dashboard → Authentication → Users. Admin dapat mengubah peran, memilih satu atau beberapa toko untuk Owner, dan memilih satu toko untuk Karyawan. Owner hanya dapat melihat akses akunnya sendiri. Pembatasan baca/tulis berlaku pada tampilan web dan Supabase Row Level Security.</p><div class="table-wrap" id="profilesTable"></div></div>
+            <div class="card-body"><p class="profiles-note" id="profilesAccessNote">Buat akun baru melalui Supabase Dashboard → Authentication → Users. Admin dapat mengubah peran, memilih satu atau beberapa toko untuk Owner, satu toko untuk Karyawan, atau satu event untuk Karyawan Event. Owner hanya dapat melihat akses akunnya sendiri. Pembatasan baca/tulis berlaku pada tampilan web dan Supabase Row Level Security.</p><div class="table-wrap" id="profilesTable"></div></div>
           </article>
         </section>
       </div>
@@ -2043,6 +2046,7 @@
 -- Admin: akses penuh dan dapat mengubah data.
 -- Owner: melihat data pada satu atau beberapa toko yang ditetapkan, tanpa mengubah data.
 -- Karyawan: mengelola rekapan bahan hanya pada satu toko yang ditetapkan.
+-- Karyawan Event: hanya mengelola Rekapan Bahan pada satu event yang dipilih Admin.
 
 -- PERBAIKAN PRIORITAS METODE PEMBAYARAN.
 -- Bagian ini ditempatkan paling awal agar kolom payment_method tersedia sebelum aplikasi menyimpan transaksi.
@@ -2074,6 +2078,7 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   role text NOT NULL DEFAULT 'employee',
   branch text,
   branches text[] NOT NULL DEFAULT '{}'::text[],
+  event_id text,
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
@@ -2085,6 +2090,10 @@ DROP FUNCTION IF EXISTS public.can_access_store(text) CASCADE;
 DROP FUNCTION IF EXISTS public.current_user_branches() CASCADE;
 DROP FUNCTION IF EXISTS public.current_user_branch() CASCADE;
 DROP FUNCTION IF EXISTS public.can_view_all() CASCADE;
+DROP FUNCTION IF EXISTS public.can_manage_event_inventory(text) CASCADE;
+DROP FUNCTION IF EXISTS public.can_access_event(text) CASCADE;
+DROP FUNCTION IF EXISTS public.current_user_event() CASCADE;
+DROP FUNCTION IF EXISTS public.is_event_employee() CASCADE;
 DROP FUNCTION IF EXISTS public.is_owner() CASCADE;
 DROP FUNCTION IF EXISTS public.is_admin() CASCADE;
 
@@ -2094,9 +2103,10 @@ ALTER TABLE public.profiles ALTER COLUMN role TYPE text USING role::text;
 ALTER TABLE public.profiles ALTER COLUMN role SET DEFAULT 'employee';
 ALTER TABLE public.profiles DROP CONSTRAINT IF EXISTS profiles_role_check;
 ALTER TABLE public.profiles ADD CONSTRAINT profiles_role_check
-  CHECK (role IN ('admin','owner','employee'));
+  CHECK (role IN ('admin','owner','employee','event_employee'));
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS branch text;
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS branches text[] NOT NULL DEFAULT '{}'::text[];
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS event_id text;
 ALTER TABLE public.profiles DROP CONSTRAINT IF EXISTS profiles_branch_check;
 ALTER TABLE public.profiles ADD CONSTRAINT profiles_branch_check CHECK (
   branch IS NULL OR branch IN (
@@ -2113,8 +2123,9 @@ ALTER TABLE public.profiles ADD CONSTRAINT profiles_branches_check CHECK (
 UPDATE public.profiles
 SET branches = ARRAY[branch]
 WHERE role = 'owner' AND branch IS NOT NULL AND cardinality(branches) = 0;
-UPDATE public.profiles SET branch = NULL WHERE role = 'owner';
+UPDATE public.profiles SET branch = NULL WHERE role IN ('owner','event_employee');
 UPDATE public.profiles SET branches = '{}'::text[] WHERE role <> 'owner';
+UPDATE public.profiles SET event_id = NULL WHERE role <> 'event_employee';
 
 CREATE TABLE IF NOT EXISTS public.events (
   id text PRIMARY KEY,
@@ -2136,6 +2147,10 @@ ALTER TABLE public.events DROP CONSTRAINT IF EXISTS events_store_check;
 ALTER TABLE public.events ADD CONSTRAINT events_store_check CHECK (
   store IS NULL OR store IN ('Chickumbar Blok M','Susu Sore','Hi Fruit','Ngayamin','Chickumbar Barito')
 );
+
+ALTER TABLE public.profiles DROP CONSTRAINT IF EXISTS profiles_event_id_fkey;
+ALTER TABLE public.profiles ADD CONSTRAINT profiles_event_id_fkey
+  FOREIGN KEY (event_id) REFERENCES public.events(id) ON DELETE SET NULL;
 
 CREATE TABLE IF NOT EXISTS public.transactions (
   id text PRIMARY KEY,
@@ -2246,6 +2261,38 @@ RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS
   );
 $$;
 
+CREATE OR REPLACE FUNCTION public.is_event_employee()
+RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.profiles
+    WHERE user_id = auth.uid() AND role = 'event_employee'
+  );
+$$;
+
+CREATE OR REPLACE FUNCTION public.current_user_event()
+RETURNS text LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
+  SELECT event_id FROM public.profiles
+  WHERE user_id = auth.uid() AND role = 'event_employee'
+  LIMIT 1;
+$$;
+
+CREATE OR REPLACE FUNCTION public.can_access_event(target_event_id text)
+RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
+  SELECT public.is_admin()
+    OR EXISTS (
+      SELECT 1 FROM public.profiles
+      WHERE user_id = auth.uid()
+        AND role = 'event_employee'
+        AND event_id IS NOT NULL
+        AND event_id = target_event_id
+    );
+$$;
+
+CREATE OR REPLACE FUNCTION public.can_manage_event_inventory(target_event_id text)
+RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
+  SELECT public.can_access_event(target_event_id);
+$$;
+
 CREATE OR REPLACE FUNCTION public.can_view_all()
 RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
   SELECT public.is_admin();
@@ -2292,6 +2339,10 @@ $$;
 
 REVOKE ALL ON FUNCTION public.is_admin() FROM public;
 REVOKE ALL ON FUNCTION public.is_owner() FROM public;
+REVOKE ALL ON FUNCTION public.is_event_employee() FROM public;
+REVOKE ALL ON FUNCTION public.current_user_event() FROM public;
+REVOKE ALL ON FUNCTION public.can_access_event(text) FROM public;
+REVOKE ALL ON FUNCTION public.can_manage_event_inventory(text) FROM public;
 REVOKE ALL ON FUNCTION public.can_view_all() FROM public;
 REVOKE ALL ON FUNCTION public.current_user_branches() FROM public;
 REVOKE ALL ON FUNCTION public.current_user_branch() FROM public;
@@ -2299,6 +2350,10 @@ REVOKE ALL ON FUNCTION public.can_access_store(text) FROM public;
 REVOKE ALL ON FUNCTION public.can_manage_inventory(text) FROM public;
 GRANT EXECUTE ON FUNCTION public.is_admin() TO authenticated;
 GRANT EXECUTE ON FUNCTION public.is_owner() TO authenticated;
+GRANT EXECUTE ON FUNCTION public.is_event_employee() TO authenticated;
+GRANT EXECUTE ON FUNCTION public.current_user_event() TO authenticated;
+GRANT EXECUTE ON FUNCTION public.can_access_event(text) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.can_manage_event_inventory(text) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.can_view_all() TO authenticated;
 GRANT EXECUTE ON FUNCTION public.current_user_branches() TO authenticated;
 GRANT EXECUTE ON FUNCTION public.current_user_branch() TO authenticated;
@@ -2317,12 +2372,13 @@ SET search_path = public
 AS $$
 DECLARE
   target_store text;
+  target_event_id text;
 BEGIN
   IF new_stock IS NULL OR new_stock < 0 THEN
     RAISE EXCEPTION 'Stok tidak valid';
   END IF;
 
-  SELECT store INTO target_store
+  SELECT store, event_id INTO target_store, target_event_id
   FROM public.inventory
   WHERE id = target_inventory_id;
 
@@ -2330,7 +2386,11 @@ BEGIN
     RAISE EXCEPTION 'Bahan tidak ditemukan';
   END IF;
 
-  IF NOT public.can_manage_inventory(target_store) THEN
+  IF target_event_id IS NOT NULL THEN
+    IF NOT public.can_manage_event_inventory(target_event_id) THEN
+      RAISE EXCEPTION 'Akses event ditolak';
+    END IF;
+  ELSIF NOT public.can_manage_inventory(target_store) THEN
     RAISE EXCEPTION 'Akses ditolak';
   END IF;
 
@@ -2354,8 +2414,8 @@ BEGIN
     assigned_role := 'admin';
   END IF;
 
-  INSERT INTO public.profiles (user_id, email, role, branch, branches)
-  VALUES (new.id, new.email, assigned_role, NULL, '{}'::text[])
+  INSERT INTO public.profiles (user_id, email, role, branch, branches, event_id)
+  VALUES (new.id, new.email, assigned_role, NULL, '{}'::text[], NULL)
   ON CONFLICT (user_id) DO UPDATE SET email = excluded.email;
   RETURN new;
 END;
@@ -2374,7 +2434,7 @@ ON CONFLICT (user_id) DO UPDATE SET email = excluded.email;
 DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM public.profiles WHERE role = 'admin') THEN
-    UPDATE public.profiles SET role = 'admin', branch = NULL, branches = '{}'::text[]
+    UPDATE public.profiles SET role = 'admin', branch = NULL, branches = '{}'::text[], event_id = NULL
     WHERE user_id = (
       SELECT id FROM auth.users ORDER BY created_at ASC LIMIT 1
     );
@@ -2426,7 +2486,10 @@ DROP POLICY IF EXISTS "Inventory update by admin" ON public.inventory;
 DROP POLICY IF EXISTS "Inventory delete by admin" ON public.inventory;
 CREATE POLICY "Inventory readable by access"
 ON public.inventory FOR SELECT TO authenticated
-USING (public.can_access_store(store));
+USING (
+  (event_id IS NULL AND public.can_access_store(store))
+  OR (event_id IS NOT NULL AND public.can_access_event(event_id))
+);
 CREATE POLICY "Inventory insert by admin"
 ON public.inventory FOR INSERT TO authenticated
 WITH CHECK (public.is_admin());
@@ -2444,29 +2507,45 @@ DROP POLICY IF EXISTS "Daily inventory update by manager" ON public.inventory_da
 DROP POLICY IF EXISTS "Daily inventory delete by manager" ON public.inventory_daily;
 CREATE POLICY "Daily inventory readable by access"
 ON public.inventory_daily FOR SELECT TO authenticated
-USING (public.can_access_store(store));
+USING (
+  (event_id IS NULL AND public.can_access_store(store))
+  OR (event_id IS NOT NULL AND public.can_access_event(event_id))
+);
 CREATE POLICY "Daily inventory insert by manager"
 ON public.inventory_daily FOR INSERT TO authenticated
-WITH CHECK (public.can_manage_inventory(store));
+WITH CHECK (
+  (event_id IS NULL AND public.can_manage_inventory(store))
+  OR (event_id IS NOT NULL AND public.can_manage_event_inventory(event_id))
+);
 CREATE POLICY "Daily inventory update by manager"
 ON public.inventory_daily FOR UPDATE TO authenticated
-USING (public.can_manage_inventory(store))
-WITH CHECK (public.can_manage_inventory(store));
+USING (
+  (event_id IS NULL AND public.can_manage_inventory(store))
+  OR (event_id IS NOT NULL AND public.can_manage_event_inventory(event_id))
+)
+WITH CHECK (
+  (event_id IS NULL AND public.can_manage_inventory(store))
+  OR (event_id IS NOT NULL AND public.can_manage_event_inventory(event_id))
+);
 CREATE POLICY "Daily inventory delete by manager"
 ON public.inventory_daily FOR DELETE TO authenticated
-USING (public.can_manage_inventory(store));
+USING (
+  (event_id IS NULL AND public.can_manage_inventory(store))
+  OR (event_id IS NOT NULL AND public.can_manage_event_inventory(event_id))
+);
 
 DROP POLICY IF EXISTS "Authenticated users read events" ON public.events;
 DROP POLICY IF EXISTS "Admin manages events" ON public.events;
 DROP POLICY IF EXISTS "Admin and owner read events" ON public.events;
-CREATE POLICY "Admin and owner read events"
-ON public.events FOR SELECT TO authenticated USING (public.is_admin());
+DROP POLICY IF EXISTS "Event readable by access" ON public.events;
+CREATE POLICY "Event readable by access"
+ON public.events FOR SELECT TO authenticated USING (public.can_access_event(id));
 CREATE POLICY "Admin manages events"
 ON public.events FOR ALL TO authenticated
 USING (public.is_admin()) WITH CHECK (public.is_admin());
 
 GRANT SELECT ON public.profiles TO authenticated;
-GRANT UPDATE (role, branch, branches) ON public.profiles TO authenticated;
+GRANT UPDATE (role, branch, branches, event_id) ON public.profiles TO authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.events TO authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.transactions TO authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.inventory TO authenticated;
@@ -2876,7 +2955,9 @@ NOTIFY pgrst, 'reload schema';`
       const isAdmin = () => state.profile?.role === 'admin';
       const isOwner = () => state.profile?.role === 'owner';
       const isEmployee = () => state.profile?.role === 'employee';
+      const isEventEmployee = () => state.profile?.role === 'event_employee';
       const canViewAll = () => isAdmin() || isOwner();
+      const canViewEvents = () => isAdmin() || isEventEmployee();
       const profileBranches = profile => {
         const saved=Array.isArray(profile?.branches)?profile.branches:[];
         const legacy=profile?.role==='owner'&&profile?.branch?[profile.branch]:[];
@@ -2884,10 +2965,14 @@ NOTIFY pgrst, 'reload schema';`
       };
       const ownerBranches = () => isOwner() ? profileBranches(state.profile) : [];
       const employeeBranch = () => isEmployee() ? (state.profile?.branch || '') : '';
-      const accessibleStores = () => isAdmin() ? [...STORES] : isOwner() ? ownerBranches() : (employeeBranch() ? [employeeBranch()] : []);
+      const eventEmployeeId = () => isEventEmployee() ? (state.profile?.event_id || '') : '';
+      const accessibleStores = () => isAdmin() ? [...STORES] : isOwner() ? ownerBranches() : isEmployee()&&employeeBranch() ? [employeeBranch()] : [];
       const assignedBranch = () => employeeBranch();
       const canAccessStore = store => isAdmin() || accessibleStores().includes(store);
+      const canAccessEvent = eventId => isAdmin() || (isEventEmployee() && !!eventEmployeeId() && eventEmployeeId()===eventId);
+      const canAccessInventoryRecord = item => item?.eventId ? canAccessEvent(item.eventId) : canAccessStore(item?.store);
       const canEditInventory = () => isAdmin() || (isEmployee() && !!employeeBranch());
+      const canEditEventInventory = () => isAdmin() || (isEventEmployee() && !!eventEmployeeId());
       const canManageMaterials = () => isAdmin();
       const eventById = id => state.events.find(item => item.id === id);
       const eventName = id => id ? (eventById(id)?.name || 'Event tidak ditemukan') : 'Non-Event';
@@ -2976,7 +3061,7 @@ NOTIFY pgrst, 'reload schema';`
       }
 
       async function loadCurrentProfile(user){
-        const {data,error}=await db.from('profiles').select('user_id,email,role,branch,branches,created_at').eq('user_id',user.id).single();
+        const {data,error}=await db.from('profiles').select('user_id,email,role,branch,branches,event_id,created_at').eq('user_id',user.id).single();
         if(error)throw error;
         state.profile=data;
       }
@@ -2984,31 +3069,42 @@ NOTIFY pgrst, 'reload schema';`
       function applyRoleUI(){
         const admin=isAdmin();
         const owner=isOwner();
+        const employee=isEmployee();
+        const eventEmployee=isEventEmployee();
         const fullView=canViewAll();
         const employeeStore=employeeBranch();
+        const assignedEventId=eventEmployeeId();
+        const assignedEvent=eventById(assignedEventId);
         const ownerStores=ownerBranches();
         const ownerStoreText=ownerStores.join(', ');
         document.querySelectorAll('[data-full-view]').forEach(node=>node.hidden=!fullView);
         document.querySelectorAll('[data-admin-only]').forEach(node=>node.hidden=!admin);
         document.querySelectorAll('[data-admin-write]').forEach(node=>node.hidden=!admin);
         const eventNav=document.querySelector('#nav [data-view="events"]');
-        if(eventNav)eventNav.hidden=!admin;
-        if(el('view-events'))el('view-events').hidden=!admin;
+        const inventoryNav=document.querySelector('#nav [data-view="inventory"]');
+        if(eventNav)eventNav.hidden=!canViewEvents();
+        if(inventoryNav)inventoryNav.hidden=eventEmployee;
+        if(el('view-events'))el('view-events').hidden=!canViewEvents();
 
-        const roleLabel=admin?'Admin':owner?'Owner':'Karyawan';
-        const accessLabel=admin?'Semua toko':owner?(ownerStores.length?ownerStoreText:'Toko belum ditetapkan'):(employeeStore||'Toko belum ditetapkan');
-        el('roleBadge').textContent=admin?'Admin':owner?`Owner · ${ownerStores.length?`${ownerStores.length} toko`:'Belum ada toko'}`:`Karyawan · ${employeeStore||'Belum ada cabang'}`;
-        el('roleBadge').className=`role-badge ${admin?'role-admin':owner?'role-owner':'role-employee'}`;
+        const roleLabel=admin?'Admin':owner?'Owner':eventEmployee?'Karyawan Event':'Karyawan';
+        const accessLabel=admin?'Semua toko dan event':owner?(ownerStores.length?ownerStoreText:'Toko belum ditetapkan'):eventEmployee?(assignedEvent?.name||assignedEventId||'Event belum ditetapkan'):(employeeStore||'Toko belum ditetapkan');
+        el('roleBadge').textContent=admin?'Admin':owner?`Owner · ${ownerStores.length?`${ownerStores.length} toko`:'Belum ada toko'}`:eventEmployee?`Karyawan Event · ${assignedEvent?.name||'Belum ada event'}`:`Karyawan · ${employeeStore||'Belum ada cabang'}`;
+        el('roleBadge').className=`role-badge ${admin?'role-admin':owner?'role-owner':eventEmployee?'role-event-employee':'role-employee'}`;
         el('settingsUserRole').textContent=roleLabel;
         el('settingsUserBranch').textContent=accessLabel;
-        el('sidebarUserAccess').textContent=admin?'Admin · Semua toko dan event':owner?(ownerStores.length?`Owner · ${ownerStores.length} toko · Hanya lihat`:'Owner · Toko belum ditetapkan'):employeeStore?`Karyawan · ${employeeStore}`:'Karyawan · Cabang belum ditetapkan';
+        el('sidebarUserAccess').textContent=admin?'Admin · Semua toko dan event':owner?(ownerStores.length?`Owner · ${ownerStores.length} toko · Hanya lihat`:'Owner · Toko belum ditetapkan'):eventEmployee?(assignedEvent?`Karyawan Event · ${assignedEvent.name}`:'Karyawan Event · Event belum ditetapkan'):employeeStore?`Karyawan · ${employeeStore}`:'Karyawan · Cabang belum ditetapkan';
         el('transactionAccessText').textContent=owner?(ownerStores.length?`Mode hanya lihat untuk transaksi ${ownerStores.length} toko yang ditetapkan.`:'Mode Owner aktif, tetapi toko akses belum ditetapkan oleh Admin.'):'Catat transaksi operasional toko. Seluruh transaksi event dikelola terpisah melalui menu Event.';
-        el('eventAccessText').textContent='Event hanya dapat diakses dan dikelola oleh Admin karena tidak menjadi bagian dari toko.';
+        el('eventAccessText').textContent=eventEmployee?'Akun ini hanya dapat membuka dan melakukan closing Rekapan Bahan pada event yang dipilih Admin.':'Event hanya dapat diakses dan dikelola oleh Admin karena tidak menjadi bagian dari toko.';
         if(el('settingsAccessText'))el('settingsAccessText').textContent=owner?(ownerStores.length?`Mode Owner: data ${ownerStores.length} toko dapat dilihat tanpa mengubahnya.`:'Mode Owner: pilih toko akses melalui akun Admin terlebih dahulu.'):'Kelola koneksi, akun, cadangan, dan data online aplikasi.';
-        if(el('profilesAccessNote'))el('profilesAccessNote').textContent=owner?'Mode hanya lihat: Anda hanya dapat memeriksa akses akun sendiri.':'Buat akun baru melalui Supabase Dashboard → Authentication → Users. Admin dapat memilih beberapa toko untuk Owner dan satu toko untuk Karyawan. Pembatasan baca/tulis berlaku pada tampilan web dan Supabase Row Level Security.';
+        if(el('profilesAccessNote'))el('profilesAccessNote').textContent=owner?'Mode hanya lihat: Anda hanya dapat memeriksa akses akun sendiri.':'Buat akun baru melalui Supabase Dashboard → Authentication → Users. Admin dapat memilih beberapa toko untuk Owner, satu toko untuk Karyawan, atau satu event untuk Karyawan Event. Pembatasan baca/tulis berlaku pada tampilan web dan Supabase Row Level Security.';
         applyStoreAccessUI();
+        applyEventEmployeeUI();
 
-        if(isEmployee()){
+        if(eventEmployee){
+          activeEventTab='inventory';
+          activeView='events';
+          switchView('events');
+        }else if(employee){
           if(activeView!=='inventory')activeView='inventory';
           switchView('inventory');
         }else if(owner&&activeView==='events'){
@@ -3025,9 +3121,31 @@ NOTIFY pgrst, 'reload schema';`
         }
       }
 
+      function applyEventEmployeeUI(){
+        const restricted=isEventEmployee();
+        ['eventPageToolbar','eventMainStats','eventRecapHeading','eventRecapStats','eventListFilters','eventListCard'].forEach(id=>{const node=el(id);if(node)node.hidden=restricted;});
+        if(el('eventTransactionsTabBtn'))el('eventTransactionsTabBtn').hidden=restricted;
+        if(el('eventMaterialsTabBtn'))el('eventMaterialsTabBtn').hidden=restricted;
+        if(el('eventInventoryTabBtn'))el('eventInventoryTabBtn').hidden=false;
+        if(el('eventPanelTransactions'))el('eventPanelTransactions').hidden=restricted||activeEventTab!=='transactions';
+        if(el('eventPanelMaterials'))el('eventPanelMaterials').hidden=restricted||activeEventTab!=='materials';
+        const selector=el('eventWorkspaceSelect');
+        if(selector){
+          selector.disabled=restricted;
+          const label=selector.closest('.event-selector-wrap')?.querySelector('label');
+          if(label)label.textContent=restricted?'Event yang Dipilih Admin':'Pilih Event';
+        }
+      }
+
       function applyStoreAccessUI(){
         const admin=isAdmin();
         const owner=isOwner();
+
+        if(isEventEmployee()){
+          el('globalStore').hidden=true;
+          el('globalStore').disabled=true;
+          return;
+        }
 
         if(admin){
           el('globalStore').hidden=false;
@@ -3211,9 +3329,18 @@ NOTIFY pgrst, 'reload schema';`
         populateEventSelect(el('inventoryEvent'),{includeNone:true});
         const workspace=el('eventWorkspaceSelect');
         const previous=workspace.value;
-        populateEventSelect(workspace,{includeAll:true,includeNone:false});
-        if(previous&&[...workspace.options].some(option=>option.value===previous))workspace.value=previous;
-        else workspace.value='all';
+        populateEventSelect(workspace,{includeAll:isAdmin(),includeNone:false});
+        if(isEventEmployee()){
+          const assigned=eventEmployeeId();
+          if(assigned&&[...workspace.options].some(option=>option.value===assigned))workspace.value=assigned;
+          else workspace.innerHTML='<option value="">Event belum ditetapkan oleh Admin</option>';
+          workspace.disabled=true;
+        }else{
+          workspace.disabled=false;
+          if(previous&&[...workspace.options].some(option=>option.value===previous))workspace.value=previous;
+          else if([...workspace.options].some(option=>option.value==='all'))workspace.value='all';
+          else if(workspace.options.length)workspace.selectedIndex=0;
+        }
       }
 
       function bindEvents(){
@@ -3263,9 +3390,10 @@ NOTIFY pgrst, 'reload schema';`
       async function logout(){if(db)await db.auth.signOut();}
       async function changeConnection(){if(!confirm('Ubah koneksi Supabase? Anda akan keluar dari sesi saat ini.'))return;forceSetupScreen=true;stopCloudRefresh();if(db)await db.auth.signOut();else showSetup();}
       function switchView(view){
-        if(isEmployee())view='inventory';
+        if(isEventEmployee())view='events';
+        else if(isEmployee())view='inventory';
         if(isOwner()&&view==='events')view='dashboard';
-        if(!canViewAll()&&(view==='materials'||view==='settings'||view==='events'))view='inventory';
+        if(!canViewAll()&&!canViewEvents()&&(view==='materials'||view==='settings'||view==='events'))view='inventory';
         activeView=view;
         document.querySelectorAll('.view').forEach(v=>v.classList.toggle('active',v.id===`view-${view}`));
         document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('active',b.dataset.view===view));
@@ -3379,12 +3507,12 @@ NOTIFY pgrst, 'reload schema';`
       function selectedInventoryDate(){return el('inventoryDateFilter').value||todayISO();}
       function selectedInventoryStore(){if(isEmployee())return employeeBranch();const value=el('globalStore').value;return value&&value!=='all'?value:'';}
       function selectedMaterialStore(){if(isEmployee())return employeeBranch();const value=el('globalStore').value;return value&&value!=='all'?value:'';}
-      function selectedEventWorkspaceId(){return el('eventWorkspaceSelect')?.value||'';}
+      function selectedEventWorkspaceId(){return isEventEmployee()?eventEmployeeId():(el('eventWorkspaceSelect')?.value||'');}
       function selectedEventInventoryDate(){return el('eventInventoryDateFilter').value||todayISO();}
       function shiftEventInventoryDate(days){const current=new Date(`${selectedEventInventoryDate()}T12:00:00`);current.setDate(current.getDate()+days);changeEventInventoryDate(jakartaDate(current));}
       function changeEventInventoryDate(date){el('eventInventoryDateFilter').value=date;renderEventInventory();}
-      function selectEventWorkspace(eventId,tab='transactions'){if(eventId&&[...el('eventWorkspaceSelect').options].some(option=>option.value===eventId))el('eventWorkspaceSelect').value=eventId;activeEventTab=['transactions','inventory','materials'].includes(tab)?tab:'transactions';renderEvents();setTimeout(()=>el('eventWorkspace').scrollIntoView({behavior:'smooth',block:'start'}),40);}
-      function switchEventTab(tab){activeEventTab=['transactions','inventory','materials'].includes(tab)?tab:'transactions';document.querySelectorAll('[data-event-tab]').forEach(button=>button.classList.toggle('active',button.dataset.eventTab===activeEventTab));document.querySelectorAll('[data-event-panel]').forEach(panel=>panel.hidden=panel.dataset.eventPanel!==activeEventTab);if(activeEventTab==='transactions')renderEventTransactions();if(activeEventTab==='inventory')renderEventInventory();if(activeEventTab==='materials')renderEventMaterials();}
+      function selectEventWorkspace(eventId,tab='transactions'){if(isEventEmployee()){activeEventTab='inventory';renderEvents();return;}if(eventId&&[...el('eventWorkspaceSelect').options].some(option=>option.value===eventId))el('eventWorkspaceSelect').value=eventId;activeEventTab=['transactions','inventory','materials'].includes(tab)?tab:'transactions';renderEvents();setTimeout(()=>el('eventWorkspace').scrollIntoView({behavior:'smooth',block:'start'}),40);}
+      function switchEventTab(tab){activeEventTab=isEventEmployee()?'inventory':(['transactions','inventory','materials'].includes(tab)?tab:'transactions');document.querySelectorAll('[data-event-tab]').forEach(button=>button.classList.toggle('active',button.dataset.eventTab===activeEventTab));document.querySelectorAll('[data-event-panel]').forEach(panel=>panel.hidden=panel.dataset.eventPanel!==activeEventTab);applyEventEmployeeUI();if(activeEventTab==='transactions')renderEventTransactions();if(activeEventTab==='inventory')renderEventInventory();if(activeEventTab==='materials')renderEventMaterials();}
 
       function shiftInventoryDate(days){const current=new Date(`${selectedInventoryDate()}T12:00:00`);current.setDate(current.getDate()+days);changeInventoryDate(jakartaDate(current));}
       function changeInventoryDate(date){el('inventoryDateFilter').value=date;renderInventory();}
@@ -3411,8 +3539,8 @@ NOTIFY pgrst, 'reload schema';`
       function dailyRowsForDisplay(date,store,eventId=null){
         const exactStore=store&&store!=='all'?store:'';
         const inScope=item=>eventId?item.eventId===eventId:!item.eventId;
-        const saved=state.inventoryDaily.filter(row=>row.date===date&&canAccessStore(row.store)&&inScope(row)&&(!exactStore||row.store===exactStore)).map(dailyRecordWithCurrentMaster);
-        const masters=state.inventory.filter(item=>canAccessStore(item.store)&&inScope(item)&&(!exactStore||item.store===exactStore));
+        const saved=state.inventoryDaily.filter(row=>row.date===date&&canAccessInventoryRecord(row)&&inScope(row)&&(!exactStore||row.store===exactStore)).map(dailyRecordWithCurrentMaster);
+        const masters=state.inventory.filter(item=>canAccessInventoryRecord(item)&&inScope(item)&&(!exactStore||item.store===exactStore));
         const savedByInventory=new Map(saved.filter(row=>row.inventoryId).map(row=>[row.inventoryId,row]));
         const masterIds=new Set(masters.map(item=>item.id));
         const automatic=masters.map(master=>savedByInventory.get(master.id)||createVirtualDailyRecord(master,date));
@@ -3432,7 +3560,7 @@ NOTIFY pgrst, 'reload schema';`
 
       function openDailyClosingModal(context='store'){
         const eventMode=context==='event';
-        if(eventMode?!isAdmin():!canEditInventory())return toast('Akun ini tidak memiliki izin melakukan closing.');
+        if(eventMode?!canEditEventInventory():!canEditInventory())return toast('Akun ini tidak memiliki izin melakukan closing.');
         const eventId=eventMode?selectedEventWorkspaceId():null;
         const store=eventMode?EVENT_STORE:selectedInventoryStore();
         const date=eventMode?selectedEventInventoryDate():selectedInventoryDate();
@@ -3459,7 +3587,7 @@ NOTIFY pgrst, 'reload schema';`
       async function saveDailyClosing(event){
         event.preventDefault();
         const eventMode=el('dailyClosingContext').value==='event';
-        if(eventMode?!isAdmin():!canEditInventory())return;
+        if(eventMode?!canEditEventInventory():!canEditInventory())return;
         const store=el('dailyClosingStore').value;
         const date=el('dailyClosingDate').value;
         const eventId=el('dailyClosingEventId').value||null;
@@ -3564,6 +3692,7 @@ NOTIFY pgrst, 'reload schema';`
       function canRestoreView(view){
         const valid=['dashboard','transactions','inventory','materials','events','payroll','settings'];
         if(!valid.includes(view))return false;
+        if(isEventEmployee())return view==='events';
         if(isEmployee())return view==='inventory';
         if(isOwner()&&view==='events')return false;
         if(!canViewAll()&&(view==='materials'||view==='events'||view==='payroll'||view==='settings'))return false;
@@ -3601,36 +3730,44 @@ NOTIFY pgrst, 'reload schema';`
         dataLoading=true;setCloudStatus('syncing','Menyinkronkan');
         try{
           if(currentSession?.user){
-            const {data:profileData,error:profileError}=await db.from('profiles').select('user_id,email,role,branch,branches,created_at').eq('user_id',currentSession.user.id).single();
+            const {data:profileData,error:profileError}=await db.from('profiles').select('user_id,email,role,branch,branches,event_id,created_at').eq('user_id',currentSession.user.id).single();
             if(profileError)throw profileError;
             state.profile=profileData;
             applyRoleUI();
           }
-          const eventPromise=isAdmin()?db.from('events').select('*').order('event_date',{ascending:false}):Promise.resolve({data:[],error:null});
+          const assignedEventId=eventEmployeeId();
+          const eventPromise=isAdmin()
+            ? db.from('events').select('*').order('event_date',{ascending:false})
+            : isEventEmployee()&&assignedEventId
+              ? db.from('events').select('*').eq('id',assignedEventId).order('event_date',{ascending:false})
+              : Promise.resolve({data:[],error:null});
           const stores=accessibleStores();
           const inventoryPromise=isAdmin()
             ? db.from('inventory').select('*').order('store',{ascending:true}).order('name',{ascending:true})
-            : stores.length
-              ? db.from('inventory').select('*').in('store',stores).order('store',{ascending:true}).order('name',{ascending:true})
-              : Promise.resolve({data:[],error:null});
+            : isEventEmployee()&&assignedEventId
+              ? db.from('inventory').select('*').eq('event_id',assignedEventId).order('name',{ascending:true})
+              : stores.length
+                ? db.from('inventory').select('*').in('store',stores).is('event_id',null).order('store',{ascending:true}).order('name',{ascending:true})
+                : Promise.resolve({data:[],error:null});
           const transactionPromise=isAdmin()
             ? db.from('transactions').select('*').order('transaction_date',{ascending:false}).order('created_at',{ascending:false})
             : isOwner()&&stores.length
               ? db.from('transactions').select('*').in('store',stores).is('event_id',null).order('transaction_date',{ascending:false}).order('created_at',{ascending:false})
               : Promise.resolve({data:[],error:null});
           let dailyQuery=db.from('inventory_daily').select('*').order('record_date',{ascending:false}).order('store',{ascending:true}).order('name',{ascending:true});
-          if(!isAdmin()&&stores.length)dailyQuery=dailyQuery.in('store',stores);
-          const dailyPromise=stores.length||isAdmin()?dailyQuery:Promise.resolve({data:[],error:null});
+          if(isEventEmployee()&&assignedEventId)dailyQuery=dailyQuery.eq('event_id',assignedEventId);
+          else if(!isAdmin()&&stores.length)dailyQuery=dailyQuery.in('store',stores).is('event_id',null);
+          const dailyPromise=isAdmin()||stores.length||(isEventEmployee()&&assignedEventId)?dailyQuery:Promise.resolve({data:[],error:null});
           const employeesPromise=stores.length||isAdmin()?db.from('employees').select('*').in('store',stores.length?stores:STORES).order('store',{ascending:true}).order('name',{ascending:true}):Promise.resolve({data:[],error:null});
           const payrollDailyPromise=stores.length||isAdmin()?db.from('payroll_daily').select('*').in('store',stores.length?stores:STORES).order('work_date',{ascending:false}).order('employee_name',{ascending:true}):Promise.resolve({data:[],error:null});
           const payrollAdvancePromise=stores.length||isAdmin()?db.from('payroll_advances').select('*').in('store',stores.length?stores:STORES).order('advance_date',{ascending:false}).order('employee_name',{ascending:true}):Promise.resolve({data:[],error:null});
           const payrollMonthlyPromise=stores.length||isAdmin()?db.from('payroll_monthly_payments').select('*').in('store',stores.length?stores:STORES).order('payroll_month',{ascending:false}).order('employee_name',{ascending:true}):Promise.resolve({data:[],error:null});
-          const profilesPromise=isAdmin()?db.from('profiles').select('user_id,email,role,branch,branches,created_at').order('created_at',{ascending:true}):Promise.resolve({data:[state.profile],error:null});
+          const profilesPromise=isAdmin()?db.from('profiles').select('user_id,email,role,branch,branches,event_id,created_at').order('created_at',{ascending:true}):Promise.resolve({data:[state.profile],error:null});
           const [eventResult,inventoryResult,txResult,dailyResult,employeesResult,payrollDailyResult,payrollAdvanceResult,payrollMonthlyResult,profilesResult]=await Promise.all([eventPromise,inventoryPromise,transactionPromise,dailyPromise,employeesPromise,payrollDailyPromise,payrollAdvancePromise,payrollMonthlyPromise,profilesPromise]);
           for(const result of [eventResult,inventoryResult,txResult,dailyResult,employeesResult,payrollDailyResult,payrollAdvanceResult,payrollMonthlyResult,profilesResult])if(result.error)throw result.error;
           state.events=(eventResult.data||[]).map(rowToEvent);
-          state.inventory=(inventoryResult.data||[]).map(rowToInventory).filter(item=>canAccessStore(item.store));
-          state.inventoryDaily=(dailyResult.data||[]).map(rowToDailyRecord).filter(item=>canAccessStore(item.store));
+          state.inventory=(inventoryResult.data||[]).map(rowToInventory).filter(canAccessInventoryRecord);
+          state.inventoryDaily=(dailyResult.data||[]).map(rowToDailyRecord).filter(canAccessInventoryRecord);
           state.transactions=(txResult.data||[]).map(rowToTransaction).filter(item=>item.eventId?isAdmin():canAccessStore(item.store));
           state.employees=(employeesResult.data||[]).map(rowToEmployee).filter(item=>canAccessStore(item.store));
           state.payrollDaily=(payrollDailyResult.data||[]).map(rowToPayrollDaily).filter(item=>canAccessStore(item.store));
@@ -3638,6 +3775,7 @@ NOTIFY pgrst, 'reload schema';`
           state.payrollMonthlyPayments=(payrollMonthlyResult.data||[]).map(rowToPayrollMonthlyPayment).filter(item=>canAccessStore(item.store));
           state.profiles=profilesResult.data||[];
           state.updatedAt=new Date().toISOString();
+          applyRoleUI();
           refreshEventSelects();
           el('lastSyncText').textContent=new Intl.DateTimeFormat('id-ID',{timeZone:'Asia/Jakarta',hour:'2-digit',minute:'2-digit',second:'2-digit'}).format(new Date());
           hideSyncError();renderAll();restoreSyncUiState(syncUiState);setCloudStatus('online','Tersinkron');
@@ -3645,7 +3783,7 @@ NOTIFY pgrst, 'reload schema';`
         }catch(error){showSyncError(error);restoreSyncUiState(syncUiState);return false;}finally{dataLoading=false;}
       }
 
-      function startCloudRefresh(){stopCloudRefresh();refreshTimer=setInterval(()=>loadCloudData(true),30000);try{cloudChannel=db.channel('rekap-toko-cloud-v6').on('postgres_changes',{event:'*',schema:'public',table:'transactions'},scheduleRealtimeRefresh).on('postgres_changes',{event:'*',schema:'public',table:'inventory'},scheduleRealtimeRefresh).on('postgres_changes',{event:'*',schema:'public',table:'inventory_daily'},scheduleRealtimeRefresh).on('postgres_changes',{event:'*',schema:'public',table:'events'},scheduleRealtimeRefresh).on('postgres_changes',{event:'*',schema:'public',table:'employees'},scheduleRealtimeRefresh).on('postgres_changes',{event:'*',schema:'public',table:'payroll_daily'},scheduleRealtimeRefresh).on('postgres_changes',{event:'*',schema:'public',table:'payroll_advances'},scheduleRealtimeRefresh).on('postgres_changes',{event:'*',schema:'public',table:'payroll_monthly_payments'},scheduleRealtimeRefresh).on('postgres_changes',{event:'*',schema:'public',table:'profiles'},scheduleRealtimeRefresh).subscribe();}catch(error){console.warn('Realtime tidak aktif, polling tetap berjalan.',error);}}
+      function startCloudRefresh(){stopCloudRefresh();refreshTimer=setInterval(()=>loadCloudData(true),30000);try{cloudChannel=db.channel('rekap-toko-cloud-v7').on('postgres_changes',{event:'*',schema:'public',table:'transactions'},scheduleRealtimeRefresh).on('postgres_changes',{event:'*',schema:'public',table:'inventory'},scheduleRealtimeRefresh).on('postgres_changes',{event:'*',schema:'public',table:'inventory_daily'},scheduleRealtimeRefresh).on('postgres_changes',{event:'*',schema:'public',table:'events'},scheduleRealtimeRefresh).on('postgres_changes',{event:'*',schema:'public',table:'employees'},scheduleRealtimeRefresh).on('postgres_changes',{event:'*',schema:'public',table:'payroll_daily'},scheduleRealtimeRefresh).on('postgres_changes',{event:'*',schema:'public',table:'payroll_advances'},scheduleRealtimeRefresh).on('postgres_changes',{event:'*',schema:'public',table:'payroll_monthly_payments'},scheduleRealtimeRefresh).on('postgres_changes',{event:'*',schema:'public',table:'profiles'},scheduleRealtimeRefresh).subscribe();}catch(error){console.warn('Realtime tidak aktif, polling tetap berjalan.',error);}}
       function scheduleRealtimeRefresh(){clearTimeout(realtimeDebounce);realtimeDebounce=setTimeout(async()=>{if(currentSession)await loadCurrentProfile(currentSession.user);applyRoleUI();loadCloudData(true);},400);}
       function stopCloudRefresh(){clearInterval(refreshTimer);clearTimeout(realtimeDebounce);refreshTimer=null;if(cloudChannel&&db)db.removeChannel(cloudChannel);cloudChannel=null;}
 
@@ -3828,7 +3966,8 @@ NOTIFY pgrst, 'reload schema';`
 
       function getEventStatus(item){const today=todayISO();if(item.eventDate>today)return{key:'upcoming',label:'Akan Datang',className:'event-status-upcoming'};if(item.endDate<today)return{key:'completed',label:'Selesai',className:'event-status-completed'};return{key:'ongoing',label:'Berlangsung',className:'event-status-ongoing'};}
       function renderEvents(){
-        if(!canViewAll())return;
+        if(!canViewEvents())return;
+        if(isEventEmployee()){renderEventWorkspace();return;}
         const selectedEventId=selectedEventWorkspaceId();
         const showAllEvents=selectedEventId==='all';
         const recapEvent=showAllEvents?null:eventById(selectedEventId);
@@ -3858,20 +3997,24 @@ NOTIFY pgrst, 'reload schema';`
 
 
       function renderEventWorkspace(){
-        if(!canViewAll())return;
+        if(!canViewEvents())return;
         const eventId=selectedEventWorkspaceId();
         const showAllEvents=eventId==='all';
         const selected=showAllEvents?null:eventById(eventId);
         const disabled=!selected;
         el('eventWorkspaceSubtitle').textContent=showAllEvents
           ? 'Semua Event sedang dipilih untuk Rekapan Event. Pilih satu event tertentu untuk membuka dan mengelola data operasionalnya.'
-          : selected?`${selected.name}${selected.store?` • ${selected.store}`:' • Toko/brand belum dipilih'} • ${formatDate(selected.eventDate)}${selected.endDate!==selected.eventDate?`–${formatDate(selected.endDate)}`:''} • data event tersimpan terpisah dari operasional outlet.`:'Pilih atau tambahkan event untuk membuka data operasional khusus event.';
-        ['addEventTransactionBtn','addEventInventoryBtn','closeEventDailyRecapBtn','exportEventTransactionsBtn','exportEventInventoryBtn'].forEach(id=>{if(el(id))el(id).disabled=disabled||(id.startsWith('add')||id.startsWith('close')?!isAdmin():false);});
+          : selected?`${selected.name}${selected.store?` • ${selected.store}`:' • Toko/brand belum dipilih'} • ${formatDate(selected.eventDate)}${selected.endDate!==selected.eventDate?`–${formatDate(selected.endDate)}`:''} • data event tersimpan terpisah dari operasional outlet.`:isEventEmployee()?'Event belum ditetapkan oleh Admin. Hubungi Admin agar akun ini dihubungkan ke satu event.':'Pilih atau tambahkan event untuk membuka data operasional khusus event.';
+        if(el('addEventTransactionBtn'))el('addEventTransactionBtn').disabled=disabled||!isAdmin();
+        if(el('addEventInventoryBtn'))el('addEventInventoryBtn').disabled=disabled||!isAdmin();
+        if(el('closeEventDailyRecapBtn'))el('closeEventDailyRecapBtn').disabled=disabled||!canEditEventInventory();
+        if(el('exportEventTransactionsBtn'))el('exportEventTransactionsBtn').disabled=disabled||!isAdmin();
+        if(el('exportEventInventoryBtn'))el('exportEventInventoryBtn').disabled=disabled||!canViewEvents();
         switchEventTab(activeEventTab);
       }
 
       function renderEventTransactions(){
-        if(!canViewAll())return;
+        if(!canViewEvents()||isEventEmployee())return;
         const eventId=selectedEventWorkspaceId();
         const date=el('eventTransactionDateFilter').value;
         const periodLabel=date?formatDate(date):'seluruh periode';
@@ -3910,13 +4053,13 @@ NOTIFY pgrst, 'reload schema';`
       }
 
       function renderEventInventory(){
-        if(!canViewAll())return;
+        if(!canViewEvents())return;
         const eventId=selectedEventWorkspaceId();
         const date=selectedEventInventoryDate();
         if(!eventId||eventId==='all'){
           el('eventDailyRecapSummary').innerHTML='';
-          const title=eventId==='all'?'Semua Event dipilih untuk rekapan':'Belum ada event yang dipilih';
-          const detail=eventId==='all'?'Pilih satu event tertentu untuk melihat rekapan bahan dan melakukan closing.':'Pilih event untuk melihat rekapan bahan.';
+          const title=eventId==='all'?'Semua Event dipilih untuk rekapan':isEventEmployee()?'Event belum ditetapkan':'Belum ada event yang dipilih';
+          const detail=eventId==='all'?'Pilih satu event tertentu untuk melihat rekapan bahan dan melakukan closing.':isEventEmployee()?'Hubungi Admin agar akun Karyawan Event ini dihubungkan ke satu event.':'Pilih event untuk melihat rekapan bahan.';
           el('eventInventoryTable').innerHTML=emptyState(title,detail);
           el('eventInventoryClosingDetails').innerHTML=emptyState(title,eventId==='all'?'Pilih satu event tertentu untuk melihat detail closing.':'Pilih event untuk melihat detail closing.');
           el('closeEventDailyRecapBtn').disabled=true;
@@ -3934,12 +4077,12 @@ NOTIFY pgrst, 'reload schema';`
         el('eventDailyTableTitle').textContent=`Daftar Bahan Event — ${formatDate(date)}`;
         el('eventDailyTableSubtitle').textContent=eventName(eventId);
         applyEventDailyActionState(date,eventId);
-        if(!rows.length){el('eventInventoryTable').innerHTML=emptyState('Belum ada bahan event','Tambahkan nama bahan melalui tab Daftar Bahan Event.');return;}
+        if(!rows.length){el('eventInventoryTable').innerHTML=emptyState('Belum ada bahan event',isAdmin()?'Tambahkan nama bahan melalui tab Daftar Bahan Event.':'Admin belum menambahkan daftar bahan untuk event ini.');return;}
         el('eventInventoryTable').innerHTML=`<table><thead><tr><th>Nama Bahan</th><th>Satuan</th><th>Stok Awal</th><th>Stok Masuk</th><th>Stok Akhir</th><th>Terpakai</th><th>Status Bahan</th><th>Status Closing</th></tr></thead><tbody>${rows.map(item=>{const savedAt=item.closedAt||item.updatedAt;const closeBadge=item.isClosed?`<span class="badge badge-closed">Sudah Closing</span><small class="status-detail">Disimpan ${escapeHtml(formatSavedDateTime(savedAt))}</small>`:'<span class="badge badge-open">Belum Closing</span><small class="status-detail">Belum pernah disimpan</small>';const materialStatus=getDailyMaterialStatus(item);return`<tr class="material-status-row material-status-${materialStatus.key}"><td><strong>${escapeHtml(item.name)}</strong></td><td>${escapeHtml(item.unit||'unit')}</td><td>${number(item.openingStock)}</td><td>${item.isClosed?number(item.stockIn):'<span class="muted">—</span>'}</td><td>${item.closingStock==null?'<span class="muted">Belum diisi</span>':number(item.closingStock)}</td><td><strong class="${item.usedStock>0?'used-value':'muted'}">${item.isClosed?number(item.usedStock):'—'}</strong></td><td><span class="badge ${materialStatus.className}">${materialStatus.label}</span><small class="status-detail">Stok acuan ${number(materialStatus.stock)} · Minimum ${number(materialStatus.min)} ${escapeHtml(item.unit||'unit')}</small></td><td>${closeBadge}</td></tr>`;}).join('')}</tbody></table>`;
       }
 
       function renderEventMaterials(){
-        if(!canViewAll())return;
+        if(!canViewEvents()||isEventEmployee())return;
         const eventId=selectedEventWorkspaceId();
         if(!eventId||eventId==='all'){el('eventMaterialsTable').innerHTML=emptyState(eventId==='all'?'Semua Event dipilih untuk rekapan':'Belum ada event yang dipilih',eventId==='all'?'Pilih satu event tertentu untuk membuka daftar bahan khusus event.':'Pilih event untuk membuka daftar bahan khusus event.');el('addEventInventoryBtn').disabled=true;return;}
         const query=el('eventMaterialsSearch').value.toLowerCase().trim();
@@ -3967,10 +4110,10 @@ NOTIFY pgrst, 'reload schema';`
       function applyEventDailyActionState(date,eventId){
         const masterCount=eventId?state.inventory.filter(item=>item.eventId===eventId).length:0;
         const allowedDate=date<=todayISO();
-        el('closeEventDailyRecapBtn').hidden=!isAdmin();
-        el('closeEventDailyRecapBtn').disabled=!isAdmin()||!eventId||!allowedDate||!masterCount;
+        el('closeEventDailyRecapBtn').hidden=!canEditEventInventory();
+        el('closeEventDailyRecapBtn').disabled=!canEditEventInventory()||!eventId||!allowedDate||!masterCount;
         el('closeEventDailyRecapBtn').textContent=date===todayISO()?'✓ Closing Hari Ini':'✓ Closing Tanggal Ini';
-        el('closeEventDailyRecapBtn').title=!eventId?'Pilih event terlebih dahulu':!allowedDate?'Closing belum tersedia untuk tanggal mendatang':!masterCount?'Tambahkan bahan melalui tab Daftar Bahan Event terlebih dahulu':'Isi atau perbarui closing bahan event';
+        el('closeEventDailyRecapBtn').title=!eventId?'Event belum ditetapkan oleh Admin':!allowedDate?'Closing belum tersedia untuk tanggal mendatang':!masterCount?(isAdmin()?'Tambahkan bahan melalui tab Daftar Bahan Event terlebih dahulu':'Admin belum menambahkan bahan pada event ini'):'Isi atau perbarui closing bahan event';
       }
 
 
@@ -4281,21 +4424,27 @@ NOTIFY pgrst, 'reload schema';`
         if(!canViewAll()||!el('profilesTable'))return;
         if(!state.profiles.length){el('profilesTable').innerHTML=emptyState('Belum ada profil akun','Sinkronkan ulang setelah membuat pengguna di Supabase Authentication.');return;}
         const editable=isAdmin();
-        el('profilesTable').innerHTML=`<table><thead><tr><th>Email</th><th>Peran</th><th>Toko yang Dapat Diakses</th><th>Dibuat</th>${editable?'<th>Aksi</th>':''}</tr></thead><tbody>${state.profiles.map(profile=>{
+        const sortedEvents=state.events.slice().sort((a,b)=>b.eventDate.localeCompare(a.eventDate));
+        el('profilesTable').innerHTML=`<table><thead><tr><th>Email</th><th>Peran</th><th>Akses Toko/Event</th><th>Dibuat</th>${editable?'<th>Aksi</th>':''}</tr></thead><tbody>${state.profiles.map(profile=>{
           const role=profile.role||'employee';
           const isProfileAdmin=role==='admin';
           const isProfileOwner=role==='owner';
           const isProfileEmployee=role==='employee';
-          const roleLabel=isProfileAdmin?'Admin':isProfileOwner?'Owner':'Karyawan';
+          const isProfileEventEmployee=role==='event_employee';
+          const assignedEvent=profile.event_id?eventById(profile.event_id):null;
+          const roleLabel=isProfileAdmin?'Admin':isProfileOwner?'Owner':isProfileEventEmployee?'Karyawan Event':'Karyawan';
           const profileStores=profileBranches(profile);
-          const accessLabel=isProfileAdmin?'Semua toko':isProfileOwner?(profileStores.length?profileStores.join(', '):'Toko belum ditetapkan'):(profile.branch||'Toko belum ditetapkan');
+          const accessLabel=isProfileAdmin?'Semua toko dan event':isProfileOwner?(profileStores.length?profileStores.join(', '):'Toko belum ditetapkan'):isProfileEventEmployee?(assignedEvent?.name||'Event belum ditetapkan'):(profile.branch||'Toko belum ditetapkan');
           const branchOptions=`<option value="">Pilih satu toko</option>`+STORES.map(store=>`<option value="${escapeHtml(store)}" ${profile.branch===store?'selected':''}>${escapeHtml(store)}</option>`).join('');
           const ownerOptions=STORES.map(store=>`<label class="owner-store-option"><input type="checkbox" data-owner-branch-user="${profile.user_id}" value="${escapeHtml(store)}" ${profileStores.includes(store)?'checked':''}><span>${escapeHtml(store)}</span></label>`).join('');
-          const helpText=isProfileAdmin?'Admin dapat membuka dan mengubah semua data.':isProfileOwner?(profileStores.length?`Owner dapat melihat ${profileStores.length} toko tanpa mengubah data.`:'Pilih minimal satu toko untuk akun Owner.'):profile.branch?`Karyawan hanya dapat membuka Rekapan Bahan cabang ${escapeHtml(profile.branch)}.`:'Pilih tepat satu toko untuk akun Karyawan.';
+          const eventOptions=`<option value="">Pilih satu event</option>`+sortedEvents.map(item=>`<option value="${item.id}" ${profile.event_id===item.id?'selected':''}>${escapeHtml(item.name)}${item.store?` — ${escapeHtml(item.store)}`:''} — ${formatDate(item.eventDate)}</option>`).join('');
+          const helpText=isProfileAdmin?'Admin dapat membuka dan mengubah semua data.':isProfileOwner?(profileStores.length?`Owner dapat melihat ${profileStores.length} toko tanpa mengubah data.`:'Pilih minimal satu toko untuk akun Owner.'):isProfileEventEmployee?(assignedEvent?`Karyawan Event hanya dapat membuka dan closing Rekapan Bahan event ${escapeHtml(assignedEvent.name)}.`:'Pilih tepat satu event untuk akun Karyawan Event.'):profile.branch?`Karyawan hanya dapat membuka Rekapan Bahan cabang ${escapeHtml(profile.branch)}.`:'Pilih tepat satu toko untuk akun Karyawan.';
+          const warning=(isProfileOwner&&!profileStores.length)||(isProfileEmployee&&!profile.branch)||(isProfileEventEmployee&&!profile.event_id);
+          const badgeClass=isProfileAdmin?'role-admin':isProfileOwner?'role-owner':isProfileEventEmployee?'role-event-employee':'role-employee';
           if(!editable){
-            return`<tr><td><strong>${escapeHtml(profile.email||'-')}</strong>${profile.user_id===state.profile?.user_id?'<br><small class="muted">Akun Anda</small>':''}</td><td><span class="role-badge ${isProfileAdmin?'role-admin':isProfileOwner?'role-owner':'role-employee'}">${roleLabel}</span></td><td><strong>${escapeHtml(accessLabel)}</strong><br><small class="muted">${helpText}</small></td><td>${profile.created_at?new Intl.DateTimeFormat('id-ID',{day:'2-digit',month:'short',year:'numeric'}).format(new Date(profile.created_at)):'-'}</td></tr>`;
+            return`<tr><td><strong>${escapeHtml(profile.email||'-')}</strong>${profile.user_id===state.profile?.user_id?'<br><small class="muted">Akun Anda</small>':''}</td><td><span class="role-badge ${badgeClass}">${roleLabel}</span></td><td><strong>${escapeHtml(accessLabel)}</strong><br><small class="muted">${helpText}</small></td><td>${profile.created_at?new Intl.DateTimeFormat('id-ID',{day:'2-digit',month:'short',year:'numeric'}).format(new Date(profile.created_at)):'-'}</td></tr>`;
           }
-          return`<tr data-access-row="${profile.user_id}"><td><strong>${escapeHtml(profile.email||'-')}</strong>${profile.user_id===state.profile?.user_id?'<br><small class="muted">Akun Anda</small>':''}</td><td><select class="select role-select" data-role-user="${profile.user_id}" data-original-role="${role}"><option value="admin" ${isProfileAdmin?'selected':''}>Admin</option><option value="owner" ${isProfileOwner?'selected':''}>Owner</option><option value="employee" ${isProfileEmployee?'selected':''}>Karyawan</option></select></td><td><div class="owner-store-picker" data-owner-store-picker ${isProfileOwner?'':'hidden'}>${ownerOptions}</div><select class="select branch-select" data-branch-user="${profile.user_id}" data-original-branch="${escapeHtml(profile.branch||'')}" ${isProfileEmployee?'':'hidden disabled'}>${branchOptions}</select><small class="${(isProfileOwner&&!profileStores.length)||(isProfileEmployee&&!profile.branch)?'danger-text':'muted'} owner-store-summary" data-access-help>${helpText}</small></td><td>${profile.created_at?new Intl.DateTimeFormat('id-ID',{day:'2-digit',month:'short',year:'numeric'}).format(new Date(profile.created_at)):'-'}</td><td><button class="btn btn-primary" type="button" data-save-access="${profile.user_id}">Simpan Akses</button></td></tr>`;
+          return`<tr data-access-row="${profile.user_id}"><td><strong>${escapeHtml(profile.email||'-')}</strong>${profile.user_id===state.profile?.user_id?'<br><small class="muted">Akun Anda</small>':''}</td><td><select class="select role-select" data-role-user="${profile.user_id}" data-original-role="${role}"><option value="admin" ${isProfileAdmin?'selected':''}>Admin</option><option value="owner" ${isProfileOwner?'selected':''}>Owner</option><option value="employee" ${isProfileEmployee?'selected':''}>Karyawan</option><option value="event_employee" ${isProfileEventEmployee?'selected':''}>Karyawan Event</option></select></td><td><div class="owner-store-picker" data-owner-store-picker ${isProfileOwner?'':'hidden'}>${ownerOptions}</div><select class="select branch-select" data-branch-user="${profile.user_id}" data-original-branch="${escapeHtml(profile.branch||'')}" ${isProfileEmployee?'':'hidden disabled'}>${branchOptions}</select><select class="select event-access-select" data-event-access-user="${profile.user_id}" ${isProfileEventEmployee?'':'hidden disabled'}>${eventOptions}</select><small class="${warning?'danger-text':'muted'} owner-store-summary" data-access-help>${helpText}</small></td><td>${profile.created_at?new Intl.DateTimeFormat('id-ID',{day:'2-digit',month:'short',year:'numeric'}).format(new Date(profile.created_at)):'-'}</td><td><button class="btn btn-primary" type="button" data-save-access="${profile.user_id}">Simpan Akses</button></td></tr>`;
         }).join('')}</tbody></table>`;
       }
 
@@ -4319,7 +4468,7 @@ NOTIFY pgrst, 'reload schema';`
         }
       }
       async function handleEventsTableClick(event){
-        if(!canViewAll())return;
+        if(!canViewEvents()||isEventEmployee())return;
         const edit=event.target.closest('[data-edit-event]');
         const remove=event.target.closest('[data-delete-event]');
         const tx=event.target.closest('[data-event-transactions]');
@@ -4335,25 +4484,34 @@ NOTIFY pgrst, 'reload schema';`
       }
       function handleProfileAccessDraftChange(event){
         if(!isAdmin())return;
-        const changed=event.target.closest('[data-role-user],[data-branch-user],[data-owner-branch-user]');
+        const changed=event.target.closest('[data-role-user],[data-branch-user],[data-owner-branch-user],[data-event-access-user]');
         if(!changed)return;
         const row=changed.closest('[data-access-row]');
         const roleSelect=row?.querySelector('[data-role-user]');
         const branchSelect=row?.querySelector('[data-branch-user]');
         const ownerPicker=row?.querySelector('[data-owner-store-picker]');
+        const eventSelect=row?.querySelector('[data-event-access-user]');
         const help=row?.querySelector('[data-access-help]');
-        if(!roleSelect||!branchSelect||!ownerPicker)return;
+        if(!roleSelect||!branchSelect||!ownerPicker||!eventSelect)return;
         const role=roleSelect.value;
         const ownerStores=[...ownerPicker.querySelectorAll('[data-owner-branch-user]:checked')].map(input=>input.value);
         ownerPicker.hidden=role!=='owner';
         branchSelect.hidden=role!=='employee';
         branchSelect.disabled=role!=='employee';
+        eventSelect.hidden=role!=='event_employee';
+        eventSelect.disabled=role!=='event_employee';
         if(role==='admin'){
-          branchSelect.value='';
+          branchSelect.value='';eventSelect.value='';
           if(help){help.className='muted owner-store-summary';help.textContent='Admin dapat membuka dan mengubah semua data.';}
         }else if(role==='owner'){
+          branchSelect.value='';eventSelect.value='';
           if(help){help.className=`${ownerStores.length?'muted':'danger-text'} owner-store-summary`;help.textContent=ownerStores.length?`Owner dapat melihat ${ownerStores.length} toko: ${ownerStores.join(', ')}.`:'Pilih minimal satu toko untuk akun Owner.';}
+        }else if(role==='event_employee'){
+          branchSelect.value='';
+          const selectedEvent=eventById(eventSelect.value);
+          if(help){help.className=`${selectedEvent?'muted':'danger-text'} owner-store-summary`;help.textContent=selectedEvent?`Karyawan Event hanya dapat membuka dan closing Rekapan Bahan event ${selectedEvent.name}.`:'Pilih tepat satu event untuk akun Karyawan Event.';}
         }else if(help){
+          eventSelect.value='';
           help.className=`${branchSelect.value?'muted':'danger-text'} owner-store-summary`;
           help.textContent=branchSelect.value?`Karyawan hanya dapat mengelola bahan ${branchSelect.value}.`:'Pilih tepat satu toko untuk akun Karyawan.';
         }
@@ -4368,14 +4526,17 @@ NOTIFY pgrst, 'reload schema';`
         const roleSelect=row?.querySelector('[data-role-user]');
         const branchSelect=row?.querySelector('[data-branch-user]');
         const ownerPicker=row?.querySelector('[data-owner-store-picker]');
+        const eventSelect=row?.querySelector('[data-event-access-user]');
         const profile=state.profiles.find(item=>item.user_id===userId);
-        if(!profile||!roleSelect||!branchSelect||!ownerPicker)return;
+        if(!profile||!roleSelect||!branchSelect||!ownerPicker||!eventSelect)return;
 
         const newRole=roleSelect.value;
         const newBranches=newRole==='owner'?[...ownerPicker.querySelectorAll('[data-owner-branch-user]:checked')].map(input=>input.value):[];
         const newBranch=newRole==='employee'?(branchSelect.value||null):null;
+        const newEventId=newRole==='event_employee'?(eventSelect.value||null):null;
         if(newRole==='owner'&&!newBranches.length)return toast('Pilih minimal satu toko untuk akun Owner.');
         if(newRole==='employee'&&!newBranch)return toast('Pilih tepat satu toko untuk akun Karyawan.');
+        if(newRole==='event_employee'&&!newEventId)return toast('Pilih tepat satu event untuk akun Karyawan Event.');
 
         const admins=state.profiles.filter(item=>item.role==='admin');
         if(userId===state.profile.user_id&&profile.role==='admin'&&newRole!=='admin'&&admins.length<=1){
@@ -4383,17 +4544,18 @@ NOTIFY pgrst, 'reload schema';`
           return toast('Minimal harus ada satu akun Admin.');
         }
 
-        const roleName=newRole==='admin'?'Admin':newRole==='owner'?'Owner':'Karyawan';
-        const accessLabel=newRole==='admin'?'semua toko dengan akses penuh':newRole==='owner'?`${newBranches.length} toko (${newBranches.join(', ')}) dalam mode hanya lihat`:`toko ${newBranch}`;
+        const selectedEvent=newEventId?eventById(newEventId):null;
+        const roleName=newRole==='admin'?'Admin':newRole==='owner'?'Owner':newRole==='event_employee'?'Karyawan Event':'Karyawan';
+        const accessLabel=newRole==='admin'?'semua toko dan event dengan akses penuh':newRole==='owner'?`${newBranches.length} toko (${newBranches.join(', ')}) dalam mode hanya lihat`:newRole==='event_employee'?`Rekapan Bahan event ${selectedEvent?.name||newEventId}`:`toko ${newBranch}`;
         if(!confirm(`Simpan akses akun ${profile.email||''} sebagai ${roleName} dengan akses ${accessLabel}?`))return;
         setButtonBusy(button,true,'Menyimpan…');
         try{
-          const {error}=await db.from('profiles').update({role:newRole,branch:newBranch,branches:newBranches}).eq('user_id',userId);
+          const {error}=await db.from('profiles').update({role:newRole,branch:newBranch,branches:newBranches,event_id:newEventId}).eq('user_id',userId);
           if(error)throw error;
           if(userId===state.profile.user_id)await loadCurrentProfile(currentSession.user);
           applyRoleUI();
           await loadCloudData(true);
-          toast(newRole==='admin'?'Akun sekarang memiliki akses penuh semua toko.':newRole==='owner'?`Akun Owner dapat melihat ${newBranches.length} toko.`:`Akun hanya dapat mengelola bahan toko ${newBranch}.`);
+          toast(newRole==='admin'?'Akun sekarang memiliki akses penuh semua toko dan event.':newRole==='owner'?`Akun Owner dapat melihat ${newBranches.length} toko.`:newRole==='event_employee'?`Akun hanya dapat mengelola Rekapan Bahan event ${selectedEvent?.name||''}.`:`Akun hanya dapat mengelola bahan toko ${newBranch}.`);
         }catch(error){
           renderProfiles();
           showSyncError(error);
@@ -4415,7 +4577,7 @@ NOTIFY pgrst, 'reload schema';`
       function setCloudStatus(status,text){el('cloudPill').className=`cloud-pill ${status}`;el('cloudStatusText').textContent=text;}
       function showSyncError(error){const message=friendlyError(error);setCloudStatus('error','Gagal sinkron');el('syncBanner').textContent=message;el('syncBanner').hidden=false;toast(message);}
       function hideSyncError(){el('syncBanner').hidden=true;el('syncBanner').textContent='';}
-      function friendlyError(error){const message=String(error?.message||error||'Terjadi kesalahan.');if(/payment_method.*schema cache|schema cache.*payment_method|Could not find the ['"]payment_method['"] column/i.test(message))return'Kolom metode pembayaran belum aktif di Supabase. Jalankan file fix_payment_method.sql, tunggu beberapa detik, lalu muat ulang halaman.';if(/Invalid login credentials/i.test(message))return'Email atau password salah.';if(/Email not confirmed/i.test(message))return'Email belum dikonfirmasi.';if(/Failed to fetch|NetworkError|fetch/i.test(message))return'Tidak dapat terhubung ke Supabase. Periksa internet, Project URL, dan publishable key.';if(/payroll_advances.*schema cache|Could not find the table ['"]?public\.payroll_advances|relation .*payroll_advances.* does not exist/i.test(message))return'Tabel Kasbon Karyawan belum aktif di Supabase. Jalankan file update_gaji_kasbon.sql, tunggu beberapa detik, lalu refresh data.';if(/Gaji bersih terakhir belum tersedia/i.test(message))return'Kasbon belum dapat disimpan karena gaji bersih terakhir karyawan belum tersedia.';if(/Total kasbon melebihi gaji bersih terakhir/i.test(message))return'Total kasbon melebihi batas gaji bersih terakhir karyawan.';if(/payroll_monthly_payments.*schema cache|Could not find the table ['"]?public\.payroll_monthly_payments|relation .*payroll_monthly_payments.* does not exist/i.test(message))return'Tabel Rekapan Gaji Bulanan belum aktif di Supabase. Jalankan file update_gaji_karyawan_lengkap.sql, tunggu beberapa detik, lalu refresh data.';if(/attribute_status|late_deduction|attribute_deduction|net_wage/i.test(message))return'Kolom potongan otomatis gaji harian belum aktif. Jalankan file update_gaji_potongan_otomatis.sql, tunggu beberapa detik, lalu refresh data.';if(/employees.*schema cache|payroll_daily.*schema cache|Could not find the table ['"]?public\.(employees|payroll_daily)|relation .*(employees|payroll_daily).* does not exist/i.test(message))return'Tabel Gaji Harian belum aktif di Supabase. Jalankan file update_gaji_karyawan_lengkap.sql, tunggu beberapa detik, lalu refresh data.';if(/relation .* does not exist|Could not find the table|column .* does not exist/i.test(message))return'Struktur Supabase belum diperbarui. Jalankan SQL terbaru yang tersedia pada halaman pengaturan koneksi.';if(/row-level security|permission denied|policy/i.test(message))return'Akses database ditolak. Jalankan SQL terbaru agar aturan Admin, Owner, dan Karyawan aktif dengan benar.';if(/JWT|apikey|API key|Unauthorized/i.test(message))return'Publishable key tidak valid atau sudah berubah.';return message;}
+      function friendlyError(error){const message=String(error?.message||error||'Terjadi kesalahan.');if(/payment_method.*schema cache|schema cache.*payment_method|Could not find the ['"]payment_method['"] column/i.test(message))return'Kolom metode pembayaran belum aktif di Supabase. Jalankan file fix_payment_method.sql, tunggu beberapa detik, lalu muat ulang halaman.';if(/Invalid login credentials/i.test(message))return'Email atau password salah.';if(/Email not confirmed/i.test(message))return'Email belum dikonfirmasi.';if(/Failed to fetch|NetworkError|fetch/i.test(message))return'Tidak dapat terhubung ke Supabase. Periksa internet, Project URL, dan publishable key.';if(/payroll_advances.*schema cache|Could not find the table ['"]?public\.payroll_advances|relation .*payroll_advances.* does not exist/i.test(message))return'Tabel Kasbon Karyawan belum aktif di Supabase. Jalankan file update_gaji_kasbon.sql, tunggu beberapa detik, lalu refresh data.';if(/Gaji bersih terakhir belum tersedia/i.test(message))return'Kasbon belum dapat disimpan karena gaji bersih terakhir karyawan belum tersedia.';if(/Total kasbon melebihi gaji bersih terakhir/i.test(message))return'Total kasbon melebihi batas gaji bersih terakhir karyawan.';if(/payroll_monthly_payments.*schema cache|Could not find the table ['"]?public\.payroll_monthly_payments|relation .*payroll_monthly_payments.* does not exist/i.test(message))return'Tabel Rekapan Gaji Bulanan belum aktif di Supabase. Jalankan file update_gaji_karyawan_lengkap.sql, tunggu beberapa detik, lalu refresh data.';if(/attribute_status|late_deduction|attribute_deduction|net_wage/i.test(message))return'Kolom potongan otomatis gaji harian belum aktif. Jalankan file update_gaji_potongan_otomatis.sql, tunggu beberapa detik, lalu refresh data.';if(/employees.*schema cache|payroll_daily.*schema cache|Could not find the table ['"]?public\.(employees|payroll_daily)|relation .*(employees|payroll_daily).* does not exist/i.test(message))return'Tabel Gaji Harian belum aktif di Supabase. Jalankan file update_gaji_karyawan_lengkap.sql, tunggu beberapa detik, lalu refresh data.';if(/relation .* does not exist|Could not find the table|column .* does not exist/i.test(message))return'Struktur Supabase belum diperbarui. Jalankan SQL terbaru yang tersedia pada halaman pengaturan koneksi.';if(/row-level security|permission denied|policy/i.test(message))return'Akses database ditolak. Jalankan SQL terbaru agar aturan Admin, Owner, Karyawan, dan Karyawan Event aktif dengan benar.';if(/JWT|apikey|API key|Unauthorized/i.test(message))return'Publishable key tidak valid atau sudah berubah.';return message;}
 
       function downloadFile(name,content,type){const blob=new Blob([content],{type});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);}
       function toCSV(rows){return rows.map(row=>row.map(value=>`"${String(value??'').replace(/"/g,'""')}"`).join(',')).join('\n');}
@@ -4445,7 +4607,7 @@ NOTIFY pgrst, 'reload schema';`
       }
 
       function exportEventInventoryCSV(){
-        if(!canViewAll())return;
+        if(!canViewEvents())return;
         const eventId=selectedEventWorkspaceId();
         if(!eventId)return toast('Pilih event terlebih dahulu.');
         const date=selectedEventInventoryDate();
