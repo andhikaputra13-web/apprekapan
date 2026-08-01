@@ -1861,7 +1861,7 @@
         </section>
 
         <section class="view" data-full-view id="view-settings">
-          <div class="toolbar"><div><h3>Cloud & Pengaturan</h3><p id="settingsAccessText">Admin dapat mengelola pengaturan. Owner dapat melihat informasi akun dan data toko yang ditetapkan dalam mode hanya lihat.</p></div></div>
+          <div class="toolbar"><div><h3>Cloud & Pengaturan</h3><p id="settingsAccessText">Admin dapat mengelola pengaturan. Owner dapat melihat informasi akun, data toko yang ditetapkan, dan seluruh data event dalam mode hanya lihat.</p></div></div>
           <div class="grid settings-grid">
             <article class="card setting-box"><h3>Status Supabase</h3><p>Seluruh data tersimpan di database online yang sama.</p><div class="connection-list"><div class="connection-row"><span>Proyek</span><strong id="settingsProjectHost">-</strong></div><div class="connection-row"><span>Pengguna</span><strong id="settingsUserEmail">-</strong></div><div class="connection-row"><span>Hak akses</span><strong id="settingsUserRole">-</strong></div><div class="connection-row"><span>Cabang akses</span><strong id="settingsUserBranch">-</strong></div><div class="connection-row"><span>Sinkronisasi terakhir</span><strong id="lastSyncText">Belum</strong></div></div><div class="toolbar-actions"><button class="btn btn-dark" id="syncNowBtn">Sinkronkan Sekarang</button><button class="btn btn-light" id="changeConfigBtn" data-admin-write>Ubah Koneksi</button></div></article>
             <article class="card setting-box"><h3>Cadangkan Data Cloud</h3><p>Unduh transaksi, bahan, dan event dari Supabase ke format JSON.</p><button class="btn btn-dark" id="backupBtn">Unduh Cadangan JSON</button></article>
@@ -2168,7 +2168,7 @@
 
       const DATABASE_SQL = String.raw`-- Jalankan seluruh SQL ini di Supabase SQL Editor.
 -- Admin: akses penuh dan dapat mengubah data.
--- Owner: melihat data pada satu atau beberapa toko yang ditetapkan, tanpa mengubah data.
+-- Owner: melihat data pada satu atau beberapa toko yang ditetapkan serta seluruh data event, tanpa mengubah data.
 -- Karyawan: mengelola rekapan bahan hanya pada satu toko yang ditetapkan.
 -- Karyawan Event: hanya mengelola Rekapan Bahan pada satu event yang dipilih Admin.
 
@@ -2441,6 +2441,7 @@ $$;
 CREATE OR REPLACE FUNCTION public.can_access_event(target_event_id text)
 RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
   SELECT public.is_admin()
+    OR public.is_owner()
     OR EXISTS (
       SELECT 1 FROM public.profiles
       WHERE user_id = auth.uid()
@@ -2452,7 +2453,14 @@ $$;
 
 CREATE OR REPLACE FUNCTION public.can_manage_event_inventory(target_event_id text)
 RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
-  SELECT public.can_access_event(target_event_id);
+  SELECT public.is_admin()
+    OR EXISTS (
+      SELECT 1 FROM public.profiles
+      WHERE user_id = auth.uid()
+        AND role = 'event_employee'
+        AND event_id IS NOT NULL
+        AND event_id = target_event_id
+    );
 $$;
 
 CREATE OR REPLACE FUNCTION public.can_view_all()
@@ -2629,8 +2637,10 @@ USING (
   public.is_admin()
   OR (
     public.is_owner()
-    AND event_id IS NULL
-    AND public.can_access_store(store)
+    AND (
+      (event_id IS NULL AND public.can_access_store(store))
+      OR event_id IS NOT NULL
+    )
   )
 );
 CREATE POLICY "Admin manages transactions"
@@ -2665,10 +2675,11 @@ ON public.inventory FOR DELETE TO authenticated
 USING (public.is_admin());
 
 DROP POLICY IF EXISTS "Event material catalog readable by admin" ON public.event_material_catalog;
+DROP POLICY IF EXISTS "Event material catalog readable by admin or owner" ON public.event_material_catalog;
 DROP POLICY IF EXISTS "Event material catalog manageable by admin" ON public.event_material_catalog;
-CREATE POLICY "Event material catalog readable by admin"
+CREATE POLICY "Event material catalog readable by admin or owner"
 ON public.event_material_catalog FOR SELECT TO authenticated
-USING (public.is_admin());
+USING (public.is_admin() OR public.is_owner());
 CREATE POLICY "Event material catalog manageable by admin"
 ON public.event_material_catalog FOR ALL TO authenticated
 USING (public.is_admin()) WITH CHECK (public.is_admin());
@@ -3134,7 +3145,7 @@ NOTIFY pgrst, 'reload schema';`
       const isEmployee = () => state.profile?.role === 'employee';
       const isEventEmployee = () => state.profile?.role === 'event_employee';
       const canViewAll = () => isAdmin() || isOwner();
-      const canViewEvents = () => isAdmin() || isEventEmployee();
+      const canViewEvents = () => isAdmin() || isOwner() || isEventEmployee();
       const profileBranches = profile => {
         const saved=Array.isArray(profile?.branches)?profile.branches:[];
         const legacy=profile?.role==='owner'&&profile?.branch?[profile.branch]:[];
@@ -3146,7 +3157,7 @@ NOTIFY pgrst, 'reload schema';`
       const accessibleStores = () => isAdmin() ? [...STORES] : isOwner() ? ownerBranches() : isEmployee()&&employeeBranch() ? [employeeBranch()] : [];
       const assignedBranch = () => employeeBranch();
       const canAccessStore = store => isAdmin() || accessibleStores().includes(store);
-      const canAccessEvent = eventId => isAdmin() || (isEventEmployee() && !!eventEmployeeId() && eventEmployeeId()===eventId);
+      const canAccessEvent = eventId => isAdmin() || isOwner() || (isEventEmployee() && !!eventEmployeeId() && eventEmployeeId()===eventId);
       const canAccessInventoryRecord = item => item?.eventId ? canAccessEvent(item.eventId) : canAccessStore(item?.store);
       const canEditInventory = () => isAdmin() || (isEmployee() && !!employeeBranch());
       const canEditEventInventory = () => isAdmin() || (isEventEmployee() && !!eventEmployeeId());
@@ -3264,15 +3275,15 @@ NOTIFY pgrst, 'reload schema';`
         if(el('view-events'))el('view-events').hidden=!canViewEvents();
 
         const roleLabel=admin?'Admin':owner?'Owner':eventEmployee?'Karyawan Event':'Karyawan';
-        const accessLabel=admin?'Semua toko dan event':owner?(ownerStores.length?ownerStoreText:'Toko belum ditetapkan'):eventEmployee?(assignedEvent?.name||assignedEventId||'Event belum ditetapkan'):(employeeStore||'Toko belum ditetapkan');
-        el('roleBadge').textContent=admin?'Admin':owner?`Owner · ${ownerStores.length?`${ownerStores.length} toko`:'Belum ada toko'}`:eventEmployee?`Karyawan Event · ${assignedEvent?.name||'Belum ada event'}`:`Karyawan · ${employeeStore||'Belum ada cabang'}`;
+        const accessLabel=admin?'Semua toko dan event':owner?(ownerStores.length?`${ownerStoreText} + semua event`:'Semua event · toko belum ditetapkan'):eventEmployee?(assignedEvent?.name||assignedEventId||'Event belum ditetapkan'):(employeeStore||'Toko belum ditetapkan');
+        el('roleBadge').textContent=admin?'Admin':owner?`Owner · ${ownerStores.length?`${ownerStores.length} toko + event`:'Semua event'}`:eventEmployee?`Karyawan Event · ${assignedEvent?.name||'Belum ada event'}`:`Karyawan · ${employeeStore||'Belum ada cabang'}`;
         el('roleBadge').className=`role-badge ${admin?'role-admin':owner?'role-owner':eventEmployee?'role-event-employee':'role-employee'}`;
         el('settingsUserRole').textContent=roleLabel;
         el('settingsUserBranch').textContent=accessLabel;
-        el('sidebarUserAccess').textContent=admin?'Admin · Semua toko dan event':owner?(ownerStores.length?`Owner · ${ownerStores.length} toko · Hanya lihat`:'Owner · Toko belum ditetapkan'):eventEmployee?(assignedEvent?`Karyawan Event · ${assignedEvent.name}`:'Karyawan Event · Event belum ditetapkan'):employeeStore?`Karyawan · ${employeeStore}`:'Karyawan · Cabang belum ditetapkan';
-        el('transactionAccessText').textContent=owner?(ownerStores.length?`Mode hanya lihat untuk transaksi ${ownerStores.length} toko yang ditetapkan.`:'Mode Owner aktif, tetapi toko akses belum ditetapkan oleh Admin.'):'Catat transaksi operasional toko. Seluruh transaksi event dikelola terpisah melalui menu Event.';
-        el('eventAccessText').textContent=eventEmployee?'Akun ini hanya dapat membuka dan melakukan closing Rekapan Bahan pada event yang dipilih Admin.':'Event hanya dapat diakses dan dikelola oleh Admin karena tidak menjadi bagian dari toko.';
-        if(el('settingsAccessText'))el('settingsAccessText').textContent=owner?(ownerStores.length?`Mode Owner: data ${ownerStores.length} toko dapat dilihat tanpa mengubahnya.`:'Mode Owner: pilih toko akses melalui akun Admin terlebih dahulu.'):'Kelola koneksi, akun, cadangan, dan data online aplikasi.';
+        el('sidebarUserAccess').textContent=admin?'Admin · Semua toko dan event':owner?(ownerStores.length?`Owner · ${ownerStores.length} toko + semua event · Hanya lihat`:'Owner · Semua event · Hanya lihat'):eventEmployee?(assignedEvent?`Karyawan Event · ${assignedEvent.name}`:'Karyawan Event · Event belum ditetapkan'):employeeStore?`Karyawan · ${employeeStore}`:'Karyawan · Cabang belum ditetapkan';
+        el('transactionAccessText').textContent=owner?(ownerStores.length?`Mode hanya lihat untuk transaksi ${ownerStores.length} toko yang ditetapkan dan seluruh transaksi event.`:'Mode Owner: transaksi toko belum tersedia, tetapi seluruh transaksi event dapat dilihat.'):'Catat transaksi operasional toko. Seluruh transaksi event dikelola terpisah melalui menu Event.';
+        el('eventAccessText').textContent=eventEmployee?'Akun ini hanya dapat membuka dan melakukan closing Rekapan Bahan pada event yang dipilih Admin.':owner?'Mode Owner: seluruh data event dapat dilihat tanpa mengubah data.':'Admin dapat melihat dan mengelola seluruh data event.';
+        if(el('settingsAccessText'))el('settingsAccessText').textContent=owner?(ownerStores.length?`Mode Owner: data ${ownerStores.length} toko dan seluruh data event dapat dilihat tanpa mengubahnya.`:'Mode Owner: seluruh data event dapat dilihat; pilih toko akses melalui akun Admin untuk membuka data toko.'):'Kelola koneksi, akun, cadangan, dan data online aplikasi.';
         if(el('profilesAccessNote'))el('profilesAccessNote').textContent=owner?'Mode hanya lihat: Anda hanya dapat memeriksa akses akun sendiri.':'Buat akun baru melalui Supabase Dashboard → Authentication → Users. Admin dapat memilih beberapa toko untuk Owner, satu toko untuk Karyawan, atau satu event untuk Karyawan Event. Pembatasan baca/tulis berlaku pada tampilan web dan Supabase Row Level Security.';
         applyStoreAccessUI();
         applyEventEmployeeUI();
@@ -3284,9 +3295,6 @@ NOTIFY pgrst, 'reload schema';`
         }else if(employee){
           if(activeView!=='inventory')activeView='inventory';
           switchView('inventory');
-        }else if(owner&&activeView==='events'){
-          activeView='dashboard';
-          switchView('dashboard');
         }else if(!fullView&&(activeView==='materials'||activeView==='settings'||activeView==='events')){
           activeView='inventory';
           switchView('inventory');
@@ -3385,8 +3393,8 @@ NOTIFY pgrst, 'reload schema';`
           const storeText=stores.join(', ');
           el('branchNotice').className=`branch-notice${stores.length?'':' warning'}`;
           el('branchNotice').textContent=stores.length
-            ? `Mode Owner: Anda dapat melihat rekapan bahan untuk ${stores.length} toko: ${storeText}. Data Event tidak dapat diakses.`
-            : 'Toko akses Owner belum ditetapkan. Hubungi Admin agar satu atau beberapa toko dipilih terlebih dahulu.';
+            ? `Mode Owner: Anda dapat melihat rekapan bahan untuk ${stores.length} toko: ${storeText}. Seluruh data Event juga dapat dilihat dalam mode hanya lihat.`
+            : 'Toko akses Owner belum ditetapkan. Hubungi Admin agar satu atau beberapa toko dipilih terlebih dahulu. Data Event tetap dapat dilihat dalam mode hanya lihat.';
           el('materialsBranchNotice').className=`branch-notice${stores.length?'':' warning'}`;
           el('materialsBranchNotice').textContent=stores.length
             ? `Mode hanya lihat untuk Daftar Bahan ${stores.length} toko yang ditetapkan.`
@@ -3807,12 +3815,12 @@ NOTIFY pgrst, 'reload schema';`
       }
 
       function renderEventMaterialCatalog(){
-        if(!isAdmin())return;
+        if(!canViewEvents()||isEventEmployee())return;
         const store=selectedEventCatalogStore();
         const query=el('eventCatalogSearch').value.toLowerCase().trim();
         const status=el('eventCatalogStatus');
-        el('addEventCatalogMaterialBtn').hidden=false;
-        el('addEventCatalogMaterialBtn').disabled=!eventMaterialCatalogAvailable;
+        el('addEventCatalogMaterialBtn').hidden=!isAdmin();
+        el('addEventCatalogMaterialBtn').disabled=!isAdmin()||!eventMaterialCatalogAvailable;
         if(!eventMaterialCatalogAvailable){
           status.className='event-material-catalog-status warning';
           status.textContent='Jalankan SQL master bahan event terlebih dahulu';
@@ -3824,10 +3832,11 @@ NOTIFY pgrst, 'reload schema';`
         status.textContent=`${total} bahan khusus Event untuk ${store}`;
         const rows=state.eventMaterialCatalog.filter(item=>item.store===store&&(!query||`${item.name} ${item.unit} ${item.note}`.toLowerCase().includes(query))).sort((a,b)=>a.name.localeCompare(b.name));
         if(!rows.length){
-          el('eventCatalogTable').innerHTML=emptyState(total?'Bahan tidak ditemukan':'Master bahan Event masih kosong',total?'Ubah kata pencarian untuk melihat bahan lainnya.':`Tekan Daftarkan Bahan Event untuk membuat daftar khusus ${store}.`);
+          const emptyDetail=total?'Ubah kata pencarian untuk melihat bahan lainnya.':isAdmin()?`Tekan Daftarkan Bahan Event untuk membuat daftar khusus ${store}.`:`Admin belum mendaftarkan master bahan Event untuk ${store}.`;
+          el('eventCatalogTable').innerHTML=emptyState(total?'Bahan tidak ditemukan':'Master bahan Event masih kosong',emptyDetail);
           return;
         }
-        el('eventCatalogTable').innerHTML=`<table><thead><tr><th>Nama Bahan</th><th>Satuan</th><th>Stok Minimum</th><th>Keterangan</th><th>Terakhir Diperbarui</th><th>Aksi</th></tr></thead><tbody>${rows.map(item=>`<tr><td><strong>${escapeHtml(item.name)}</strong><br><small class="muted">Khusus halaman Event</small></td><td>${escapeHtml(item.unit||'unit')}</td><td><strong>${number(item.min)}</strong> ${escapeHtml(item.unit||'unit')}</td><td class="muted">${escapeHtml(item.note||'-')}</td><td>${item.updatedAt?new Intl.DateTimeFormat('id-ID',{day:'2-digit',month:'short',year:'numeric'}).format(new Date(item.updatedAt)):'-'}</td><td><div class="actions"><button class="icon-btn" data-edit-event-catalog="${item.id}" title="Ubah master bahan event">✎</button><button class="icon-btn danger" data-delete-event-catalog="${item.id}" title="Hapus master bahan event">🗑</button></div></td></tr>`).join('')}</tbody></table>`;
+        el('eventCatalogTable').innerHTML=`<table><thead><tr><th>Nama Bahan</th><th>Satuan</th><th>Stok Minimum</th><th>Keterangan</th><th>Terakhir Diperbarui</th>${isAdmin()?'<th>Aksi</th>':''}</tr></thead><tbody>${rows.map(item=>`<tr><td><strong>${escapeHtml(item.name)}</strong><br><small class="muted">Khusus halaman Event</small></td><td>${escapeHtml(item.unit||'unit')}</td><td><strong>${number(item.min)}</strong> ${escapeHtml(item.unit||'unit')}</td><td class="muted">${escapeHtml(item.note||'-')}</td><td>${item.updatedAt?new Intl.DateTimeFormat('id-ID',{day:'2-digit',month:'short',year:'numeric'}).format(new Date(item.updatedAt)):'-'}</td>${isAdmin()?`<td><div class="actions"><button class="icon-btn" data-edit-event-catalog="${item.id}" title="Ubah master bahan event">✎</button><button class="icon-btn danger" data-delete-event-catalog="${item.id}" title="Hapus master bahan event">🗑</button></div></td>`:''}</tr>`).join('')}</tbody></table>`;
       }
 
       function openEventCatalogModal(id=null){
@@ -4153,31 +4162,29 @@ NOTIFY pgrst, 'reload schema';`
             applyRoleUI();
           }
           const assignedEventId=eventEmployeeId();
-          const eventPromise=isAdmin()
+          const eventPromise=isAdmin()||isOwner()
             ? db.from('events').select('*').order('event_date',{ascending:false})
             : isEventEmployee()&&assignedEventId
               ? db.from('events').select('*').eq('id',assignedEventId).order('event_date',{ascending:false})
               : Promise.resolve({data:[],error:null});
           const stores=accessibleStores();
-          const inventoryPromise=isAdmin()
+          const inventoryPromise=isAdmin()||isOwner()
             ? db.from('inventory').select('*').order('store',{ascending:true}).order('name',{ascending:true})
             : isEventEmployee()&&assignedEventId
               ? db.from('inventory').select('*').eq('event_id',assignedEventId).order('name',{ascending:true})
               : stores.length
                 ? db.from('inventory').select('*').in('store',stores).is('event_id',null).order('store',{ascending:true}).order('name',{ascending:true})
                 : Promise.resolve({data:[],error:null});
-          const eventMaterialCatalogPromise=isAdmin()
+          const eventMaterialCatalogPromise=isAdmin()||isOwner()
             ? db.from('event_material_catalog').select('*').order('store',{ascending:true}).order('name',{ascending:true})
             : Promise.resolve({data:[],error:null});
-          const transactionPromise=isAdmin()
+          const transactionPromise=isAdmin()||isOwner()
             ? db.from('transactions').select('*').order('transaction_date',{ascending:false}).order('created_at',{ascending:false})
-            : isOwner()&&stores.length
-              ? db.from('transactions').select('*').in('store',stores).is('event_id',null).order('transaction_date',{ascending:false}).order('created_at',{ascending:false})
-              : Promise.resolve({data:[],error:null});
+            : Promise.resolve({data:[],error:null});
           let dailyQuery=db.from('inventory_daily').select('*').order('record_date',{ascending:false}).order('store',{ascending:true}).order('name',{ascending:true});
           if(isEventEmployee()&&assignedEventId)dailyQuery=dailyQuery.eq('event_id',assignedEventId);
-          else if(!isAdmin()&&stores.length)dailyQuery=dailyQuery.in('store',stores).is('event_id',null);
-          const dailyPromise=isAdmin()||stores.length||(isEventEmployee()&&assignedEventId)?dailyQuery:Promise.resolve({data:[],error:null});
+          else if(!isAdmin()&&!isOwner()&&stores.length)dailyQuery=dailyQuery.in('store',stores).is('event_id',null);
+          const dailyPromise=isAdmin()||isOwner()||stores.length||(isEventEmployee()&&assignedEventId)?dailyQuery:Promise.resolve({data:[],error:null});
           const employeesPromise=stores.length||isAdmin()?db.from('employees').select('*').in('store',stores.length?stores:STORES).order('store',{ascending:true}).order('name',{ascending:true}):Promise.resolve({data:[],error:null});
           const payrollDailyPromise=stores.length||isAdmin()?db.from('payroll_daily').select('*').in('store',stores.length?stores:STORES).order('work_date',{ascending:false}).order('employee_name',{ascending:true}):Promise.resolve({data:[],error:null});
           const payrollAdvancePromise=stores.length||isAdmin()?db.from('payroll_advances').select('*').in('store',stores.length?stores:STORES).order('advance_date',{ascending:false}).order('employee_name',{ascending:true}):Promise.resolve({data:[],error:null});
@@ -4414,7 +4421,7 @@ NOTIFY pgrst, 'reload schema';`
         const query=el('eventSearch').value.toLowerCase().trim();
         const statusFilter=el('eventStatusFilter').value;
         const rows=state.events.filter(item=>{const status=getEventStatus(item);return(!query||`${item.name} ${item.store||''} ${item.location} ${item.organizer} ${item.note}`.toLowerCase().includes(query))&&(statusFilter==='all'||status.key===statusFilter);}).sort((a,b)=>b.eventDate.localeCompare(a.eventDate));
-        if(!rows.length)el('eventsTable').innerHTML=emptyState('Belum ada event','Tambahkan event untuk membuat ruang transaksi dan bahan yang terpisah dari toko.');
+        if(!rows.length)el('eventsTable').innerHTML=emptyState('Belum ada event',isOwner()?'Admin belum menambahkan data event.':'Tambahkan event untuk membuat ruang transaksi dan bahan yang terpisah dari toko.');
         else el('eventsTable').innerHTML=`<table><thead><tr><th>Event</th><th>Toko/Brand</th><th>Tanggal</th><th>Status</th><th>Pemasukan</th><th>Pengeluaran</th><th>Cash Bersih</th><th>Saldo</th><th>Bahan</th><th>Aksi</th></tr></thead><tbody>${rows.map(item=>{const tx=state.transactions.filter(t=>t.eventId===item.id);const income=sumByType(tx,'income');const expense=sumByType(tx,'expense');const cash=cashSummary(tx);const materials=state.inventory.filter(i=>i.eventId===item.id);const status=getEventStatus(item);return`<tr><td><div class="event-title"><strong>${escapeHtml(item.name)}</strong><small>${escapeHtml(item.location)}${item.organizer?` • ${escapeHtml(item.organizer)}`:''}</small></div></td><td>${item.store?`<strong>${escapeHtml(item.store)}</strong>`:'<span class="badge badge-low">Belum dipilih</span>'}</td><td>${formatDate(item.eventDate)}${item.endDate!==item.eventDate?`<br><small class="muted">s.d. ${formatDate(item.endDate)}</small>`:''}</td><td><span class="badge ${status.className}">${status.label}</span></td><td class="amount-income">${money(income)}</td><td class="amount-expense">${money(expense)}</td><td><strong>${money(cash.net)}</strong></td><td><strong>${money(income-expense)}</strong></td><td><div class="mini-summary"><strong>${materials.length} bahan</strong></div></td><td><div class="actions"><button class="icon-btn" data-event-transactions="${item.id}" title="Pemasukan & Pengeluaran Event">⇄</button><button class="icon-btn" data-event-inventory="${item.id}" title="Rekapan Bahan Event">▤</button><button class="icon-btn" data-event-materials="${item.id}" title="Daftar Bahan Event">＋</button>${isAdmin()?`<button class="icon-btn" data-edit-event="${item.id}" title="Edit Event">✎</button><button class="icon-btn danger" data-delete-event="${item.id}" title="Hapus Event">🗑</button>`:''}</div></td></tr>`;}).join('')}</tbody></table>`;
         renderEventWorkspace();
       }
@@ -4427,12 +4434,12 @@ NOTIFY pgrst, 'reload schema';`
         const selected=showAllEvents?null:eventById(eventId);
         const disabled=!selected;
         el('eventWorkspaceSubtitle').textContent=showAllEvents
-          ? 'Semua Event sedang dipilih untuk Rekapan Event. Pilih satu event tertentu untuk membuka dan mengelola data operasionalnya.'
-          : selected?`${selected.name}${selected.store?` • ${selected.store}`:' • Toko/brand belum dipilih'} • ${formatDate(selected.eventDate)}${selected.endDate!==selected.eventDate?`–${formatDate(selected.endDate)}`:''} • data event tersimpan terpisah dari operasional outlet.`:isEventEmployee()?'Event belum ditetapkan oleh Admin. Hubungi Admin agar akun ini dihubungkan ke satu event.':'Pilih atau tambahkan event untuk membuka data operasional khusus event.';
+          ? `Semua Event sedang dipilih untuk Rekapan Event. Pilih satu event tertentu untuk ${isOwner()?'melihat':'membuka dan mengelola'} data operasionalnya.`
+          : selected?`${selected.name}${selected.store?` • ${selected.store}`:' • Toko/brand belum dipilih'} • ${formatDate(selected.eventDate)}${selected.endDate!==selected.eventDate?`–${formatDate(selected.endDate)}`:''} • data event tersimpan terpisah dari operasional outlet.`:isEventEmployee()?'Event belum ditetapkan oleh Admin. Hubungi Admin agar akun ini dihubungkan ke satu event.':isOwner()?'Pilih event untuk melihat data operasional khusus event.':'Pilih atau tambahkan event untuk membuka data operasional khusus event.';
         if(el('addEventTransactionBtn'))el('addEventTransactionBtn').disabled=disabled||!isAdmin();
         if(el('addEventInventoryBtn'))el('addEventInventoryBtn').disabled=disabled||!isAdmin();
         if(el('closeEventDailyRecapBtn'))el('closeEventDailyRecapBtn').disabled=disabled||!canEditEventInventory();
-        if(el('exportEventTransactionsBtn'))el('exportEventTransactionsBtn').disabled=disabled||!isAdmin();
+        if(el('exportEventTransactionsBtn'))el('exportEventTransactionsBtn').disabled=disabled||!canViewAll();
         if(el('exportEventInventoryBtn'))el('exportEventInventoryBtn').disabled=disabled||!canViewEvents();
         switchEventTab(activeEventTab);
       }
@@ -4449,7 +4456,7 @@ NOTIFY pgrst, 'reload schema';`
           el('eventTransactionExpenseSub').textContent=selectMessage;
           el('eventTransactionCashNetSub').textContent=selectMessage;
           el('eventTransactionProfitSub').textContent=selectMessage;
-          el('eventTransactionsTable').innerHTML=emptyState(eventId==='all'?'Semua Event dipilih untuk rekapan':'Belum ada event yang dipilih',eventId==='all'?'Pilih satu event tertentu pada slicer untuk melihat dan mengelola transaksinya.':'Pilih event pada slicer Rekapan Event.');
+          el('eventTransactionsTable').innerHTML=emptyState(eventId==='all'?'Semua Event dipilih untuk rekapan':'Belum ada event yang dipilih',eventId==='all'?`Pilih satu event tertentu pada slicer untuk ${isOwner()?'melihat':'melihat dan mengelola'} transaksinya.`:'Pilih event pada slicer Rekapan Event.');
           return;
         }
         const query=el('eventTransactionSearch').value.toLowerCase().trim();
@@ -4483,7 +4490,7 @@ NOTIFY pgrst, 'reload schema';`
         if(!eventId||eventId==='all'){
           el('eventDailyRecapSummary').innerHTML='';
           const title=eventId==='all'?'Semua Event dipilih untuk rekapan':isEventEmployee()?'Event belum ditetapkan':'Belum ada event yang dipilih';
-          const detail=eventId==='all'?'Pilih satu event tertentu untuk melihat rekapan bahan dan melakukan closing.':isEventEmployee()?'Hubungi Admin agar akun Karyawan Event ini dihubungkan ke satu event.':'Pilih event untuk melihat rekapan bahan.';
+          const detail=eventId==='all'?(canEditEventInventory()?'Pilih satu event tertentu untuk melihat rekapan bahan dan melakukan closing.':'Pilih satu event tertentu untuk melihat rekapan bahan dan riwayat closing.'):isEventEmployee()?'Hubungi Admin agar akun Karyawan Event ini dihubungkan ke satu event.':'Pilih event untuk melihat rekapan bahan.';
           el('eventInventoryTable').innerHTML=emptyState(title,detail);
           el('eventInventoryClosingDetails').innerHTML=emptyState(title,eventId==='all'?'Pilih satu event tertentu untuk melihat detail closing.':'Pilih event untuk melihat detail closing.');
           el('closeEventDailyRecapBtn').disabled=true;
@@ -4878,7 +4885,7 @@ NOTIFY pgrst, 'reload schema';`
           const branchOptions=`<option value="">Pilih satu toko</option>`+STORES.map(store=>`<option value="${escapeHtml(store)}" ${profile.branch===store?'selected':''}>${escapeHtml(store)}</option>`).join('');
           const ownerOptions=STORES.map(store=>`<label class="owner-store-option"><input type="checkbox" data-owner-branch-user="${profile.user_id}" value="${escapeHtml(store)}" ${profileStores.includes(store)?'checked':''}><span>${escapeHtml(store)}</span></label>`).join('');
           const eventOptions=`<option value="">Pilih satu event</option>`+sortedEvents.map(item=>`<option value="${item.id}" ${profile.event_id===item.id?'selected':''}>${escapeHtml(item.name)}${item.store?` — ${escapeHtml(item.store)}`:''} — ${formatDate(item.eventDate)}</option>`).join('');
-          const helpText=isProfileAdmin?'Admin dapat membuka dan mengubah semua data.':isProfileOwner?(profileStores.length?`Owner dapat melihat ${profileStores.length} toko tanpa mengubah data.`:'Pilih minimal satu toko untuk akun Owner.'):isProfileEventEmployee?(assignedEvent?`Karyawan Event hanya dapat membuka dan closing Rekapan Bahan event ${escapeHtml(assignedEvent.name)}.`:'Pilih tepat satu event untuk akun Karyawan Event.'):profile.branch?`Karyawan hanya dapat membuka Rekapan Bahan cabang ${escapeHtml(profile.branch)}.`:'Pilih tepat satu toko untuk akun Karyawan.';
+          const helpText=isProfileAdmin?'Admin dapat membuka dan mengubah semua data.':isProfileOwner?(profileStores.length?`Owner dapat melihat ${profileStores.length} toko dan seluruh data event tanpa mengubah data.`:'Owner dapat melihat seluruh data event. Pilih minimal satu toko untuk akses data toko.'):isProfileEventEmployee?(assignedEvent?`Karyawan Event hanya dapat membuka dan closing Rekapan Bahan event ${escapeHtml(assignedEvent.name)}.`:'Pilih tepat satu event untuk akun Karyawan Event.'):profile.branch?`Karyawan hanya dapat membuka Rekapan Bahan cabang ${escapeHtml(profile.branch)}.`:'Pilih tepat satu toko untuk akun Karyawan.';
           const warning=(isProfileOwner&&!profileStores.length)||(isProfileEmployee&&!profile.branch)||(isProfileEventEmployee&&!profile.event_id);
           const badgeClass=isProfileAdmin?'role-admin':isProfileOwner?'role-owner':isProfileEventEmployee?'role-event-employee':'role-employee';
           if(!editable){
@@ -4945,7 +4952,7 @@ NOTIFY pgrst, 'reload schema';`
           if(help){help.className='muted owner-store-summary';help.textContent='Admin dapat membuka dan mengubah semua data.';}
         }else if(role==='owner'){
           branchSelect.value='';eventSelect.value='';
-          if(help){help.className=`${ownerStores.length?'muted':'danger-text'} owner-store-summary`;help.textContent=ownerStores.length?`Owner dapat melihat ${ownerStores.length} toko: ${ownerStores.join(', ')}.`:'Pilih minimal satu toko untuk akun Owner.';}
+          if(help){help.className=`${ownerStores.length?'muted':'danger-text'} owner-store-summary`;help.textContent=ownerStores.length?`Owner dapat melihat ${ownerStores.length} toko (${ownerStores.join(', ')}) dan seluruh data event.`:'Owner tetap dapat melihat seluruh data event. Pilih minimal satu toko untuk akses data toko.';}
         }else if(role==='event_employee'){
           branchSelect.value='';
           const selectedEvent=eventById(eventSelect.value);
@@ -4986,7 +4993,7 @@ NOTIFY pgrst, 'reload schema';`
 
         const selectedEvent=newEventId?eventById(newEventId):null;
         const roleName=newRole==='admin'?'Admin':newRole==='owner'?'Owner':newRole==='event_employee'?'Karyawan Event':'Karyawan';
-        const accessLabel=newRole==='admin'?'semua toko dan event dengan akses penuh':newRole==='owner'?`${newBranches.length} toko (${newBranches.join(', ')}) dalam mode hanya lihat`:newRole==='event_employee'?`Rekapan Bahan event ${selectedEvent?.name||newEventId}`:`toko ${newBranch}`;
+        const accessLabel=newRole==='admin'?'semua toko dan event dengan akses penuh':newRole==='owner'?`${newBranches.length} toko (${newBranches.join(', ')}) dan seluruh data event dalam mode hanya lihat`:newRole==='event_employee'?`Rekapan Bahan event ${selectedEvent?.name||newEventId}`:`toko ${newBranch}`;
         if(!confirm(`Simpan akses akun ${profile.email||''} sebagai ${roleName} dengan akses ${accessLabel}?`))return;
         setButtonBusy(button,true,'Menyimpan…');
         try{
@@ -4995,7 +5002,7 @@ NOTIFY pgrst, 'reload schema';`
           if(userId===state.profile.user_id)await loadCurrentProfile(currentSession.user);
           applyRoleUI();
           await loadCloudData(true);
-          toast(newRole==='admin'?'Akun sekarang memiliki akses penuh semua toko dan event.':newRole==='owner'?`Akun Owner dapat melihat ${newBranches.length} toko.`:newRole==='event_employee'?`Akun hanya dapat mengelola Rekapan Bahan event ${selectedEvent?.name||''}.`:`Akun hanya dapat mengelola bahan toko ${newBranch}.`);
+          toast(newRole==='admin'?'Akun sekarang memiliki akses penuh semua toko dan event.':newRole==='owner'?`Akun Owner dapat melihat ${newBranches.length} toko dan seluruh data event.`:newRole==='event_employee'?`Akun hanya dapat mengelola Rekapan Bahan event ${selectedEvent?.name||''}.`:`Akun hanya dapat mengelola bahan toko ${newBranch}.`);
         }catch(error){
           renderProfiles();
           showSyncError(error);
