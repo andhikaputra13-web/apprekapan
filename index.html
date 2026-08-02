@@ -4197,7 +4197,7 @@ NOTIFY pgrst, 'reload schema';`
           state.inventory=(inventoryResult.data||[]).map(rowToInventory).filter(canAccessInventoryRecord);
           state.eventMaterialCatalog=missingCatalogTable?[]:(eventMaterialCatalogResult.data||[]).map(rowToEventMaterialCatalog);
           state.inventoryDaily=(dailyResult.data||[]).map(rowToDailyRecord).filter(canAccessInventoryRecord);
-          state.transactions=(txResult.data||[]).map(rowToTransaction).filter(item=>item.eventId?isAdmin():canAccessStore(item.store));
+          state.transactions=(txResult.data||[]).map(rowToTransaction).filter(item=>item.eventId?canAccessEvent(item.eventId):canAccessStore(item.store));
           state.employees=(employeesResult.data||[]).map(rowToEmployee).filter(item=>canAccessStore(item.store));
           state.payrollDaily=(payrollDailyResult.data||[]).map(rowToPayrollDaily).filter(item=>canAccessStore(item.store));
           state.payrollAdvances=(payrollAdvanceResult.data||[]).map(rowToPayrollAdvance).filter(item=>canAccessStore(item.store));
@@ -4212,7 +4212,7 @@ NOTIFY pgrst, 'reload schema';`
         }catch(error){showSyncError(error);restoreSyncUiState(syncUiState);return false;}finally{dataLoading=false;}
       }
 
-      function startCloudRefresh(){stopCloudRefresh();refreshTimer=setInterval(()=>loadCloudData(true),30000);try{cloudChannel=db.channel('rekap-toko-cloud-v7').on('postgres_changes',{event:'*',schema:'public',table:'transactions'},scheduleRealtimeRefresh).on('postgres_changes',{event:'*',schema:'public',table:'inventory'},scheduleRealtimeRefresh).on('postgres_changes',{event:'*',schema:'public',table:'event_material_catalog'},scheduleRealtimeRefresh).on('postgres_changes',{event:'*',schema:'public',table:'inventory_daily'},scheduleRealtimeRefresh).on('postgres_changes',{event:'*',schema:'public',table:'events'},scheduleRealtimeRefresh).on('postgres_changes',{event:'*',schema:'public',table:'employees'},scheduleRealtimeRefresh).on('postgres_changes',{event:'*',schema:'public',table:'payroll_daily'},scheduleRealtimeRefresh).on('postgres_changes',{event:'*',schema:'public',table:'payroll_advances'},scheduleRealtimeRefresh).on('postgres_changes',{event:'*',schema:'public',table:'payroll_monthly_payments'},scheduleRealtimeRefresh).on('postgres_changes',{event:'*',schema:'public',table:'profiles'},scheduleRealtimeRefresh).subscribe();}catch(error){console.warn('Realtime tidak aktif, polling tetap berjalan.',error);}}
+      function startCloudRefresh(){stopCloudRefresh();refreshTimer=setInterval(()=>loadCloudData(true),30000);try{cloudChannel=db.channel('rekap-toko-cloud-v8').on('postgres_changes',{event:'*',schema:'public',table:'transactions'},scheduleRealtimeRefresh).on('postgres_changes',{event:'*',schema:'public',table:'inventory'},scheduleRealtimeRefresh).on('postgres_changes',{event:'*',schema:'public',table:'event_material_catalog'},scheduleRealtimeRefresh).on('postgres_changes',{event:'*',schema:'public',table:'inventory_daily'},scheduleRealtimeRefresh).on('postgres_changes',{event:'*',schema:'public',table:'events'},scheduleRealtimeRefresh).on('postgres_changes',{event:'*',schema:'public',table:'employees'},scheduleRealtimeRefresh).on('postgres_changes',{event:'*',schema:'public',table:'payroll_daily'},scheduleRealtimeRefresh).on('postgres_changes',{event:'*',schema:'public',table:'payroll_advances'},scheduleRealtimeRefresh).on('postgres_changes',{event:'*',schema:'public',table:'payroll_monthly_payments'},scheduleRealtimeRefresh).on('postgres_changes',{event:'*',schema:'public',table:'profiles'},scheduleRealtimeRefresh).subscribe();}catch(error){console.warn('Realtime tidak aktif, polling tetap berjalan.',error);}}
       function scheduleRealtimeRefresh(){clearTimeout(realtimeDebounce);realtimeDebounce=setTimeout(async()=>{if(currentSession)await loadCurrentProfile(currentSession.user);applyRoleUI();loadCloudData(true);},400);}
       function stopCloudRefresh(){clearInterval(refreshTimer);clearTimeout(realtimeDebounce);refreshTimer=null;if(cloudChannel&&db)db.removeChannel(cloudChannel);cloudChannel=null;}
 
@@ -5080,7 +5080,9 @@ NOTIFY pgrst, 'reload schema';`
   <script>
     if ('serviceWorker' in navigator && location.protocol !== 'file:') {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js').catch((error) => {
+        navigator.serviceWorker.register('./sw.js?v=owner-event-data-v3').then((registration) => {
+          registration.update().catch(() => {});
+        }).catch((error) => {
           console.warn('Service worker tidak dapat didaftarkan:', error);
         });
       });
