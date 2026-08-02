@@ -3577,7 +3577,6 @@ NOTIFY pgrst, 'reload schema';`
       function switchView(view){
         if(isEventEmployee())view='events';
         else if(isEmployee())view='inventory';
-        if(isOwner()&&view==='events')view='dashboard';
         if(!canViewAll()&&!canViewEvents()&&(view==='materials'||view==='settings'||view==='events'))view='inventory';
         activeView=view;
         document.querySelectorAll('.view').forEach(v=>v.classList.toggle('active',v.id===`view-${view}`));
@@ -4120,7 +4119,6 @@ NOTIFY pgrst, 'reload schema';`
         if(!valid.includes(view))return false;
         if(isEventEmployee())return view==='events';
         if(isEmployee())return view==='inventory';
-        if(isOwner()&&view==='events')return false;
         if(!canViewAll()&&(view==='materials'||view==='events'||view==='payroll'||view==='settings'))return false;
         return true;
       }
