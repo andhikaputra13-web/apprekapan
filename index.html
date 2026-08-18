@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="Aplikasi rekapan pemasukan, pengeluaran, dan stok bahan untuk lima toko." />
-  <title>Rekapan.id | Dashboard Operasional</title>
+  <meta name="description" content="Sistem operasional bisnis untuk rekapan pemasukan, pengeluaran, stok bahan, event, payroll, audit, dan backup." />
+  <title>Rekapan.id | Sistem Operasional</title>
 
   <!-- Ikon browser dan aplikasi (PWA) -->
   <meta name="theme-color" content="#172033" />
@@ -1864,15 +1864,23 @@
           <div class="toolbar"><div><h3>Cloud & Pengaturan</h3><p id="settingsAccessText">Admin dapat mengelola pengaturan. Owner dapat melihat informasi akun, data toko yang ditetapkan, dan seluruh data event dalam mode hanya lihat.</p></div></div>
           <div class="grid settings-grid">
             <article class="card setting-box"><h3>Status Supabase</h3><p>Seluruh data tersimpan di database online yang sama.</p><div class="connection-list"><div class="connection-row"><span>Proyek</span><strong id="settingsProjectHost">-</strong></div><div class="connection-row"><span>Pengguna</span><strong id="settingsUserEmail">-</strong></div><div class="connection-row"><span>Hak akses</span><strong id="settingsUserRole">-</strong></div><div class="connection-row"><span>Cabang akses</span><strong id="settingsUserBranch">-</strong></div><div class="connection-row"><span>Sinkronisasi terakhir</span><strong id="lastSyncText">Belum</strong></div></div><div class="toolbar-actions"><button class="btn btn-dark" id="syncNowBtn">Sinkronkan Sekarang</button><button class="btn btn-light" id="changeConfigBtn" data-admin-write>Ubah Koneksi</button></div></article>
-            <article class="card setting-box"><h3>Cadangkan Data Cloud</h3><p>Unduh transaksi, bahan, dan event dari Supabase ke format JSON.</p><button class="btn btn-dark" id="backupBtn">Unduh Cadangan JSON</button></article>
-            <article class="card setting-box" data-admin-write><h3>Pulihkan ke Supabase</h3><p class="setting-warning">Data cloud saat ini akan diganti dengan isi file cadangan.</p><input type="file" id="restoreInput" accept="application/json" hidden /><button class="btn btn-light" id="restoreBtn">Pilih File Cadangan</button></article>
-            <article class="card setting-box" data-admin-write><h3>Data Contoh Online</h3><p>Tambahkan contoh transaksi, bahan, dan event.</p><button class="btn btn-light" id="demoBtn">Muat Data Contoh</button></article>
+            <article class="card setting-box"><h3>Cadangkan Data Cloud</h3><p>Unduh backup lengkap termasuk data aktif, data di Sampah, profil akses, dan audit log.</p><button class="btn btn-dark" id="backupBtn">Unduh Backup Lengkap</button></article>
+            <article class="card setting-box" data-admin-write><h3>Import Backup</h3><p>Isi backup akan digabungkan ke database berdasarkan ID. Data yang sudah ada tidak dikosongkan terlebih dahulu.</p><input type="file" id="restoreInput" accept="application/json" hidden /><button class="btn btn-light" id="restoreBtn">Pilih File Backup</button></article>
+            <article class="card setting-box" data-admin-write><h3>Mode Produksi</h3><p>Data contoh dinonaktifkan pada database operasional agar tidak tercampur dengan rekapan bisnis.</p><span class="badge badge-ok">Produksi Aktif</span></article>
             <article class="card setting-box"><h3>Keluar dari Akun</h3><p>Akhiri sesi pada perangkat ini.</p><button class="btn btn-light" id="settingsLogoutBtn">Keluar</button></article>
-            <article class="card setting-box" data-admin-write><h3>Hapus Semua Data Cloud</h3><p class="setting-warning">Tindakan ini menghapus transaksi, bahan, dan event untuk semua perangkat.</p><button class="btn btn-danger" id="clearBtn">Hapus Semua Data</button></article>
+            <article class="card setting-box" data-admin-write><h3>Proteksi Data</h3><p>Hard delete dari browser dinonaktifkan. Tombol hapus memindahkan data ke Sampah dan seluruh perubahan dicatat pada Audit Log.</p><div class="connection-list"><div class="connection-row"><span>Hard delete</span><strong>Nonaktif</strong></div><div class="connection-row"><span>Soft delete</span><strong>Aktif</strong></div><div class="connection-row"><span>Audit log</span><strong>Aktif</strong></div><div class="connection-row"><span>Pagination</span><strong>Aktif</strong></div></div></article>
           </div>
           <article class="card table-card" style="margin-top:18px">
             <div class="card-head"><div><h3>Hak Akses Akun</h3><p>Admin dapat mengatur akses akun. Owner dapat melihat akses akunnya sendiri dalam mode hanya lihat.</p></div></div>
             <div class="card-body"><p class="profiles-note" id="profilesAccessNote">Buat akun baru melalui Supabase Dashboard → Authentication → Users. Admin dapat mengubah peran, memilih satu atau beberapa toko untuk Owner, satu toko untuk Karyawan, atau satu event untuk Karyawan Event. Owner hanya dapat melihat akses akunnya sendiri. Pembatasan baca/tulis berlaku pada tampilan web dan Supabase Row Level Security.</p><div class="table-wrap" id="profilesTable"></div></div>
+          </article>
+          <article class="card table-card admin-only" id="trashPanel" style="margin-top:18px" data-admin-write>
+            <div class="card-head"><div><h3>Sampah Data</h3><p>Data yang dihapus dari web tidak hilang permanen. Maksimal 200 item terbaru ditampilkan dan dapat dipulihkan oleh Admin.</p></div><span class="badge badge-low" id="trashCountBadge">0 item</span></div>
+            <div class="table-wrap" id="trashTable"></div>
+          </article>
+          <article class="card table-card admin-only" id="auditPanel" style="margin-top:18px" data-admin-write>
+            <div class="card-head"><div><h3>Audit Log</h3><p>200 aktivitas perubahan terbaru. Log ini dibuat otomatis oleh database dan tidak dapat diedit dari browser.</p></div></div>
+            <div class="table-wrap" id="auditLogTable"></div>
           </article>
         </section>
       </div>
@@ -3129,7 +3137,7 @@ END $$;
 
 NOTIFY pgrst, 'reload schema';`
 
-      const state = { transactions: [], inventory: [], eventMaterialCatalog: [], inventoryDaily: [], events: [], employees: [], payrollDaily: [], payrollAdvances: [], payrollMonthlyPayments: [], profiles: [], profile: null, updatedAt: null };
+      const state = { transactions: [], inventory: [], eventMaterialCatalog: [], inventoryDaily: [], events: [], employees: [], payrollDaily: [], payrollAdvances: [], payrollMonthlyPayments: [], profiles: [], deletedItems: [], auditLogs: [], profile: null, updatedAt: null };
       let activeView = 'dashboard';
       let activeEventTab = 'transactions';
       let activePayrollTab = 'employees';
@@ -3244,7 +3252,7 @@ NOTIFY pgrst, 'reload schema';`
       }
 
       async function handleAuthState(event,session){
-        if(event==='SIGNED_OUT'||!session){stopCloudRefresh();currentSession=null;state.transactions=[];state.inventory=[];state.events=[];state.employees=[];state.payrollDaily=[];state.payrollAdvances=[];state.payrollMonthlyPayments=[];state.profiles=[];state.profile=null;renderAll();if(forceSetupScreen){forceSetupScreen=false;showSetup();}else showAuth();return;}
+        if(event==='SIGNED_OUT'||!session){stopCloudRefresh();currentSession=null;state.transactions=[];state.inventory=[];state.events=[];state.employees=[];state.payrollDaily=[];state.payrollAdvances=[];state.payrollMonthlyPayments=[];state.profiles=[];state.deletedItems=[];state.auditLogs=[];state.profile=null;renderAll();if(forceSetupScreen){forceSetupScreen=false;showSetup();}else showAuth();return;}
         if(event==='SIGNED_IN'||event==='INITIAL_SESSION'||event==='TOKEN_REFRESHED') await showApp(session);
       }
 
@@ -3585,7 +3593,7 @@ NOTIFY pgrst, 'reload schema';`
         el('materialsTable').addEventListener('click',handleInventoryTableClick);el('eventMaterialsTable').addEventListener('click',handleInventoryTableClick);el('eventCatalogTable').addEventListener('click',handleEventCatalogTableClick);
         el('eventsTable').addEventListener('click',handleEventsTableClick);el('employeeTable').addEventListener('click',handleEmployeeTableClick);el('payrollDailyTable').addEventListener('click',handlePayrollDailyTableClick);el('payrollAdvanceTable').addEventListener('click',handlePayrollAdvanceTableClick);el('payrollMonthlyTable').addEventListener('click',handlePayrollMonthlyTableClick);el('profilesTable').addEventListener('change',handleProfileAccessDraftChange);el('profilesTable').addEventListener('click',handleProfileAccessSave);
         el('exportTransactionsBtn').addEventListener('click',exportTransactionsCSV);el('exportPayrollBtn').addEventListener('click',exportPayrollCSV);el('exportInventoryBtn').addEventListener('click',exportInventoryCSV);el('exportEventsBtn').addEventListener('click',exportEventsCSV);el('exportEventTransactionsBtn').addEventListener('click',exportEventTransactionsCSV);el('exportEventInventoryBtn').addEventListener('click',exportEventInventoryCSV);
-        el('backupBtn').addEventListener('click',backupJSON);el('restoreBtn').addEventListener('click',()=>el('restoreInput').click());el('restoreInput').addEventListener('change',restoreJSON);el('demoBtn').addEventListener('click',loadDemoData);el('clearBtn').addEventListener('click',clearAllData);
+        el('backupBtn').addEventListener('click',backupJSON);el('restoreBtn').addEventListener('click',()=>el('restoreInput').click());el('restoreInput').addEventListener('change',restoreJSON);el('trashTable').addEventListener('click',handleTrashTableClick);
         window.addEventListener('resize',renderChart);window.addEventListener('online',()=>loadCloudData(true));window.addEventListener('offline',()=>setCloudStatus('error','Offline'));
         document.querySelectorAll('.modal').forEach(modal=>modal.addEventListener('click',event=>{if(event.target===modal)closeModal(modal.id);}));
       }
@@ -3609,7 +3617,7 @@ NOTIFY pgrst, 'reload schema';`
         if(view==='materials')renderMaterials();
         if(view==='events')renderEvents();
         if(view==='payroll')renderPayroll();
-        if(view==='settings')renderProfiles();
+        if(view==='settings'){renderProfiles();renderSafetyPanels();}
       }
       function toggleSidebar(){el('sidebar').classList.toggle('open');el('overlay').classList.toggle('open');}
       function closeSidebar(){el('sidebar').classList.remove('open');el('overlay').classList.remove('open');}
@@ -3919,8 +3927,7 @@ NOTIFY pgrst, 'reload schema';`
           const item=state.eventMaterialCatalog.find(row=>row.id===remove.dataset.deleteEventCatalog);
           if(!item||!confirm(`Hapus ${item.name} dari master bahan Event ${item.store}? Bahan yang sudah dipilih ke event tetap tersimpan.`))return;
           try{
-            const {error}=await db.from('event_material_catalog').delete().eq('id',item.id);
-            if(error)throw error;
+            await softDeleteRow('event_material_catalog',item.id);
             await loadCloudData(true);
             toast('Master bahan event berhasil dihapus.');
           }catch(error){showSyncError(error);}
@@ -4195,29 +4202,29 @@ NOTIFY pgrst, 'reload schema';`
           const stores=accessibleStores();
 
           const eventPromise=isAdmin()||isOwner()
-            ? fetchAllCloudRows(()=>db.from('events').select('*').order('event_date',{ascending:false}).order('id',{ascending:true}))
+            ? fetchAllCloudRows(()=>db.from('events').select('*').is('deleted_at',null).order('event_date',{ascending:false}).order('id',{ascending:true}))
             : isEventEmployee()&&assignedEventId
-              ? fetchAllCloudRows(()=>db.from('events').select('*').eq('id',assignedEventId).order('event_date',{ascending:false}).order('id',{ascending:true}))
+              ? fetchAllCloudRows(()=>db.from('events').select('*').eq('id',assignedEventId).is('deleted_at',null).order('event_date',{ascending:false}).order('id',{ascending:true}))
               : Promise.resolve({data:[],error:null});
 
           const inventoryPromise=isAdmin()||isOwner()
-            ? fetchAllCloudRows(()=>db.from('inventory').select('*').order('store',{ascending:true}).order('name',{ascending:true}).order('id',{ascending:true}))
+            ? fetchAllCloudRows(()=>db.from('inventory').select('*').is('deleted_at',null).order('store',{ascending:true}).order('name',{ascending:true}).order('id',{ascending:true}))
             : isEventEmployee()&&assignedEventId
-              ? fetchAllCloudRows(()=>db.from('inventory').select('*').eq('event_id',assignedEventId).order('name',{ascending:true}).order('id',{ascending:true}))
+              ? fetchAllCloudRows(()=>db.from('inventory').select('*').eq('event_id',assignedEventId).is('deleted_at',null).order('name',{ascending:true}).order('id',{ascending:true}))
               : stores.length
-                ? fetchAllCloudRows(()=>db.from('inventory').select('*').in('store',stores).is('event_id',null).order('store',{ascending:true}).order('name',{ascending:true}).order('id',{ascending:true}))
+                ? fetchAllCloudRows(()=>db.from('inventory').select('*').in('store',stores).is('event_id',null).is('deleted_at',null).order('store',{ascending:true}).order('name',{ascending:true}).order('id',{ascending:true}))
                 : Promise.resolve({data:[],error:null});
 
           const eventMaterialCatalogPromise=isAdmin()||isOwner()
-            ? fetchAllCloudRows(()=>db.from('event_material_catalog').select('*').order('store',{ascending:true}).order('name',{ascending:true}).order('id',{ascending:true}))
+            ? fetchAllCloudRows(()=>db.from('event_material_catalog').select('*').is('deleted_at',null).order('store',{ascending:true}).order('name',{ascending:true}).order('id',{ascending:true}))
             : Promise.resolve({data:[],error:null});
 
           const transactionPromise=isAdmin()||isOwner()
-            ? fetchAllCloudRows(()=>db.from('transactions').select('*').order('transaction_date',{ascending:false}).order('created_at',{ascending:false}).order('id',{ascending:true}))
+            ? fetchAllCloudRows(()=>db.from('transactions').select('*').is('deleted_at',null).order('transaction_date',{ascending:false}).order('created_at',{ascending:false}).order('id',{ascending:true}))
             : Promise.resolve({data:[],error:null});
 
           const dailyQueryFactory=()=>{
-            let query=db.from('inventory_daily').select('*').order('record_date',{ascending:false}).order('store',{ascending:true}).order('name',{ascending:true}).order('id',{ascending:true});
+            let query=db.from('inventory_daily').select('*').is('deleted_at',null).order('record_date',{ascending:false}).order('store',{ascending:true}).order('name',{ascending:true}).order('id',{ascending:true});
             if(isEventEmployee()&&assignedEventId)query=query.eq('event_id',assignedEventId);
             else if(!isAdmin()&&!isOwner()&&stores.length)query=query.in('store',stores).is('event_id',null);
             return query;
@@ -4227,27 +4234,33 @@ NOTIFY pgrst, 'reload schema';`
             : Promise.resolve({data:[],error:null});
 
           const employeesPromise=stores.length||isAdmin()
-            ? fetchAllCloudRows(()=>db.from('employees').select('*').in('store',stores.length?stores:STORES).order('store',{ascending:true}).order('name',{ascending:true}).order('id',{ascending:true}))
+            ? fetchAllCloudRows(()=>db.from('employees').select('*').in('store',stores.length?stores:STORES).is('deleted_at',null).order('store',{ascending:true}).order('name',{ascending:true}).order('id',{ascending:true}))
             : Promise.resolve({data:[],error:null});
 
           const payrollDailyPromise=stores.length||isAdmin()
-            ? fetchAllCloudRows(()=>db.from('payroll_daily').select('*').in('store',stores.length?stores:STORES).order('work_date',{ascending:false}).order('employee_name',{ascending:true}).order('id',{ascending:true}))
+            ? fetchAllCloudRows(()=>db.from('payroll_daily').select('*').in('store',stores.length?stores:STORES).is('deleted_at',null).order('work_date',{ascending:false}).order('employee_name',{ascending:true}).order('id',{ascending:true}))
             : Promise.resolve({data:[],error:null});
 
           const payrollAdvancePromise=stores.length||isAdmin()
-            ? fetchAllCloudRows(()=>db.from('payroll_advances').select('*').in('store',stores.length?stores:STORES).order('advance_date',{ascending:false}).order('employee_name',{ascending:true}).order('id',{ascending:true}))
+            ? fetchAllCloudRows(()=>db.from('payroll_advances').select('*').in('store',stores.length?stores:STORES).is('deleted_at',null).order('advance_date',{ascending:false}).order('employee_name',{ascending:true}).order('id',{ascending:true}))
             : Promise.resolve({data:[],error:null});
 
           const payrollMonthlyPromise=stores.length||isAdmin()
-            ? fetchAllCloudRows(()=>db.from('payroll_monthly_payments').select('*').in('store',stores.length?stores:STORES).order('payroll_month',{ascending:false}).order('employee_name',{ascending:true}).order('id',{ascending:true}))
+            ? fetchAllCloudRows(()=>db.from('payroll_monthly_payments').select('*').in('store',stores.length?stores:STORES).is('deleted_at',null).order('payroll_month',{ascending:false}).order('employee_name',{ascending:true}).order('id',{ascending:true}))
             : Promise.resolve({data:[],error:null});
 
           const profilesPromise=isAdmin()
             ? fetchAllCloudRows(()=>db.from('profiles').select('user_id,email,role,branch,branches,event_id,created_at').order('created_at',{ascending:true}).order('user_id',{ascending:true}))
             : Promise.resolve({data:[state.profile],error:null});
+          const deletedItemsPromise=isAdmin()
+            ? db.from('deleted_items').select('*').order('deleted_at',{ascending:false}).limit(200)
+            : Promise.resolve({data:[],error:null});
+          const auditLogsPromise=isAdmin()
+            ? db.from('audit_logs').select('id,occurred_at,actor_user_id,actor_email,action,table_name,row_id,old_data,new_data').order('occurred_at',{ascending:false}).limit(200)
+            : Promise.resolve({data:[],error:null});
 
-          const [eventResult,inventoryResult,eventMaterialCatalogResult,txResult,dailyResult,employeesResult,payrollDailyResult,payrollAdvanceResult,payrollMonthlyResult,profilesResult]=await Promise.all([eventPromise,inventoryPromise,eventMaterialCatalogPromise,transactionPromise,dailyPromise,employeesPromise,payrollDailyPromise,payrollAdvancePromise,payrollMonthlyPromise,profilesPromise]);
-          for(const result of [eventResult,inventoryResult,txResult,dailyResult,employeesResult,payrollDailyResult,payrollAdvanceResult,payrollMonthlyResult,profilesResult])if(result.error)throw result.error;
+          const [eventResult,inventoryResult,eventMaterialCatalogResult,txResult,dailyResult,employeesResult,payrollDailyResult,payrollAdvanceResult,payrollMonthlyResult,profilesResult,deletedItemsResult,auditLogsResult]=await Promise.all([eventPromise,inventoryPromise,eventMaterialCatalogPromise,transactionPromise,dailyPromise,employeesPromise,payrollDailyPromise,payrollAdvancePromise,payrollMonthlyPromise,profilesPromise,deletedItemsPromise,auditLogsPromise]);
+          for(const result of [eventResult,inventoryResult,txResult,dailyResult,employeesResult,payrollDailyResult,payrollAdvanceResult,payrollMonthlyResult,profilesResult,deletedItemsResult,auditLogsResult])if(result.error)throw result.error;
           const missingCatalogTable=eventMaterialCatalogResult.error&&(['42P01','PGRST205'].includes(eventMaterialCatalogResult.error.code)||/event_material_catalog/i.test(`${eventMaterialCatalogResult.error.message||''} ${eventMaterialCatalogResult.error.details||''}`));
           if(eventMaterialCatalogResult.error&&!missingCatalogTable)throw eventMaterialCatalogResult.error;
           eventMaterialCatalogAvailable=!missingCatalogTable;
@@ -4261,6 +4274,8 @@ NOTIFY pgrst, 'reload schema';`
           state.payrollAdvances=(payrollAdvanceResult.data||[]).map(rowToPayrollAdvance).filter(item=>canAccessStore(item.store));
           state.payrollMonthlyPayments=(payrollMonthlyResult.data||[]).map(rowToPayrollMonthlyPayment).filter(item=>canAccessStore(item.store));
           state.profiles=profilesResult.data||[];
+          state.deletedItems=deletedItemsResult.data||[];
+          state.auditLogs=auditLogsResult.data||[];
           state.updatedAt=new Date().toISOString();
           applyRoleUI();
           refreshEventSelects();
@@ -4274,7 +4289,7 @@ NOTIFY pgrst, 'reload schema';`
       function scheduleRealtimeRefresh(){clearTimeout(realtimeDebounce);realtimeDebounce=setTimeout(async()=>{if(currentSession)await loadCurrentProfile(currentSession.user);applyRoleUI();loadCloudData(true);},400);}
       function stopCloudRefresh(){clearInterval(refreshTimer);clearTimeout(realtimeDebounce);refreshTimer=null;if(cloudChannel&&db)db.removeChannel(cloudChannel);cloudChannel=null;}
 
-      function renderAll(){renderDashboard();renderTransactions();renderInventory();renderMaterials();renderEvents();renderPayroll();renderProfiles();}
+      function renderAll(){renderDashboard();renderTransactions();renderInventory();renderMaterials();renderEvents();renderPayroll();renderProfiles();renderSafetyPanels();}
       function filteredByGlobal(items){const storeItems=items.filter(item=>!item.eventId&&canAccessStore(item.store));const activeStore=isEmployee()?employeeBranch():selectedGlobalStore;return activeStore==='all'||!activeStore?storeItems:storeItems.filter(item=>item.store===activeStore);}
       function sumByType(rows,type){return rows.filter(t=>t.type===type).reduce((sum,t)=>sum+t.amount,0);}
       function normalizePaymentMethod(value){return value==='cash'?'cash':'qris';}
@@ -4885,15 +4900,15 @@ NOTIFY pgrst, 'reload schema';`
       }
       async function handleEmployeeTableClick(event){
         const edit=event.target.closest('[data-employee-edit]');if(edit){openEmployeeModal(employeeById(edit.dataset.employeeEdit));return;}
-        const del=event.target.closest('[data-employee-delete]');if(del){const employee=employeeById(del.dataset.employeeDelete);if(!employee||!confirm(`Hapus ${employee.name}? Seluruh rekapan hariannya juga akan terhapus.`))return;const {error}=await db.from('employees').delete().eq('id',employee.id);if(error){showSyncError(error);return;}await loadCloudData(true);toast('Data karyawan berhasil dihapus.');}
+        const del=event.target.closest('[data-employee-delete]');if(del){const employee=employeeById(del.dataset.employeeDelete);if(!employee||!confirm(`Pindahkan ${employee.name} ke Sampah? Riwayat gaji dan absensi tetap tersimpan.`))return;try{await softDeleteRow('employees',employee.id);await loadCloudData(true);toast('Data karyawan dipindahkan ke Sampah.');}catch(error){showSyncError(error);}}
       }
       async function handlePayrollDailyTableClick(event){
         const edit=event.target.closest('[data-payroll-daily-edit]');if(edit){openPayrollDailyModal(state.payrollDaily.find(item=>item.id===edit.dataset.payrollDailyEdit));return;}
-        const del=event.target.closest('[data-payroll-daily-delete]');if(del&&confirm('Hapus rekapan gaji harian ini?')){const {error}=await db.from('payroll_daily').delete().eq('id',del.dataset.payrollDailyDelete);if(error){showSyncError(error);return;}await loadCloudData(true);toast('Rekapan gaji harian berhasil dihapus.');}
+        const del=event.target.closest('[data-payroll-daily-delete]');if(del&&confirm('Pindahkan rekapan gaji harian ini ke Sampah?')){try{await softDeleteRow('payroll_daily',del.dataset.payrollDailyDelete);await loadCloudData(true);toast('Rekapan gaji harian dipindahkan ke Sampah.');}catch(error){showSyncError(error);}}
       }
       async function handlePayrollAdvanceTableClick(event){
         const edit=event.target.closest('[data-payroll-advance-edit]');if(edit){openPayrollAdvanceModal(state.payrollAdvances.find(item=>item.id===edit.dataset.payrollAdvanceEdit));return;}
-        const del=event.target.closest('[data-payroll-advance-delete]');if(del&&confirm('Hapus data kasbon ini?')){const {error}=await db.from('payroll_advances').delete().eq('id',del.dataset.payrollAdvanceDelete);if(error){showSyncError(error);return;}await loadCloudData(true);switchPayrollTab('advances');toast('Data kasbon berhasil dihapus.');}
+        const del=event.target.closest('[data-payroll-advance-delete]');if(del&&confirm('Pindahkan data kasbon ini ke Sampah?')){try{await softDeleteRow('payroll_advances',del.dataset.payrollAdvanceDelete);await loadCloudData(true);switchPayrollTab('advances');toast('Data kasbon dipindahkan ke Sampah.');}catch(error){showSyncError(error);}}
       }
       async function handlePayrollMonthlyTableClick(event){
         const button=event.target.closest('[data-monthly-payment-toggle]');if(!button||!isAdmin())return;
@@ -4954,12 +4969,47 @@ NOTIFY pgrst, 'reload schema';`
         }).join('')}</tbody></table>`;
       }
 
+      async function softDeleteRow(table,id){
+        const payload={deleted_at:new Date().toISOString(),deleted_by:currentSession?.user?.id||null};
+        const {error}=await db.from(table).update(payload).eq('id',id).is('deleted_at',null);
+        if(error)throw error;
+      }
+      async function restoreSoftDeleted(table,id){
+        const {error}=await db.rpc('restore_soft_deleted',{target_table:table,target_id:id});
+        if(error)throw error;
+      }
+      const SAFETY_TABLE_LABELS={transactions:'Transaksi',inventory:'Daftar Bahan',inventory_daily:'Rekapan Bahan',events:'Event',event_material_catalog:'Master Bahan Event',employees:'Karyawan',payroll:'Payroll',payroll_daily:'Gaji Harian',payroll_advances:'Kasbon',payroll_monthly_payments:'Gaji Bulanan'};
+      function auditActionLabel(action,row){
+        if(action==='INSERT')return 'Tambah';
+        if(action==='DELETE')return 'Hard Delete';
+        const before=row?.old_data?.deleted_at,after=row?.new_data?.deleted_at;
+        if(!before&&after)return 'Masuk Sampah';
+        if(before&&!after)return 'Pulihkan';
+        return 'Edit';
+      }
+      function renderSafetyPanels(){
+        if(!el('trashTable')||!el('auditLogTable'))return;
+        if(!isAdmin()){el('trashTable').innerHTML='';el('auditLogTable').innerHTML='';return;}
+        const trash=state.deletedItems||[];
+        el('trashCountBadge').textContent=`${number(trash.length)} item`;
+        el('trashTable').innerHTML=trash.length?`<table><thead><tr><th>Dihapus</th><th>Jenis</th><th>Toko</th><th>Data</th><th>Detail</th><th>Aksi</th></tr></thead><tbody>${trash.map(item=>`<tr><td>${escapeHtml(formatSavedDateTime(item.deleted_at))}</td><td><span class="badge badge-low">${escapeHtml(SAFETY_TABLE_LABELS[item.table_name]||item.table_name)}</span></td><td>${escapeHtml(item.store||'-')}</td><td><strong>${escapeHtml(item.label||item.id)}</strong><br><small class="muted">ID ${escapeHtml(item.id)}</small></td><td>${escapeHtml(item.detail||'-')}</td><td><button class="btn btn-light btn-sm" data-restore-soft-delete="${escapeHtml(item.id)}" data-restore-table="${escapeHtml(item.table_name)}">Pulihkan</button></td></tr>`).join('')}</tbody></table>`:emptyState('Sampah kosong','Belum ada data yang dihapus sejak proteksi soft-delete diaktifkan.');
+        const logs=state.auditLogs||[];
+        el('auditLogTable').innerHTML=logs.length?`<table><thead><tr><th>Waktu</th><th>User</th><th>Aktivitas</th><th>Tabel</th><th>ID Data</th></tr></thead><tbody>${logs.map(item=>`<tr><td>${escapeHtml(formatSavedDateTime(item.occurred_at))}</td><td>${escapeHtml(item.actor_email||item.actor_user_id||'Sistem')}</td><td><span class="badge ${auditActionLabel(item.action,item)==='Hard Delete'?'badge-expense':auditActionLabel(item.action,item)==='Masuk Sampah'?'badge-low':'badge-ok'}">${escapeHtml(auditActionLabel(item.action,item))}</span></td><td>${escapeHtml(SAFETY_TABLE_LABELS[item.table_name]||item.table_name)}</td><td><small>${escapeHtml(item.row_id||'-')}</small></td></tr>`).join('')}</tbody></table>`:emptyState('Audit log masih kosong','Aktivitas baru akan tercatat otomatis ketika data ditambah, diedit, dihapus, atau dipulihkan.');
+      }
+      async function handleTrashTableClick(event){
+        const button=event.target.closest('[data-restore-soft-delete]');
+        if(!button||!isAdmin())return;
+        const table=button.dataset.restoreTable,id=button.dataset.restoreSoftDelete;
+        if(!confirm(`Pulihkan data ${SAFETY_TABLE_LABELS[table]||table} ini ke daftar aktif?`))return;
+        try{setButtonBusy(button,true,'Memulihkan...');await restoreSoftDeleted(table,id);await loadCloudData(true);toast('Data berhasil dipulihkan dari Sampah.');}catch(error){showSyncError(error);}finally{setButtonBusy(button,false);}
+      }
+
       async function handleTransactionTableClick(event){
         if(!isAdmin())return;
         const edit=event.target.closest('[data-edit-transaction]');
         const remove=event.target.closest('[data-delete-transaction]');
         if(edit){const item=state.transactions.find(row=>row.id===edit.dataset.editTransaction);openTransactionModal(edit.dataset.editTransaction,item?.eventId?'event':'store',item?.eventId||null);}
-        if(remove&&confirm('Hapus transaksi ini dari database online?')){try{const {error}=await db.from('transactions').delete().eq('id',remove.dataset.deleteTransaction);if(error)throw error;await loadCloudData(true);toast('Transaksi berhasil dihapus.');}catch(error){showSyncError(error);}}
+        if(remove&&confirm('Pindahkan transaksi ini ke Sampah? Data dapat dipulihkan oleh Admin.')){try{await softDeleteRow('transactions',remove.dataset.deleteTransaction);await loadCloudData(true);toast('Transaksi dipindahkan ke Sampah.');}catch(error){showSyncError(error);}}
       }
       async function handleInventoryTableClick(event){
         if(!canManageMaterials())return;
@@ -4970,7 +5020,7 @@ NOTIFY pgrst, 'reload schema';`
         if(targetItem&&!targetItem.eventId&&!canAccessStore(targetItem.store))return toast('Anda tidak memiliki akses ke cabang data ini.');
         if(edit)openInventoryModal(edit.dataset.editInventory,targetItem?.eventId?'event':'store',targetItem?.eventId||null);
         if(remove&&confirm(targetItem?.eventId?'Hapus bahan ini dari daftar event? Riwayat closing tetap tersimpan sampai event dihapus.':'Hapus bahan ini dari daftar aktif? Riwayat closing harian tetap tersimpan.')){
-          try{const {error}=await db.from('inventory').delete().eq('id',remove.dataset.deleteInventory);if(error)throw error;await loadCloudData(true);toast('Bahan berhasil dihapus dari daftar aktif.');}catch(error){showSyncError(error);}
+          try{await softDeleteRow('inventory',remove.dataset.deleteInventory);await loadCloudData(true);toast('Bahan dipindahkan ke Sampah. Riwayat closing tetap tersimpan.');}catch(error){showSyncError(error);}
         }
       }
       async function handleEventsTableClick(event){
@@ -4984,8 +5034,8 @@ NOTIFY pgrst, 'reload schema';`
         if(tx)selectEventWorkspace(tx.dataset.eventTransactions,'transactions');
         if(inventory)selectEventWorkspace(inventory.dataset.eventInventory,'inventory');
         if(materials)selectEventWorkspace(materials.dataset.eventMaterials,'materials');
-        if(remove&&isAdmin()&&confirm('Hapus event ini beserta seluruh transaksi, daftar bahan, dan rekapan bahan khusus event?')){
-          try{const {error}=await db.from('events').delete().eq('id',remove.dataset.deleteEvent);if(error)throw error;await loadCloudData(true);toast('Event beserta data khususnya berhasil dihapus.');}catch(error){showSyncError(error);}
+        if(remove&&isAdmin()&&confirm('Pindahkan event ini beserta transaksi, daftar bahan, dan rekapan bahan khusus event ke Sampah? Semua data dapat dipulihkan.')){
+          try{const {error}=await db.rpc('soft_delete_event_bundle',{target_event_id:remove.dataset.deleteEvent});if(error)throw error;await loadCloudData(true);toast('Event beserta data khususnya dipindahkan ke Sampah.');}catch(error){showSyncError(error);}
         }
       }
       function handleProfileAccessDraftChange(event){
@@ -5123,11 +5173,54 @@ NOTIFY pgrst, 'reload schema';`
       }
 
       function exportEventsCSV(){if(!canViewAll())return;const rows=[['Nama Event','Toko/Brand','Tanggal Mulai','Tanggal Selesai','Lokasi','Penyelenggara','Status','Pemasukan','Pengeluaran','Pengeluaran Cash','Cash Bersih','Saldo','Jumlah Bahan','Keterangan']];state.events.forEach(e=>{const tx=state.transactions.filter(t=>t.eventId===e.id),materials=state.inventory.filter(i=>i.eventId===e.id),income=sumByType(tx,'income'),expense=sumByType(tx,'expense'),cash=cashSummary(tx);rows.push([e.name,e.store||'',e.eventDate,e.endDate,e.location,e.organizer,getEventStatus(e).label,income,expense,cash.cashExpense,cash.net,income-expense,materials.length,e.note||'']);});downloadFile(`rekap-event-${todayISO()}.csv`,'\ufeff'+toCSV(rows),'text/csv;charset=utf-8');toast('File event berhasil diekspor.');}
-      function backupJSON(){if(!isAdmin())return;downloadFile(`cadangan-rekap-toko-cloud-${todayISO()}.json`,JSON.stringify({version:15,exportedAt:new Date().toISOString(),stores:STORES,transactions:state.transactions,inventory:state.inventory,eventMaterialCatalog:state.eventMaterialCatalog,inventoryDaily:state.inventoryDaily,events:state.events,employees:state.employees,payrollDaily:state.payrollDaily,payrollAdvances:state.payrollAdvances,payrollMonthlyPayments:state.payrollMonthlyPayments},null,2),'application/json');toast('Cadangan data berhasil diunduh.');}
+      const BACKUP_TABLES=['events','transactions','inventory','event_material_catalog','inventory_daily','employees','payroll','payroll_daily','payroll_advances','payroll_monthly_payments','profiles'];
+      async function backupJSON(){
+        if(!isAdmin())return;
+        try{
+          el('loadingCover').hidden=false;
+          const rawTables={};
+          for(const table of BACKUP_TABLES){
+            const result=await fetchAllCloudRows(()=>db.from(table).select('*').order(table==='profiles'?'user_id':'id',{ascending:true}));
+            if(result.error)throw result.error;
+            rawTables[table]=result.data||[];
+          }
+          const auditResult=await fetchAllCloudRows(()=>db.from('audit_logs').select('*').order('id',{ascending:true}));
+          if(auditResult.error)throw auditResult.error;
+          const payload={version:16,mode:'production-safety',exportedAt:new Date().toISOString(),project:'appsrekapan',stores:STORES,rawTables,auditLogs:auditResult.data||[]};
+          downloadFile(`backup-rekapan-id-lengkap-${todayISO()}.json`,JSON.stringify(payload,null,2),'application/json');
+          toast('Backup lengkap berhasil diunduh.');
+        }catch(error){showSyncError(error);}finally{el('loadingCover').hidden=true;}
+      }
 
-      async function restoreJSON(event){if(!isAdmin())return;const file=event.target.files[0];if(!file)return;try{const data=JSON.parse(await file.text());if(!Array.isArray(data.transactions)||!Array.isArray(data.inventory))throw new Error('Format file tidak sesuai.');if(!confirm('Ganti seluruh data cloud dengan isi file cadangan ini?'))return;el('loadingCover').hidden=false;await deleteAllCloudRows();await upsertInChunks('events',(data.events||[]).map(item=>eventToRow({...item,id:item.id||uid()})));await upsertInChunks('transactions',data.transactions.map(item=>transactionToRow({...item,id:item.id||uid()})));await upsertInChunks('inventory',data.inventory.map(item=>inventoryToRow({...item,id:item.id||uid()})));if(eventMaterialCatalogAvailable)await upsertInChunks('event_material_catalog',(data.eventMaterialCatalog||[]).map(item=>eventMaterialCatalogToRow({...item,id:item.id||uid()})));await upsertInChunks('inventory_daily',(data.inventoryDaily||[]).map(item=>dailyRecordToRow({...item,id:item.id||uid()})));await upsertInChunks('employees',(data.employees||[]).map(item=>employeeToRow({...item,id:item.id||uid()})));await upsertInChunks('payroll_daily',(data.payrollDaily||[]).map(item=>payrollDailyToRow({...item,id:item.id||uid()})));await upsertInChunks('payroll_advances',(data.payrollAdvances||[]).map(item=>payrollAdvanceToRow({...item,id:item.id||uid()})));await upsertInChunks('payroll_monthly_payments',(data.payrollMonthlyPayments||[]).map(item=>payrollMonthlyPaymentToRow({...item,id:item.id||uid()})));await loadCloudData(true);toast('Data cloud berhasil dipulihkan.');}catch(error){showSyncError(error);}finally{event.target.value='';el('loadingCover').hidden=true;}}
-      async function clearAllData(){if(!isAdmin())return;if(!confirm('Yakin menghapus SEMUA transaksi, bahan, dan event dari Supabase?'))return;if(!confirm('Konfirmasi terakhir: tindakan ini tidak dapat dibatalkan.'))return;try{el('loadingCover').hidden=false;await deleteAllCloudRows();await loadCloudData(true);toast('Semua data cloud berhasil dihapus.');}catch(error){showSyncError(error);}finally{el('loadingCover').hidden=true;}}
-      async function deleteAllCloudRows(){const payrollAdvances=await db.from('payroll_advances').delete().neq('id','');if(payrollAdvances.error)throw payrollAdvances.error;const payrollMonthly=await db.from('payroll_monthly_payments').delete().neq('id','');if(payrollMonthly.error)throw payrollMonthly.error;const payrollDaily=await db.from('payroll_daily').delete().neq('id','');if(payrollDaily.error)throw payrollDaily.error;const daily=await db.from('inventory_daily').delete().neq('id','');if(daily.error)throw daily.error;const catalog=eventMaterialCatalogAvailable?await db.from('event_material_catalog').delete().neq('id',''):{error:null};if(catalog.error)throw catalog.error;const [tx,inventory,employees,legacyPayroll,events]=await Promise.all([db.from('transactions').delete().neq('id',''),db.from('inventory').delete().neq('id',''),db.from('employees').delete().neq('id',''),db.from('payroll').delete().neq('id',''),db.from('events').delete().neq('id','')]);if(tx.error)throw tx.error;if(inventory.error)throw inventory.error;if(employees.error)throw employees.error;if(legacyPayroll.error)throw legacyPayroll.error;if(events.error)throw events.error;}
+      async function restoreJSON(event){
+        if(!isAdmin())return;
+        const file=event.target.files[0];if(!file)return;
+        try{
+          const data=JSON.parse(await file.text());
+          if(!confirm('Import backup ke Supabase? Data yang sudah ada TIDAK akan dikosongkan; record dengan ID yang sama akan diperbarui.'))return;
+          el('loadingCover').hidden=false;
+          if(data.rawTables&&typeof data.rawTables==='object'){
+            for(const table of BACKUP_TABLES){
+              if(table==='profiles')continue;
+              const rows=Array.isArray(data.rawTables[table])?data.rawTables[table]:[];
+              if(rows.length)await upsertInChunks(table,rows);
+            }
+          }else{
+            if(!Array.isArray(data.transactions)||!Array.isArray(data.inventory))throw new Error('Format file backup tidak dikenali.');
+            await upsertInChunks('events',(data.events||[]).map(item=>eventToRow({...item,id:item.id||uid()})));
+            await upsertInChunks('transactions',data.transactions.map(item=>transactionToRow({...item,id:item.id||uid()})));
+            await upsertInChunks('inventory',data.inventory.map(item=>inventoryToRow({...item,id:item.id||uid()})));
+            if(eventMaterialCatalogAvailable)await upsertInChunks('event_material_catalog',(data.eventMaterialCatalog||[]).map(item=>eventMaterialCatalogToRow({...item,id:item.id||uid()})));
+            await upsertInChunks('inventory_daily',(data.inventoryDaily||[]).map(item=>dailyRecordToRow({...item,id:item.id||uid()})));
+            await upsertInChunks('employees',(data.employees||[]).map(item=>employeeToRow({...item,id:item.id||uid()})));
+            await upsertInChunks('payroll_daily',(data.payrollDaily||[]).map(item=>payrollDailyToRow({...item,id:item.id||uid()})));
+            await upsertInChunks('payroll_advances',(data.payrollAdvances||[]).map(item=>payrollAdvanceToRow({...item,id:item.id||uid()})));
+            await upsertInChunks('payroll_monthly_payments',(data.payrollMonthlyPayments||[]).map(item=>payrollMonthlyPaymentToRow({...item,id:item.id||uid()})));
+          }
+          await loadCloudData(true);toast('Backup berhasil di-import tanpa mengosongkan database.');
+        }catch(error){showSyncError(error);}finally{event.target.value='';el('loadingCover').hidden=true;}
+      }
+
       async function upsertInChunks(table,rows){for(let i=0;i<rows.length;i+=500){const {error}=await db.from(table).upsert(rows.slice(i,i+500));if(error)throw error;}}
 
       async function loadDemoData(){if(!isAdmin())return;if((state.transactions.length||state.inventory.length||state.events.length)&&!confirm('Data contoh akan ditambahkan ke data yang sudah ada. Lanjutkan?'))return;const start=todayISO();const endDate=new Date();endDate.setDate(endDate.getDate()+2);const demoEvent={id:uid(),name:'Festival Kuliner Contoh',store:'Hi Fruit',eventDate:start,endDate:jakartaDate(endDate),location:'Jakarta',organizer:'Tim Event',note:'Contoh rekapan event',createdAt:new Date().toISOString()};const tx=[{id:uid(),date:start,store:'Chickumbar Blok M',eventId:null,type:'income',paymentMethod:'cash',category:'Penjualan Harian',amount:2850000,note:'Penjualan outlet',createdAt:new Date().toISOString()},{id:uid(),date:start,store:EVENT_STORE,eventId:demoEvent.id,type:'income',paymentMethod:'cash',category:'Penjualan Event',amount:4200000,note:'Penjualan hari pertama event',createdAt:new Date().toISOString()},{id:uid(),date:start,store:EVENT_STORE,eventId:demoEvent.id,type:'expense',paymentMethod:'cash',category:'Sewa Booth Event',amount:1200000,note:'Biaya booth',createdAt:new Date().toISOString()}].map(transactionToRow);const inv=[{id:uid(),store:'Chickumbar Blok M',eventId:null,name:'Ayam fillet',unit:'kg',stock:18,min:10,price:42000,note:'Supplier utama',updatedAt:new Date().toISOString()},{id:uid(),store:EVENT_STORE,eventId:demoEvent.id,name:'Mangga',unit:'kg',stock:12,min:5,price:28000,note:'Kebutuhan event',updatedAt:new Date().toISOString()}].map(inventoryToRow);const eventCatalog=[eventMaterialCatalogToRow({id:uid(),store:'Hi Fruit',name:'Mangga',unit:'kg',min:5,note:'Master bahan khusus event',updatedAt:new Date().toISOString()})];try{el('loadingCover').hidden=false;await upsertInChunks('events',[eventToRow(demoEvent)]);await upsertInChunks('transactions',tx);await upsertInChunks('inventory',inv);if(eventMaterialCatalogAvailable)await upsertInChunks('event_material_catalog',eventCatalog);await loadCloudData(true);toast('Data contoh berhasil ditambahkan.');}catch(error){showSyncError(error);}finally{el('loadingCover').hidden=true;}}
