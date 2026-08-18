@@ -2163,14 +2163,14 @@
 
   <div class="toast" id="toast"></div>
 
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.111.0"></script>
   <script>
     (() => {
       'use strict';
 
-      const DEFAULT_SUPABASE_URL = 'MASUKKAN_SUPABASE_URL_DI_SINI';
-      const DEFAULT_SUPABASE_PUBLISHABLE_KEY = 'MASUKKAN_PUBLISHABLE_KEY_DI_SINI';
-      const CONFIG_KEY = 'rekapTokoSupabaseConfig_v1';
+      const DEFAULT_SUPABASE_URL = 'https://zlydwdypfrurosozoomx.supabase.co';
+      const DEFAULT_SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_JuSE1rro4e5Mf4flknGdbg_XVhNb5Zk';
+      const CONFIG_KEY = 'rekapTokoSupabaseConfig_v2';
       const BALANCE_VISIBILITY_KEY = 'rekapTokoBalanceHidden_v1';
       const DASHBOARD_RECAP_VISIBILITY_KEY = 'rekapTokoDashboardRecapVisibility_v1';
       const THEME_KEY = 'rekapTokoTheme_v1';
@@ -4166,6 +4166,20 @@ NOTIFY pgrst, 'reload schema';`
         }
       }
 
+      const CLOUD_PAGE_SIZE = 1000;
+
+      async function fetchAllCloudRows(buildQuery,pageSize=CLOUD_PAGE_SIZE){
+        const rows=[];
+        for(let from=0;;from+=pageSize){
+          const to=from+pageSize-1;
+          const {data,error}=await buildQuery().range(from,to);
+          if(error)return {data:null,error};
+          const batch=data||[];
+          rows.push(...batch);
+          if(batch.length<pageSize)return {data:rows,error:null};
+        }
+      }
+
       async function loadCloudData(silent=false){
         if(!db||dataLoading||!navigator.onLine){if(!navigator.onLine)setCloudStatus('error','Offline');return false;}
         const syncUiState=captureSyncUiState();
@@ -4178,34 +4192,60 @@ NOTIFY pgrst, 'reload schema';`
             applyRoleUI();
           }
           const assignedEventId=eventEmployeeId();
-          const eventPromise=isAdmin()||isOwner()
-            ? db.from('events').select('*').order('event_date',{ascending:false})
-            : isEventEmployee()&&assignedEventId
-              ? db.from('events').select('*').eq('id',assignedEventId).order('event_date',{ascending:false})
-              : Promise.resolve({data:[],error:null});
           const stores=accessibleStores();
-          const inventoryPromise=isAdmin()||isOwner()
-            ? db.from('inventory').select('*').order('store',{ascending:true}).order('name',{ascending:true})
+
+          const eventPromise=isAdmin()||isOwner()
+            ? fetchAllCloudRows(()=>db.from('events').select('*').order('event_date',{ascending:false}).order('id',{ascending:true}))
             : isEventEmployee()&&assignedEventId
-              ? db.from('inventory').select('*').eq('event_id',assignedEventId).order('name',{ascending:true})
+              ? fetchAllCloudRows(()=>db.from('events').select('*').eq('id',assignedEventId).order('event_date',{ascending:false}).order('id',{ascending:true}))
+              : Promise.resolve({data:[],error:null});
+
+          const inventoryPromise=isAdmin()||isOwner()
+            ? fetchAllCloudRows(()=>db.from('inventory').select('*').order('store',{ascending:true}).order('name',{ascending:true}).order('id',{ascending:true}))
+            : isEventEmployee()&&assignedEventId
+              ? fetchAllCloudRows(()=>db.from('inventory').select('*').eq('event_id',assignedEventId).order('name',{ascending:true}).order('id',{ascending:true}))
               : stores.length
-                ? db.from('inventory').select('*').in('store',stores).is('event_id',null).order('store',{ascending:true}).order('name',{ascending:true})
+                ? fetchAllCloudRows(()=>db.from('inventory').select('*').in('store',stores).is('event_id',null).order('store',{ascending:true}).order('name',{ascending:true}).order('id',{ascending:true}))
                 : Promise.resolve({data:[],error:null});
+
           const eventMaterialCatalogPromise=isAdmin()||isOwner()
-            ? db.from('event_material_catalog').select('*').order('store',{ascending:true}).order('name',{ascending:true})
+            ? fetchAllCloudRows(()=>db.from('event_material_catalog').select('*').order('store',{ascending:true}).order('name',{ascending:true}).order('id',{ascending:true}))
             : Promise.resolve({data:[],error:null});
+
           const transactionPromise=isAdmin()||isOwner()
-            ? db.from('transactions').select('*').order('transaction_date',{ascending:false}).order('created_at',{ascending:false})
+            ? fetchAllCloudRows(()=>db.from('transactions').select('*').order('transaction_date',{ascending:false}).order('created_at',{ascending:false}).order('id',{ascending:true}))
             : Promise.resolve({data:[],error:null});
-          let dailyQuery=db.from('inventory_daily').select('*').order('record_date',{ascending:false}).order('store',{ascending:true}).order('name',{ascending:true});
-          if(isEventEmployee()&&assignedEventId)dailyQuery=dailyQuery.eq('event_id',assignedEventId);
-          else if(!isAdmin()&&!isOwner()&&stores.length)dailyQuery=dailyQuery.in('store',stores).is('event_id',null);
-          const dailyPromise=isAdmin()||isOwner()||stores.length||(isEventEmployee()&&assignedEventId)?dailyQuery:Promise.resolve({data:[],error:null});
-          const employeesPromise=stores.length||isAdmin()?db.from('employees').select('*').in('store',stores.length?stores:STORES).order('store',{ascending:true}).order('name',{ascending:true}):Promise.resolve({data:[],error:null});
-          const payrollDailyPromise=stores.length||isAdmin()?db.from('payroll_daily').select('*').in('store',stores.length?stores:STORES).order('work_date',{ascending:false}).order('employee_name',{ascending:true}):Promise.resolve({data:[],error:null});
-          const payrollAdvancePromise=stores.length||isAdmin()?db.from('payroll_advances').select('*').in('store',stores.length?stores:STORES).order('advance_date',{ascending:false}).order('employee_name',{ascending:true}):Promise.resolve({data:[],error:null});
-          const payrollMonthlyPromise=stores.length||isAdmin()?db.from('payroll_monthly_payments').select('*').in('store',stores.length?stores:STORES).order('payroll_month',{ascending:false}).order('employee_name',{ascending:true}):Promise.resolve({data:[],error:null});
-          const profilesPromise=isAdmin()?db.from('profiles').select('user_id,email,role,branch,branches,event_id,created_at').order('created_at',{ascending:true}):Promise.resolve({data:[state.profile],error:null});
+
+          const dailyQueryFactory=()=>{
+            let query=db.from('inventory_daily').select('*').order('record_date',{ascending:false}).order('store',{ascending:true}).order('name',{ascending:true}).order('id',{ascending:true});
+            if(isEventEmployee()&&assignedEventId)query=query.eq('event_id',assignedEventId);
+            else if(!isAdmin()&&!isOwner()&&stores.length)query=query.in('store',stores).is('event_id',null);
+            return query;
+          };
+          const dailyPromise=isAdmin()||isOwner()||stores.length||(isEventEmployee()&&assignedEventId)
+            ? fetchAllCloudRows(dailyQueryFactory)
+            : Promise.resolve({data:[],error:null});
+
+          const employeesPromise=stores.length||isAdmin()
+            ? fetchAllCloudRows(()=>db.from('employees').select('*').in('store',stores.length?stores:STORES).order('store',{ascending:true}).order('name',{ascending:true}).order('id',{ascending:true}))
+            : Promise.resolve({data:[],error:null});
+
+          const payrollDailyPromise=stores.length||isAdmin()
+            ? fetchAllCloudRows(()=>db.from('payroll_daily').select('*').in('store',stores.length?stores:STORES).order('work_date',{ascending:false}).order('employee_name',{ascending:true}).order('id',{ascending:true}))
+            : Promise.resolve({data:[],error:null});
+
+          const payrollAdvancePromise=stores.length||isAdmin()
+            ? fetchAllCloudRows(()=>db.from('payroll_advances').select('*').in('store',stores.length?stores:STORES).order('advance_date',{ascending:false}).order('employee_name',{ascending:true}).order('id',{ascending:true}))
+            : Promise.resolve({data:[],error:null});
+
+          const payrollMonthlyPromise=stores.length||isAdmin()
+            ? fetchAllCloudRows(()=>db.from('payroll_monthly_payments').select('*').in('store',stores.length?stores:STORES).order('payroll_month',{ascending:false}).order('employee_name',{ascending:true}).order('id',{ascending:true}))
+            : Promise.resolve({data:[],error:null});
+
+          const profilesPromise=isAdmin()
+            ? fetchAllCloudRows(()=>db.from('profiles').select('user_id,email,role,branch,branches,event_id,created_at').order('created_at',{ascending:true}).order('user_id',{ascending:true}))
+            : Promise.resolve({data:[state.profile],error:null});
+
           const [eventResult,inventoryResult,eventMaterialCatalogResult,txResult,dailyResult,employeesResult,payrollDailyResult,payrollAdvanceResult,payrollMonthlyResult,profilesResult]=await Promise.all([eventPromise,inventoryPromise,eventMaterialCatalogPromise,transactionPromise,dailyPromise,employeesPromise,payrollDailyPromise,payrollAdvancePromise,payrollMonthlyPromise,profilesPromise]);
           for(const result of [eventResult,inventoryResult,txResult,dailyResult,employeesResult,payrollDailyResult,payrollAdvanceResult,payrollMonthlyResult,profilesResult])if(result.error)throw result.error;
           const missingCatalogTable=eventMaterialCatalogResult.error&&(['42P01','PGRST205'].includes(eventMaterialCatalogResult.error.code)||/event_material_catalog/i.test(`${eventMaterialCatalogResult.error.message||''} ${eventMaterialCatalogResult.error.details||''}`));
