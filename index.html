@@ -1721,6 +1721,229 @@
     html[data-theme="dark"] .modal-head,
     html[data-theme="dark"] .modal-foot { background: var(--surface); }
 
+
+    /* =========================================================
+       BUTTON LAYOUT SAFETY 2026
+       Prevent action controls from colliding on desktop/mobile.
+       ========================================================= */
+    .btn,
+    .icon-btn,
+    .menu-btn,
+    .theme-toggle-btn,
+    .link-btn,
+    .event-tab-btn,
+    .event-list-mode-btn,
+    .payroll-tab-btn,
+    .dashboard-section-toggle {
+      box-sizing: border-box;
+      min-width: 0;
+      flex-shrink: 0;
+    }
+
+    .btn {
+      max-width: 100%;
+      line-height: 1.25;
+      text-align: center;
+      overflow-wrap: anywhere;
+      white-space: normal;
+    }
+
+    /* Shared multi-button containers */
+    .toolbar-actions,
+    .event-page-actions,
+    .payroll-page-actions,
+    .event-material-picker-actions,
+    .closing-quick-actions,
+    .modal-foot {
+      min-width: 0;
+      max-width: 100%;
+      flex-wrap: wrap;
+      row-gap: 8px;
+      column-gap: 8px;
+    }
+
+    .toolbar-actions > .btn,
+    .event-page-actions > .btn,
+    .payroll-page-actions > .btn,
+    .event-material-picker-actions > .btn,
+    .closing-quick-actions > .btn,
+    .modal-foot > .btn {
+      min-width: 0;
+    }
+
+    /* Keep compact table actions together inside their own scrollable table */
+    .actions {
+      display: inline-flex;
+      align-items: center;
+      justify-content: flex-start;
+      flex-wrap: nowrap;
+      min-width: max-content;
+      max-width: none;
+      vertical-align: middle;
+    }
+    .actions > .btn { white-space: nowrap; }
+
+    /* Tabs never stack on top of each other; they scroll if space is tight */
+    .event-tabs,
+    .event-list-mode,
+    .payroll-workspace-tabs {
+      max-width: 100%;
+      overflow-x: auto;
+      overflow-y: hidden;
+      overscroll-behavior-x: contain;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: thin;
+    }
+    .event-tabs > button,
+    .event-list-mode > button,
+    .payroll-workspace-tabs > button {
+      flex: 0 0 auto;
+      white-space: nowrap;
+    }
+
+    /* Date navigation keeps arrow buttons fixed and date field flexible */
+    .date-slicer,
+    .payroll-date-control {
+      min-width: 0;
+      max-width: 100%;
+    }
+    .date-slicer > .btn,
+    .payroll-date-control > .btn { flex: 0 0 auto; }
+    .date-slicer > .input,
+    .payroll-date-control > .input { min-width: 0; }
+
+    /* Laptop / desktop: actions wrap naturally before they can collide */
+    @media (min-width: 781px) {
+      .toolbar { align-items: flex-start; }
+      .toolbar > div:first-child { flex: 1 1 360px; min-width: 0; }
+      .toolbar-actions {
+        flex: 0 1 auto;
+        justify-content: flex-end;
+        align-items: center;
+        max-width: min(58%, 720px);
+      }
+      .toolbar-actions > .btn { flex: 0 1 auto; }
+
+      .event-page-actions,
+      .payroll-page-actions { max-width: min(60%, 760px); }
+      .event-page-actions > .btn,
+      .payroll-page-actions > .btn { flex: 0 1 auto; }
+
+      .modal-foot { align-items: center; }
+      .modal-foot > .btn { flex: 0 1 auto; }
+
+      .closing-quick-actions { flex: 1 1 260px; }
+      .closing-quick-actions + .btn { flex: 0 1 auto; }
+    }
+
+    /* Tablet: give action groups a full row when horizontal room gets tight */
+    @media (min-width: 601px) and (max-width: 980px) {
+      .toolbar { align-items: stretch; }
+      .toolbar-actions,
+      .event-page-actions,
+      .payroll-page-actions,
+      .event-material-picker-actions {
+        width: 100%;
+        max-width: 100%;
+        justify-content: flex-start;
+      }
+      .toolbar-actions > .btn,
+      .event-page-actions > .btn,
+      .payroll-page-actions > .btn,
+      .event-material-picker-actions > .btn {
+        flex: 1 1 180px;
+      }
+    }
+
+    /* Mobile: clean two-column action grid, single-column on small phones */
+    @media (max-width: 780px) {
+      .toolbar-actions,
+      .event-page-actions,
+      .payroll-page-actions,
+      .event-material-picker-actions {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        width: 100%;
+        max-width: 100%;
+        gap: 7px;
+      }
+
+      .toolbar-actions > .btn,
+      .event-page-actions > .btn,
+      .payroll-page-actions > .btn,
+      .event-material-picker-actions > .btn {
+        width: 100%;
+        min-width: 0;
+        min-height: 42px;
+        margin: 0;
+      }
+
+      /* Modal actions can contain 2–4 buttons; grid prevents collisions. */
+      .modal-foot {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        align-items: stretch;
+        gap: 7px;
+      }
+      .modal-foot > .btn,
+      .modal-foot > .closing-quick-actions {
+        width: 100%;
+        min-width: 0;
+        margin: 0;
+      }
+      .closing-quick-actions {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-column: 1 / -1;
+        gap: 7px;
+        margin-right: 0;
+      }
+      .closing-quick-actions > .btn { width: 100%; min-width: 0; }
+
+      /* Header cards with a button are allowed to wrap instead of collide. */
+      .card-head {
+        flex-wrap: wrap;
+      }
+      .card-head > div:first-child { flex: 1 1 180px; min-width: 0; }
+      .card-head > .btn { flex: 0 1 auto; }
+
+      /* Compact row action buttons stay inside the horizontally scrollable table. */
+      .actions { gap: 6px; }
+      .actions .icon-btn { flex: 0 0 32px; }
+      .actions .btn { flex: 0 0 auto; }
+    }
+
+    @media (max-width: 480px) {
+      .toolbar-actions,
+      .event-page-actions,
+      .payroll-page-actions,
+      .event-material-picker-actions,
+      .modal-foot,
+      .closing-quick-actions {
+        grid-template-columns: minmax(0, 1fr);
+      }
+      .toolbar-actions > .btn,
+      .event-page-actions > .btn,
+      .payroll-page-actions > .btn,
+      .event-material-picker-actions > .btn,
+      .modal-foot > .btn,
+      .closing-quick-actions > .btn {
+        width: 100%;
+      }
+      .card-head > .btn {
+        width: 100%;
+        flex-basis: 100%;
+      }
+    }
+
+    /* Ultra-small phones: prioritize one clear action per row. */
+    @media (max-width: 360px) {
+      .btn { padding-left: 10px; padding-right: 10px; }
+      .event-tabs,
+      .event-list-mode,
+      .payroll-workspace-tabs { gap: 5px; }
+    }
+
   </style>
 </head>
 <body>
