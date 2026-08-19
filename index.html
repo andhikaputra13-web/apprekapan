@@ -1992,6 +1992,33 @@
         -webkit-overflow-scrolling: touch;
       }
     }
+
+    /* Desktop/laptop: sidebar stays completely fixed while main content scrolls */
+    @media (min-width: 781px) {
+      .app {
+        display: block;
+        min-height: 100vh;
+      }
+
+      .sidebar {
+        position: fixed;
+        top: 0;
+        left: 0;
+        bottom: 0;
+        width: 268px;
+        height: 100dvh;
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        scrollbar-gutter: stable;
+      }
+
+      .main {
+        width: calc(100% - 268px);
+        margin-left: 268px;
+        min-width: 0;
+      }
+    }
+
 </style>
 </head>
 <body>
