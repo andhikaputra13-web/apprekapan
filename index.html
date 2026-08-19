@@ -2,7 +2,7 @@
 <html lang="id">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <meta name="description" content="Sistem operasional bisnis untuk rekapan pemasukan, pengeluaran, stok bahan, event, payroll, audit, dan backup." />
   <title>Rekapan.id | Sistem Operasional</title>
 
@@ -1365,6 +1365,338 @@
     #appShell .stat-card .stat-value { margin-bottom: 0; }
     #appShell .setting-box h3 { margin-bottom: 14px; }
     #appShell .setting-box .setting-warning { margin-bottom: 14px; }
+
+
+    /* =========================================================
+       UI/UX REFRESH 2026 — clean, responsive, mobile-first
+       Visual-only overrides. Operational logic is unchanged.
+       ========================================================= */
+    html, body {
+      width: 100%;
+      max-width: 100%;
+      overflow-x: hidden;
+      -webkit-text-size-adjust: 100%;
+      text-size-adjust: 100%;
+    }
+    html { background: var(--bg); }
+    body {
+      min-height: 100dvh;
+      overscroll-behavior-x: none;
+      touch-action: manipulation;
+    }
+    img, svg, canvas { max-width: 100%; }
+    input, select, textarea, button { max-width: 100%; }
+
+    /* Cleaner visual hierarchy */
+    .main { width: 100%; max-width: 100%; overflow-x: clip; }
+    .content {
+      width: 100%;
+      max-width: 1600px;
+      margin: 0 auto;
+      padding: 24px 26px 44px;
+    }
+    .card {
+      border-color: color-mix(in srgb, var(--line) 88%, transparent);
+      box-shadow: 0 8px 24px rgba(23, 32, 51, .055);
+      border-radius: 16px;
+    }
+    .stat-card { padding: 17px 18px; }
+    .stat-value {
+      font-size: clamp(20px, 1.9vw, 25px);
+      line-height: 1.15;
+      overflow-wrap: anywhere;
+    }
+    .card-head { padding: 16px 18px; }
+    .card-body { padding: 18px; }
+    .toolbar { margin-bottom: 14px; }
+    .toolbar h3 { font-size: 19px; letter-spacing: -.2px; }
+    .filters { padding: 14px; gap: 9px; border-radius: 15px; }
+
+    .btn,
+    .input,
+    .select,
+    .store-select,
+    .textarea {
+      min-height: 42px;
+      border-radius: 11px;
+    }
+    .btn { padding: 9px 13px; }
+    .btn-sm { min-height: 36px; padding: 7px 10px; }
+    .icon-btn { min-width: 34px; min-height: 34px; }
+
+    .topbar {
+      min-height: 72px;
+      padding: 14px 26px;
+      border-bottom-color: color-mix(in srgb, var(--line) 82%, transparent);
+    }
+    .page-title h2 { font-size: 20px; letter-spacing: -.25px; }
+    .top-actions { min-width: 0; }
+    .store-select { min-width: 150px; }
+
+    .table-card { max-width: 100%; }
+    .table-wrap {
+      width: 100%;
+      max-width: 100%;
+      overflow-x: auto;
+      overflow-y: visible;
+      overscroll-behavior-x: contain;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: thin;
+    }
+    .table-wrap table { min-width: 760px; }
+    th, td { padding: 12px 14px; }
+    th { white-space: nowrap; }
+
+    .chart-wrap { height: clamp(230px, 27vw, 290px); }
+    .modal-panel { max-width: calc(100vw - 28px); }
+    .modal-head, .modal-foot { padding-left: 18px; padding-right: 18px; }
+    .modal-body { padding: 18px; }
+
+    /* Prevent long labels / emails / values from breaking layout */
+    .page-title,
+    .topbar-left,
+    .toolbar > div:first-child,
+    .card-head > div:first-child,
+    .dashboard-period-copy,
+    .mini-summary,
+    .event-title { min-width: 0; }
+    .page-title h2,
+    .toolbar h3,
+    .card-head h3 { overflow-wrap: anywhere; }
+
+    /* Tablet */
+    @media (max-width: 980px) {
+      .content { padding: 20px 18px 36px; }
+      .topbar { padding-left: 18px; padding-right: 18px; }
+      .top-actions { gap: 7px; }
+      .store-select { min-width: 130px; }
+    }
+
+    /* Mobile */
+    @media (max-width: 780px) {
+      :root { --radius: 15px; }
+      body { min-width: 0; }
+      .app, .main, .content, .view { width: 100%; min-width: 0; max-width: 100%; }
+
+      .sidebar {
+        width: min(84vw, 292px);
+        height: 100dvh;
+        padding: calc(18px + env(safe-area-inset-top)) 14px calc(18px + env(safe-area-inset-bottom));
+        gap: 18px;
+        overflow-y: auto;
+        overscroll-behavior: contain;
+      }
+      .brand { padding: 0 5px; }
+      .brand-mark { width: 50px; height: 50px; flex-basis: 50px; border-radius: 14px; }
+      .brand h1 { font-size: 16px; }
+      .nav { gap: 5px; }
+      .nav button { min-height: 44px; padding: 10px 12px; border-radius: 11px; font-size: 13px; }
+      .sidebar-note { padding: 12px; }
+
+      .topbar {
+        position: sticky;
+        top: 0;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: center;
+        gap: 9px 10px;
+        min-height: auto;
+        padding: calc(10px + env(safe-area-inset-top)) 12px 10px;
+      }
+      .topbar-left { min-width: 0; gap: 9px; }
+      .menu-btn { width: 40px; height: 40px; min-width: 40px; border-radius: 11px; flex: 0 0 40px; }
+      .page-title { min-width: 0; }
+      .page-title h2 {
+        max-width: 100%;
+        font-size: 17px;
+        line-height: 1.2;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .top-actions {
+        grid-column: 1 / -1;
+        width: 100%;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 38px 38px 40px;
+        gap: 7px;
+        align-items: center;
+      }
+      .top-actions .store-select {
+        order: -1;
+        width: 100%;
+        min-width: 0;
+        max-width: none;
+        height: 40px;
+        min-height: 40px;
+        padding: 7px 10px;
+        font-size: 14px;
+      }
+      .cloud-pill {
+        width: 38px;
+        height: 38px;
+        min-width: 38px;
+        padding: 0;
+        justify-content: center;
+      }
+      .manual-refresh-btn { width: 38px; height: 38px; min-width: 38px; }
+      .balance-toggle { width: 40px; min-width: 40px; height: 38px; padding: 0; }
+      #logoutBtn, .user-chip, .role-badge { display: none !important; }
+
+      .content {
+        padding: 14px 11px calc(28px + env(safe-area-inset-bottom));
+      }
+      .sync-banner { margin-bottom: 12px; padding: 11px 12px; }
+
+      .card { border-radius: 14px; box-shadow: 0 5px 16px rgba(23,32,51,.045); }
+      .stat-card { padding: 15px; }
+      .stat-label { font-size: 12px; }
+      .stat-value { font-size: clamp(19px, 6vw, 23px); margin-top: 6px; }
+      .grid { gap: 10px; }
+      .two-col { gap: 12px; }
+
+      .dashboard-period-card {
+        align-items: stretch;
+        flex-direction: column;
+        gap: 10px;
+        padding: 12px 13px;
+        margin-bottom: 14px;
+      }
+      .dashboard-period-actions { width: 100%; display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 7px; }
+      .dashboard-date-slicer { width: 100%; min-width: 0; }
+      .dashboard-realtime-btn { min-width: 40px; }
+
+      .toolbar {
+        align-items: stretch;
+        gap: 10px;
+        margin-bottom: 12px;
+      }
+      .toolbar h3 { font-size: 17px; line-height: 1.25; }
+      .toolbar-actions {
+        width: 100%;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 7px;
+      }
+      .toolbar-actions .btn { flex: 1 1 145px; min-width: 0; }
+
+      .filters {
+        grid-template-columns: minmax(0,1fr) !important;
+        width: 100%;
+        padding: 10px;
+        gap: 8px;
+        margin-bottom: 12px;
+      }
+      .filters > *,
+      .date-slicer,
+      .payroll-date-control { width: 100%; min-width: 0 !important; max-width: 100%; }
+      .date-slicer { display: grid; grid-template-columns: 42px minmax(0,1fr) 42px; gap: 6px; }
+      .date-slicer .input { width: 100%; min-width: 0; }
+      .date-nav-btn { width: 42px; padding: 0; }
+
+      .input, .select, .store-select, .textarea {
+        width: 100%;
+        min-width: 0;
+        font-size: 16px; /* avoids iOS focus zoom */
+      }
+      .btn { font-size: 13px; }
+
+      .card-head {
+        align-items: flex-start;
+        padding: 13px 14px;
+        gap: 9px;
+      }
+      .card-head h3 { font-size: 14px; line-height: 1.25; }
+      .card-head > .btn { flex: 0 0 auto; }
+      .card-body { padding: 14px; }
+
+      .table-card { overflow: hidden; }
+      .table-wrap {
+        max-width: 100%;
+        border-radius: 0 0 14px 14px;
+      }
+      .table-wrap table { min-width: 660px; }
+      th, td { padding: 10px 11px; font-size: 12px; }
+      th { font-size: 10px; }
+      .actions { gap: 5px; }
+      .icon-btn { width: 32px; height: 32px; min-width: 32px; min-height: 32px; }
+
+      .chart-wrap { height: 225px; }
+      .store-row { padding: 10px 0; }
+      .material-store-summary,
+      .event-material-source-banner { align-items: stretch; flex-direction: column; gap: 7px; }
+
+      .modal {
+        align-items: flex-end;
+        padding: 0;
+      }
+      .modal-panel,
+      .transaction-modal-panel,
+      .payroll-modal-panel,
+      .event-material-picker-panel {
+        width: 100%;
+        max-width: 100%;
+        max-height: 92dvh;
+        border-radius: 18px 18px 0 0;
+      }
+      .modal-head {
+        position: sticky;
+        top: 0;
+        z-index: 3;
+        padding: 14px 15px;
+        background: var(--surface);
+      }
+      .modal-head h3 { font-size: 16px; }
+      .modal-body, .payroll-modal-body { padding: 13px; }
+      .modal-foot {
+        position: sticky;
+        bottom: 0;
+        z-index: 3;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        padding: 11px 12px calc(11px + env(safe-area-inset-bottom));
+        background: var(--surface);
+      }
+      .modal-foot .btn { width: 100%; min-width: 0 !important; }
+      .form-grid { gap: 10px; }
+
+      .toast {
+        left: 11px;
+        right: 11px;
+        bottom: calc(11px + env(safe-area-inset-bottom));
+        min-width: 0;
+        max-width: none;
+        width: auto;
+      }
+      .loading-cover { padding: 16px; }
+      .loading-box { width: min(92vw, 360px); text-align: center; }
+    }
+
+    /* Slightly wider phones: compact 2-column KPI cards */
+    @media (min-width: 430px) and (max-width: 780px) {
+      .daily-stats,
+      .monthly-stats,
+      .payroll-stats,
+      .employee-stats,
+      .payroll-daily-stats,
+      .payroll-monthly-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+
+    /* Very small phones */
+    @media (max-width: 360px) {
+      .content { padding-left: 8px; padding-right: 8px; }
+      .topbar { padding-left: 9px; padding-right: 9px; }
+      .top-actions { grid-template-columns: minmax(0, 1fr) 36px 36px 38px; gap: 5px; }
+      .cloud-pill, .manual-refresh-btn { width: 36px; min-width: 36px; height: 36px; }
+      .balance-toggle { width: 38px; min-width: 38px; height: 36px; }
+      .table-wrap table { min-width: 620px; }
+      .toolbar-actions .btn { flex-basis: 100%; }
+    }
+
+    /* Dark mode keeps the refreshed surfaces consistent */
+    html[data-theme="dark"] .modal-head,
+    html[data-theme="dark"] .modal-foot { background: var(--surface); }
 
   </style>
 </head>
@@ -5228,6 +5560,19 @@ NOTIFY pgrst, 'reload schema';`
       async function copyDatabaseSql(){try{await navigator.clipboard.writeText(DATABASE_SQL);}catch(_){el('setupSql').select();document.execCommand('copy');}toast('SQL terbaru berhasil disalin.');}
 
       init();
+    })();
+  </script>
+
+
+  <script>
+    // Mobile operation mode: keep the interface at a fixed scale.
+    (() => {
+      const coarsePointer = window.matchMedia?.('(pointer: coarse)').matches;
+      if (!coarsePointer) return;
+      ['gesturestart', 'gesturechange', 'gestureend'].forEach(type => {
+        document.addEventListener(type, event => event.preventDefault(), { passive: false });
+      });
+      document.addEventListener('dblclick', event => event.preventDefault(), { passive: false });
     })();
   </script>
 
