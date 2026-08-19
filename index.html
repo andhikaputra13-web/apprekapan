@@ -704,8 +704,33 @@
     .dashboard-live-dot[hidden] { display:none !important; }
     .dashboard-period-actions { display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap; }
     .dashboard-date-slicer { width:170px;min-width:170px; }
-    .dashboard-realtime-btn { white-space:nowrap; }
-    .dashboard-realtime-btn[disabled] { opacity:.55;cursor:default;box-shadow:none; }
+    .dashboard-realtime-btn {
+      width:40px;
+      height:40px;
+      min-width:40px;
+      padding:0;
+      border-radius:10px;
+      display:inline-grid;
+      place-items:center;
+      flex:0 0 40px;
+      white-space:nowrap;
+    }
+    .dashboard-realtime-btn svg {
+      width:18px;
+      height:18px;
+      display:block;
+      fill:none;
+      stroke:currentColor;
+      stroke-width:2;
+      stroke-linecap:round;
+      stroke-linejoin:round;
+    }
+    .dashboard-realtime-btn[disabled] { opacity:.55;cursor:default;box-shadow:none;transform:none; }
+    .dashboard-realtime-btn[aria-pressed="true"] {
+      background:#ecfdf5;
+      border-color:#bbf7d0;
+      color:#15803d;
+    }
     @media (max-width:680px){.dashboard-period-card{align-items:stretch;flex-direction:column}.dashboard-period-actions{justify-content:stretch}.dashboard-date-slicer{width:auto;min-width:0;flex:1}.dashboard-realtime-btn{flex:0 0 auto}}
     .daily-stats { grid-template-columns: repeat(4, minmax(0, 1fr)); }
     .monthly-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
@@ -2158,7 +2183,13 @@
             </div>
             <div class="dashboard-period-actions">
               <input class="input dashboard-date-slicer" id="dashboardDateFilter" type="date" aria-label="Pilih tanggal rekapan dashboard" />
-              <button class="btn btn-light btn-sm dashboard-realtime-btn" id="dashboardRealtimeBtn" type="button">Real Time</button>
+              <button class="btn btn-light btn-sm dashboard-realtime-btn" id="dashboardRealtimeBtn" type="button" aria-label="Real Time" title="Kembali ke data Real Time">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M20 11a8.1 8.1 0 0 0-15.5-2M4 5v4h4"/>
+                  <path d="M4 13a8.1 8.1 0 0 0 15.5 2M20 19v-4h-4"/>
+                  <path d="M12 8v4l2.5 1.5"/>
+                </svg>
+              </button>
             </div>
           </div>
 
