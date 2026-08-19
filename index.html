@@ -390,6 +390,16 @@
     .empty-state .emoji { font-size: 42px; display: block; margin-bottom: 10px; }
     .empty-state strong { color: var(--text); display: block; margin-bottom: 5px; }
 
+    /* Modal scroll isolation: when a popup is open, only the popup may scroll. */
+    html.modal-scroll-locked {
+      overflow: hidden !important;
+      overscroll-behavior: none;
+    }
+    body.modal-scroll-locked {
+      overflow: hidden !important;
+      overscroll-behavior: none;
+      width: 100%;
+    }
     .modal {
       position: fixed;
       inset: 0;
@@ -399,15 +409,25 @@
       align-items: center;
       justify-content: center;
       padding: 18px;
+      overflow: hidden;
+      overscroll-behavior: none;
     }
     .modal.open { display: flex; }
     .modal-panel {
       width: min(620px, 100%);
       max-height: 92vh;
       overflow: auto;
+      overscroll-behavior: contain;
+      -webkit-overflow-scrolling: touch;
       background: #fff;
       border-radius: 20px;
       box-shadow: 0 24px 70px rgba(0,0,0,.25);
+    }
+    .modal-panel,
+    .modal-body,
+    .payroll-modal-body,
+    .table-wrap {
+      scrollbar-gutter: stable;
     }
     .modal-head {
       display: flex; align-items: center; justify-content: space-between;
@@ -1944,7 +1964,35 @@
       .payroll-workspace-tabs { gap: 5px; }
     }
 
-  </style>
+  
+
+    /* Prevent scroll chaining from modal content into the page behind it. */
+    .modal.open .modal-panel,
+    .modal.open .modal-body,
+    .modal.open .payroll-modal-body,
+    .modal.open .table-wrap {
+      overscroll-behavior-y: contain;
+      overscroll-behavior-x: contain;
+    }
+    @media (max-width: 780px) {
+      .modal {
+        padding: max(10px, env(safe-area-inset-top)) 10px max(10px, env(safe-area-inset-bottom));
+        align-items: flex-end;
+      }
+      .modal-panel {
+        max-height: calc(100dvh - max(20px, env(safe-area-inset-top)) - max(10px, env(safe-area-inset-bottom)));
+        overflow-y: auto;
+        overflow-x: hidden;
+      }
+      .payroll-modal-panel {
+        max-height: calc(100dvh - max(20px, env(safe-area-inset-top)) - max(10px, env(safe-area-inset-bottom)));
+      }
+      .payroll-modal-body {
+        overscroll-behavior: contain;
+        -webkit-overflow-scrolling: touch;
+      }
+    }
+</style>
 </head>
 <body>
 
@@ -4199,7 +4247,16 @@ NOTIFY pgrst, 'reload schema';`
         el('exportTransactionsBtn').addEventListener('click',exportTransactionsCSV);el('exportPayrollBtn').addEventListener('click',exportPayrollCSV);el('exportInventoryBtn').addEventListener('click',exportInventoryCSV);el('exportEventsBtn').addEventListener('click',exportEventsCSV);el('exportEventTransactionsBtn').addEventListener('click',exportEventTransactionsCSV);el('exportEventInventoryBtn').addEventListener('click',exportEventInventoryCSV);
         el('backupBtn').addEventListener('click',backupJSON);el('restoreBtn').addEventListener('click',()=>el('restoreInput').click());el('restoreInput').addEventListener('change',restoreJSON);el('trashTable').addEventListener('click',handleTrashTableClick);
         window.addEventListener('resize',renderChart);window.addEventListener('online',()=>loadCloudData(true));window.addEventListener('offline',()=>setCloudStatus('error','Offline'));
-        document.querySelectorAll('.modal').forEach(modal=>modal.addEventListener('click',event=>{if(event.target===modal)closeModal(modal.id);}));
+        document.querySelectorAll('.modal').forEach(modal=>{
+          modal.addEventListener('click',event=>{if(event.target===modal)closeModal(modal.id);});
+          modal.addEventListener('wheel',event=>{if(event.target===modal)event.preventDefault();},{passive:false});
+          modal.addEventListener('touchmove',event=>{if(event.target===modal)event.preventDefault();},{passive:false});
+        });
+        document.addEventListener('keydown',event=>{
+          if(event.key!=='Escape')return;
+          const modals=openedModals();
+          if(modals.length)closeModal(modals[modals.length-1].id);
+        });
       }
 
       async function logout(){if(db)await db.auth.signOut();}
@@ -4225,8 +4282,52 @@ NOTIFY pgrst, 'reload schema';`
       }
       function toggleSidebar(){el('sidebar').classList.toggle('open');el('overlay').classList.toggle('open');}
       function closeSidebar(){el('sidebar').classList.remove('open');el('overlay').classList.remove('open');}
-      function openModal(id){el(id).classList.add('open');}
-      function closeModal(id){el(id).classList.remove('open');}
+
+      let modalScrollY=0;
+      function openedModals(){return [...document.querySelectorAll('.modal.open')];}
+      function lockBackgroundScroll(){
+        if(document.body.classList.contains('modal-scroll-locked'))return;
+        modalScrollY=window.scrollY||window.pageYOffset||0;
+        document.documentElement.classList.add('modal-scroll-locked');
+        document.body.classList.add('modal-scroll-locked');
+        document.body.style.position='fixed';
+        document.body.style.top=`-${modalScrollY}px`;
+        document.body.style.left='0';
+        document.body.style.right='0';
+        document.body.style.width='100%';
+      }
+      function unlockBackgroundScroll(){
+        if(openedModals().length)return;
+        if(!document.body.classList.contains('modal-scroll-locked'))return;
+        document.documentElement.classList.remove('modal-scroll-locked');
+        document.body.classList.remove('modal-scroll-locked');
+        document.body.style.position='';
+        document.body.style.top='';
+        document.body.style.left='';
+        document.body.style.right='';
+        document.body.style.width='';
+        window.scrollTo(0,modalScrollY);
+      }
+      function resetModalScroll(modal){
+        const panel=modal?.querySelector('.modal-panel');
+        if(panel)panel.scrollTop=0;
+        modal?.querySelectorAll('.modal-body,.payroll-modal-body').forEach(node=>node.scrollTop=0);
+      }
+      function openModal(id){
+        const modal=el(id);if(!modal)return;
+        lockBackgroundScroll();
+        modal.classList.add('open');
+        resetModalScroll(modal);
+        requestAnimationFrame(()=>{
+          const focusTarget=modal.querySelector('[autofocus], input:not([type=hidden]):not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled])');
+          if(focusTarget&&typeof focusTarget.focus==='function')focusTarget.focus({preventScroll:true});
+        });
+      }
+      function closeModal(id){
+        const modal=el(id);if(!modal)return;
+        modal.classList.remove('open');
+        unlockBackgroundScroll();
+      }
 
       function transactionEntries(){return[...el('transactionRows').querySelectorAll('[data-transaction-entry]')];}
       function transactionTotalAmount(){return transactionEntries().reduce((total,entry)=>{const amount=Number(entry.querySelector('.transaction-row-amount')?.value||0);return total+(Number.isFinite(amount)&&amount>0?amount:0);},0);}
