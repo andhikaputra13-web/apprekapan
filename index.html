@@ -704,6 +704,7 @@
     .event-status-upcoming { background:#dbeafe; color:#1d4ed8; }
     .event-status-ongoing { background:#dcfce7; color:#166534; }
     .event-status-completed { background:#f1f5f9; color:#475569; }
+    .event-status-archived { background:#ede9fe; color:#6d28d9; }
     .event-title { display:flex; flex-direction:column; gap:4px; }
     .event-title small { color:var(--muted); font-weight:500; }
     .profiles-note { margin:0 0 12px; color:var(--muted); font-size:12px; line-height:1.6; }
@@ -1115,20 +1116,39 @@
     .event-panel { padding:18px 20px 22px; }
     .event-panel[hidden] { display:none !important; }
     .event-panel .toolbar { margin-bottom:14px; }
-    .event-main-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .event-main-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
     .event-recap-heading { display:flex; align-items:flex-end; justify-content:space-between; gap:16px; margin:24px 2px 12px; }
     .event-recap-heading-copy { min-width:0; }
     .event-recap-heading h3 { margin: 0; font-size: 18px; }
     .event-recap-heading p { margin: 5px 0 0; color: var(--muted); font-size: 13px; }
     .event-recap-stats { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-    @media (max-width:1100px){ .event-recap-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-    @media (max-width:560px){ .event-recap-stats { grid-template-columns: 1fr; } }
+    @media (max-width:1100px){ .event-main-stats, .event-recap-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    @media (max-width:560px){ .event-main-stats, .event-recap-stats { grid-template-columns: 1fr; } }
     .event-transaction-stats { grid-template-columns: repeat(4, minmax(0, 1fr)); margin:14px 0 16px; }
     @media (max-width:1100px){ .event-transaction-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
     @media (max-width:560px){ .event-transaction-stats { grid-template-columns: 1fr; } }
     .event-scope-note { margin:0 0 14px; padding:11px 13px; border:1px solid #fed7aa; border-radius:10px; background:#fff7ed; color:#9a3412; font-size:12px; line-height:1.5; }
     .event-panel .daily-recap-summary { margin-top:14px; }
     .event-panel .table-card { margin-top:14px; }
+    .event-list-mode {
+      display:flex; align-items:center; gap:8px; width:max-content; max-width:100%;
+      margin:18px 0 12px; padding:5px; overflow:auto; border:1px solid var(--line);
+      border-radius:14px; background:var(--surface); box-shadow:0 7px 20px rgba(15,23,42,.045);
+    }
+    .event-list-mode-btn {
+      min-height:38px; padding:8px 13px; border:0; border-radius:10px; background:transparent;
+      color:var(--muted); font:inherit; font-size:12px; font-weight:850; white-space:nowrap; cursor:pointer;
+    }
+    .event-list-mode-btn:hover { background:var(--surface-2); color:var(--text); }
+    .event-list-mode-btn.active { background:var(--navy); color:#fff; box-shadow:0 5px 13px rgba(23,32,51,.18); }
+    .archive-count { display:inline-flex; min-width:20px; height:20px; align-items:center; justify-content:center; margin-left:5px; padding:0 6px; border-radius:999px; background:rgba(148,163,184,.16); font-size:10px; }
+    .event-list-mode-btn.active .archive-count { background:rgba(255,255,255,.16); }
+    #eventListFilters { grid-template-columns:minmax(0,1fr) minmax(180px,260px); }
+    @media (max-width:780px){
+      .event-list-mode { width:100%; }
+      .event-list-mode-btn { flex:1 1 0; }
+      #eventListFilters { grid-template-columns:1fr; }
+    }
     .scope-hidden { display:none !important; }
     @media (max-width:780px){
       .event-workspace-head { align-items:stretch; flex-direction:column; }
@@ -1236,6 +1256,9 @@
     html[data-theme="dark"] .event-tag,
     html[data-theme="dark"] .role-owner { background: #493515; color: #fde68a; }
     html[data-theme="dark"] .role-admin,
+    html[data-theme="dark"] .event-status-archived { background:#34245c; color:#c4b5fd; }
+    html[data-theme="dark"] .event-list-mode { box-shadow:none; }
+    html[data-theme="dark"] .event-list-mode-btn.active { background:#e8b62b; color:#111827; }
     html[data-theme="dark"] .event-status-upcoming,
     html[data-theme="dark"] .badge-not-started { background: #172f55; color: #93c5fd; }
     html[data-theme="dark"] .event-tag.none,
@@ -1978,8 +2001,9 @@
             </div>
           </div>
           <div class="grid stats event-main-stats" id="eventMainStats">
-            <article class="card stat-card"><div class="stat-label">Total Event</div><div class="stat-value" id="statEventCount">0</div><div class="stat-sub">Seluruh kegiatan tercatat</div></article>
-            <article class="card stat-card income"><div class="stat-label">Event Aktif/Mendatang</div><div class="stat-value" id="statEventActive">0</div><div class="stat-sub">Belum selesai</div></article>
+            <article class="card stat-card"><div class="stat-label">Total Event</div><div class="stat-value" id="statEventCount">0</div><div class="stat-sub">Aktif + diarsipkan</div></article>
+            <article class="card stat-card income"><div class="stat-label">Event Aktif/Mendatang</div><div class="stat-value" id="statEventActive">0</div><div class="stat-sub">Belum selesai dan belum diarsipkan</div></article>
+            <article class="card stat-card"><div class="stat-label">Event Diarsipkan</div><div class="stat-value" id="statEventArchived">0</div><div class="stat-sub">Tetap tersimpan dan dapat dipulihkan</div></article>
           </div>
 
           <div class="event-recap-heading" id="eventRecapHeading">
@@ -1994,7 +2018,11 @@
             <article class="card stat-card cash-net"><div class="stat-label">Cash Bersih Event</div><div class="stat-value" id="statEventCashNet">Rp0</div><div class="stat-sub">Pemasukan Cash dikurangi pengeluaran Cash</div></article>
             <article class="card stat-card profit"><div class="stat-label">Saldo Bersih Event</div><div class="stat-value" id="statEventProfit">Rp0</div><div class="stat-sub">Pemasukan dikurangi seluruh pengeluaran</div></article>
           </div>
-          <div class="card filters" id="eventListFilters" style="margin-top:18px">
+          <div class="event-list-mode" id="eventListModeSwitch" role="tablist" aria-label="Tampilan daftar event">
+            <button class="event-list-mode-btn active" type="button" data-event-list-mode="active" aria-selected="true">Event Aktif</button>
+            <button class="event-list-mode-btn" type="button" data-event-list-mode="archived" aria-selected="false">Event Diarsipkan <span class="archive-count" id="eventArchiveCount">0</span></button>
+          </div>
+          <div class="card filters" id="eventListFilters">
             <input class="input" id="eventSearch" placeholder="Cari nama, lokasi, atau penyelenggara..." />
             <select class="select" id="eventStatusFilter"><option value="all">Semua Status</option><option value="upcoming">Akan Datang</option><option value="ongoing">Berlangsung</option><option value="completed">Selesai</option></select>
           </div>
@@ -2648,6 +2676,12 @@ ALTER TABLE public.events DROP CONSTRAINT IF EXISTS events_store_check;
 ALTER TABLE public.events ADD CONSTRAINT events_store_check CHECK (
   store IS NULL OR store IN ('Chickumbar Blok M','Susu Sore','Hi Fruit','Ngayamin','Chickumbar Barito')
 );
+
+-- Arsip event tidak menghapus transaksi, bahan, maupun riwayat closing.
+ALTER TABLE public.events ADD COLUMN IF NOT EXISTS archived_at timestamptz;
+ALTER TABLE public.events ADD COLUMN IF NOT EXISTS archived_by uuid REFERENCES auth.users(id) ON DELETE SET NULL;
+CREATE INDEX IF NOT EXISTS events_archived_at_idx ON public.events (archived_at);
+CREATE INDEX IF NOT EXISTS events_archived_by_idx ON public.events (archived_by) WHERE archived_by IS NOT NULL;
 
 ALTER TABLE public.profiles DROP CONSTRAINT IF EXISTS profiles_event_id_fkey;
 ALTER TABLE public.profiles ADD CONSTRAINT profiles_event_id_fkey
@@ -3472,6 +3506,7 @@ NOTIFY pgrst, 'reload schema';`
       const state = { transactions: [], inventory: [], eventMaterialCatalog: [], inventoryDaily: [], events: [], employees: [], payrollDaily: [], payrollAdvances: [], payrollMonthlyPayments: [], profiles: [], deletedItems: [], auditLogs: [], profile: null, updatedAt: null };
       let activeView = 'dashboard';
       let activeEventTab = 'transactions';
+      let eventListMode = 'active';
       let activePayrollTab = 'employees';
       let selectedGlobalStore = 'all';
       let selectedDashboardDate = 'realtime';
@@ -3521,6 +3556,9 @@ NOTIFY pgrst, 'reload schema';`
       const canEditEventInventory = () => isAdmin() || (isEventEmployee() && !!eventEmployeeId());
       const canManageMaterials = () => isAdmin();
       const eventById = id => state.events.find(item => item.id === id);
+      const activeEvents = () => state.events.filter(item=>!item.archivedAt);
+      const archivedEvents = () => state.events.filter(item=>!!item.archivedAt);
+      const isArchivedEvent = id => !!eventById(id)?.archivedAt;
       const eventName = id => id ? (eventById(id)?.name || 'Event tidak ditemukan') : 'Non-Event';
 
       function hasEmbeddedConfig(){ return DEFAULT_SUPABASE_URL.startsWith('https://') && !DEFAULT_SUPABASE_URL.includes('MASUKKAN_') && DEFAULT_SUPABASE_PUBLISHABLE_KEY.length>30 && !DEFAULT_SUPABASE_PUBLISHABLE_KEY.includes('MASUKKAN_'); }
@@ -3865,14 +3903,24 @@ NOTIFY pgrst, 'reload schema';`
         else if(placeholder)select.value='';
         else if(select.options.length)select.selectedIndex=0;
       }
-      function populateEventSelect(select,{includeAll=false,includeNone=true}={}){const old=select.value;const placeholder=select.dataset.placeholder?`<option value="" disabled>${escapeHtml(select.dataset.placeholder)}</option>`:'';select.innerHTML=placeholder+`${includeAll?'<option value="all">Semua Event</option>':''}${includeNone?'<option value="none">Non-Event</option>':''}`+state.events.slice().sort((a,b)=>b.eventDate.localeCompare(a.eventDate)).map(item=>`<option value="${item.id}">${escapeHtml(item.name)}${item.store?` — ${escapeHtml(item.store)}`:''} — ${formatDate(item.eventDate)}</option>`).join('');if([...select.options].some(o=>o.value===old))select.value=old;else if(placeholder)select.value='';else if(select.options.length)select.selectedIndex=0;}
+      function populateEventSelect(select,{includeAll=false,includeNone=true,includeArchived=false}={}){
+        const old=select.value;
+        const placeholder=select.dataset.placeholder?`<option value="" disabled>${escapeHtml(select.dataset.placeholder)}</option>`:'';
+        const active=activeEvents().slice().sort((a,b)=>b.eventDate.localeCompare(a.eventDate));
+        const archived=includeArchived?archivedEvents().slice().sort((a,b)=>String(b.archivedAt||'').localeCompare(String(a.archivedAt||''))):[];
+        const optionMarkup=item=>`<option value="${item.id}">${escapeHtml(item.name)}${item.store?` — ${escapeHtml(item.store)}`:''} — ${formatDate(item.eventDate)}${item.archivedAt?' — Diarsipkan':''}</option>`;
+        const activeMarkup=active.map(optionMarkup).join('');
+        const archivedMarkup=archived.length?`<optgroup label="Event Diarsipkan">${archived.map(optionMarkup).join('')}</optgroup>`:'';
+        select.innerHTML=placeholder+`${includeAll?'<option value="all">Semua Event Aktif</option>':''}${includeNone?'<option value="none">Non-Event</option>':''}`+activeMarkup+archivedMarkup;
+        if([...select.options].some(o=>o.value===old))select.value=old;else if(placeholder)select.value='';else if(select.options.length)select.selectedIndex=0;
+      }
       function refreshEventSelects(){
         populateEventSelect(el('transactionEventFilter'),{includeAll:false,includeNone:true});
         document.querySelectorAll('#transactionRows .transaction-row-event').forEach(select=>populateEventSelect(select,{includeNone:true}));
         populateEventSelect(el('inventoryEvent'),{includeNone:true});
         const workspace=el('eventWorkspaceSelect');
         const previous=workspace.value;
-        populateEventSelect(workspace,{includeAll:isAdmin(),includeNone:false});
+        populateEventSelect(workspace,{includeAll:isAdmin(),includeNone:false,includeArchived:true});
         if(isEventEmployee()){
           const assigned=eventEmployeeId();
           if(assigned&&[...workspace.options].some(option=>option.value===assigned))workspace.value=assigned;
@@ -3913,6 +3961,7 @@ NOTIFY pgrst, 'reload schema';`
         el('inventoryStoreFilter').addEventListener('change',renderInventory);
         ['eventSearch','eventStatusFilter'].forEach(id=>el(id).addEventListener('input',renderEvents));['employeeSearch','employeeStoreFilter','employeeStatusFilter','payrollDailySearch','payrollDailyStoreFilter','payrollLateFilter','payrollAdvanceSearch','payrollAdvanceStoreFilter','payrollMonthlySearch','payrollMonthlyStoreFilter','payrollPaymentStatusFilter'].forEach(id=>el(id).addEventListener('input',renderPayroll));el('payrollDateFilter').addEventListener('change',renderPayroll);el('payrollAdvanceMonthFilter').addEventListener('change',renderPayroll);el('payrollMonthFilter').addEventListener('change',renderPayroll);el('payrollTabs').addEventListener('click',event=>{const button=event.target.closest('[data-payroll-tab]');if(button)switchPayrollTab(button.dataset.payrollTab);});el('payrollPrevDateBtn').addEventListener('click',()=>shiftPayrollDate(-1));el('payrollNextDateBtn').addEventListener('click',()=>shiftPayrollDate(1));el('payrollTodayBtn').addEventListener('click',()=>changePayrollDate(todayISO()));
         el('eventWorkspaceSelect').addEventListener('change',()=>{const selected=eventById(selectedEventWorkspaceId());if(selected?.store&&el('eventCatalogStoreFilter')){populateStoreSelect(el('eventCatalogStoreFilter'),false);el('eventCatalogStoreFilter').value=selected.store;}renderEvents();});
+        el('eventListModeSwitch').addEventListener('click',event=>{const button=event.target.closest('[data-event-list-mode]');if(!button)return;eventListMode=button.dataset.eventListMode==='archived'?'archived':'active';renderEvents();});
         el('eventTabs').addEventListener('click',event=>{const button=event.target.closest('[data-event-tab]');if(button)switchEventTab(button.dataset.eventTab);});
         ['eventTransactionSearch','eventTransactionTypeFilter','eventTransactionPaymentFilter','eventTransactionDateFilter'].forEach(id=>el(id).addEventListener('input',renderEventTransactions));
         ['eventInventorySearch','eventInventoryStatusFilter'].forEach(id=>el(id).addEventListener('input',renderEventInventory));
@@ -3968,6 +4017,7 @@ NOTIFY pgrst, 'reload schema';`
         const eventMode=existing?!!existing.eventId:context==='event';
         const eventId=existing?.eventId||presetEventId||selectedEventWorkspaceId();
         if(eventMode&&!eventId)return toast('Pilih event terlebih dahulu.');
+        if(eventMode&&isArchivedEvent(eventId))return toast('Event ini sudah diarsipkan. Pulihkan event terlebih dahulu untuk mengubah transaksi.');
         el('transactionForm').reset();
         clearFormWarnings(el('transactionForm'));
         transactionEntries().slice(1).forEach(entry=>entry.remove());
@@ -4107,6 +4157,7 @@ NOTIFY pgrst, 'reload schema';`
         const store=eventMode?EVENT_STORE:selectedInventoryStore();
         const date=eventMode?selectedEventInventoryDate():selectedInventoryDate();
         if(eventMode&&!eventId)return toast('Pilih event terlebih dahulu sebelum closing.');
+        if(eventMode&&isArchivedEvent(eventId))return toast('Event ini sudah diarsipkan. Pulihkan event terlebih dahulu untuk melakukan closing.');
         if(!store)return toast('Pilih satu toko terlebih dahulu sebelum closing.');
         if(date>todayISO())return toast('Closing belum dapat dilakukan untuk tanggal yang akan datang.');
         const rows=dailyRowsForDisplay(date,store,eventId).sort((a,b)=>a.name.localeCompare(b.name));
@@ -4395,6 +4446,7 @@ NOTIFY pgrst, 'reload schema';`
         const eventId=existing?.eventId||presetEventId||selectedEventWorkspaceId();
         const assignedStore=eventMode?EVENT_STORE:(existing?.store||selectedMaterialStore());
         if(eventMode&&!eventId)return toast('Pilih event terlebih dahulu.');
+        if(eventMode&&isArchivedEvent(eventId))return toast('Event ini sudah diarsipkan. Pulihkan event terlebih dahulu untuk mengubah daftar bahan.');
         if(!eventMode&&!assignedStore)return toast('Pilih satu toko pada halaman Daftar Bahan terlebih dahulu.');
         if(existing&&!eventMode&&!canAccessStore(existing.store))return toast('Anda tidak memiliki akses ke data bahan ini.');
         el('inventoryForm').reset();
@@ -4453,7 +4505,7 @@ NOTIFY pgrst, 'reload schema';`
       function rowToTransaction(row){return{id:row.id,date:row.transaction_date,store:row.store,eventId:row.event_id||null,type:row.type,paymentMethod:normalizePaymentMethod(row.payment_method),category:row.category,amount:Number(row.amount),note:row.note||'',createdAt:row.created_at};}
       function rowToInventory(row){return{id:row.id,store:row.store,eventId:row.event_id||null,name:row.name,unit:row.unit,stock:Number(row.stock),min:Number(row.min_stock),price:Number(row.price),note:row.note||'',updatedAt:row.updated_at};}
       function rowToEventMaterialCatalog(row){return{id:row.id,store:row.store,name:row.name,unit:row.unit,min:Number(row.min_stock||0),note:row.note||'',updatedAt:row.updated_at};}
-      function rowToEvent(row){return{id:row.id,name:row.name,store:row.store||'',eventDate:row.event_date,endDate:row.end_date,location:row.location||'',organizer:row.organizer||'',note:row.note||'',createdAt:row.created_at};}
+      function rowToEvent(row){return{id:row.id,name:row.name,store:row.store||'',eventDate:row.event_date,endDate:row.end_date,location:row.location||'',organizer:row.organizer||'',note:row.note||'',createdAt:row.created_at,archivedAt:row.archived_at||null,archivedBy:row.archived_by||null};}
       function employeeToRow(item){return{id:item.id,store:item.store,name:item.name,position:item.position||'',daily_wage:item.dailyWage,shift_start:item.shiftStart,is_active:item.isActive,note:item.note||'',updated_at:new Date().toISOString()};}
       function rowToEmployee(row){return{id:row.id,store:row.store,name:row.name,position:row.position||'',dailyWage:Number(row.daily_wage||0),shiftStart:formatTimeValue(row.shift_start)||'09:00',isActive:row.is_active!==false,note:row.note||'',createdAt:row.created_at,updatedAt:row.updated_at};}
       function payrollDailyToRow(item){const calculation=calculateDailyPayroll(item.dailyWage,item.lateStatus,item.attributeStatus,item.extraWage);return{id:item.id,employee_id:item.employeeId,work_date:item.workDate,store:item.store,employee_name:item.employeeName,position:item.position||'',daily_wage:calculation.dailyWage,scheduled_time:item.scheduledTime,attendance_time:item.attendanceTime,late_status:calculation.lateStatus,attribute_status:calculation.attributeStatus,late_deduction:calculation.lateDeduction,attribute_deduction:calculation.attributeDeduction,extra_wage:calculation.extraWage,extra_wage_note:item.extraWageNote||'',net_wage:calculation.netWage,note:item.note||'',updated_at:new Date().toISOString()};}
@@ -4798,47 +4850,85 @@ NOTIFY pgrst, 'reload schema';`
       function getStockStatus(item){if(item.stock<=0)return{key:'empty',label:'Habis',className:'badge-empty'};if(item.stock<=item.min)return{key:'low',label:'Perlu Restok',className:'badge-low'};return{key:'ok',label:'Aman',className:'badge-ok'};}
       function getDailyMaterialStatus(item){const master=state.inventory.find(material=>material.id===item.inventoryId);const stock=item.isClosed&&item.closingStock!=null?Number(item.closingStock||0):Number(item.openingStock||0);const min=Number(master?.min||0);return{...getStockStatus({stock,min}),stock,min};}
 
-      function getEventStatus(item){const today=todayISO();if(item.eventDate>today)return{key:'upcoming',label:'Akan Datang',className:'event-status-upcoming'};if(item.endDate<today)return{key:'completed',label:'Selesai',className:'event-status-completed'};return{key:'ongoing',label:'Berlangsung',className:'event-status-ongoing'};}
+      function getEventStatus(item){if(item.archivedAt)return{key:'archived',label:'Diarsipkan',className:'event-status-archived'};const today=todayISO();if(item.eventDate>today)return{key:'upcoming',label:'Akan Datang',className:'event-status-upcoming'};if(item.endDate<today)return{key:'completed',label:'Selesai',className:'event-status-completed'};return{key:'ongoing',label:'Berlangsung',className:'event-status-ongoing'};}
       function renderEvents(){
         if(!canViewEvents())return;
         if(isEventEmployee()){renderEventWorkspace();return;}
         const selectedEventId=selectedEventWorkspaceId();
         const showAllEvents=selectedEventId==='all';
         const recapEvent=showAllEvents?null:eventById(selectedEventId);
+        const activeList=activeEvents();
+        const archivedList=archivedEvents();
         const validEventIds=new Set(state.events.map(event=>event.id));
         const recapTx=showAllEvents
-          ? state.transactions.filter(transaction=>transaction.eventId&&validEventIds.has(transaction.eventId))
+          ? state.transactions.filter(transaction=>transaction.eventId&&validEventIds.has(transaction.eventId)&&!isArchivedEvent(transaction.eventId))
           : recapEvent?state.transactions.filter(transaction=>transaction.eventId===recapEvent.id):[];
         const eventIncome=sumByType(recapTx,'income');
         const eventExpense=sumByType(recapTx,'expense');
         const eventCash=cashSummary(recapTx);
         el('statEventCount').textContent=number(state.events.length);
-        el('statEventActive').textContent=number(state.events.filter(e=>getEventStatus(e).key!=='completed').length);
+        el('statEventActive').textContent=number(activeList.filter(e=>getEventStatus(e).key!=='completed').length);
+        el('statEventArchived').textContent=number(archivedList.length);
+        el('eventArchiveCount').textContent=number(archivedList.length);
         el('statEventIncome').textContent=money(eventIncome);
         el('statEventExpense').textContent=money(eventExpense);
         el('statEventCashNet').textContent=money(eventCash.net);
         el('statEventProfit').textContent=money(eventIncome-eventExpense);
         el('eventRecapSubtitle').textContent=showAllEvents
-          ? `Ringkasan gabungan seluruh event • ${number(state.events.length)} event.`
-          : recapEvent?`Ringkasan keuangan ${recapEvent.name}${recapEvent.store?` • ${recapEvent.store}`:''} • ${formatDate(recapEvent.eventDate)}${recapEvent.endDate!==recapEvent.eventDate?`–${formatDate(recapEvent.endDate)}`:''}.`:'Pilih event untuk melihat ringkasan keuangannya.';
+          ? `Ringkasan gabungan ${number(activeList.length)} event aktif. Event arsip tidak digabungkan ke ringkasan ini.`
+          : recapEvent?`Ringkasan keuangan ${recapEvent.name}${recapEvent.store?` • ${recapEvent.store}`:''} • ${formatDate(recapEvent.eventDate)}${recapEvent.endDate!==recapEvent.eventDate?`–${formatDate(recapEvent.endDate)}`:''}${recapEvent.archivedAt?' • DIARSIPKAN':''}.`:'Pilih event untuk melihat ringkasan keuangannya.';
+
+        document.querySelectorAll('[data-event-list-mode]').forEach(button=>{
+          const active=button.dataset.eventListMode===eventListMode;
+          button.classList.toggle('active',active);
+          button.setAttribute('aria-selected',String(active));
+        });
+        el('eventStatusFilter').hidden=eventListMode==='archived';
+        el('eventSearch').placeholder=eventListMode==='archived'?'Cari event yang diarsipkan...':'Cari nama, lokasi, atau penyelenggara...';
+
         const query=el('eventSearch').value.toLowerCase().trim();
         const statusFilter=el('eventStatusFilter').value;
-        const rows=state.events.filter(item=>{const status=getEventStatus(item);return(!query||`${item.name} ${item.store||''} ${item.location} ${item.organizer} ${item.note}`.toLowerCase().includes(query))&&(statusFilter==='all'||status.key===statusFilter);}).sort((a,b)=>b.eventDate.localeCompare(a.eventDate));
-        if(!rows.length)el('eventsTable').innerHTML=emptyState('Belum ada event',isOwner()?'Admin belum menambahkan data event.':'Tambahkan event untuk membuat ruang transaksi dan bahan yang terpisah dari toko.');
-        else el('eventsTable').innerHTML=`<table><thead><tr><th>Event</th><th>Toko/Brand</th><th>Tanggal</th><th>Status</th><th>Pemasukan</th><th>Pengeluaran</th><th>Cash Bersih</th><th>Saldo</th><th>Bahan</th><th>Aksi</th></tr></thead><tbody>${rows.map(item=>{const tx=state.transactions.filter(t=>t.eventId===item.id);const income=sumByType(tx,'income');const expense=sumByType(tx,'expense');const cash=cashSummary(tx);const materials=state.inventory.filter(i=>i.eventId===item.id);const status=getEventStatus(item);return`<tr><td><div class="event-title"><strong>${escapeHtml(item.name)}</strong><small>${escapeHtml(item.location)}${item.organizer?` • ${escapeHtml(item.organizer)}`:''}</small></div></td><td>${item.store?`<strong>${escapeHtml(item.store)}</strong>`:'<span class="badge badge-low">Belum dipilih</span>'}</td><td>${formatDate(item.eventDate)}${item.endDate!==item.eventDate?`<br><small class="muted">s.d. ${formatDate(item.endDate)}</small>`:''}</td><td><span class="badge ${status.className}">${status.label}</span></td><td class="amount-income">${money(income)}</td><td class="amount-expense">${money(expense)}</td><td><strong>${money(cash.net)}</strong></td><td><strong>${money(income-expense)}</strong></td><td><div class="mini-summary"><strong>${materials.length} bahan</strong></div></td><td><div class="actions"><button class="icon-btn" data-event-transactions="${item.id}" title="Pemasukan & Pengeluaran Event">⇄</button><button class="icon-btn" data-event-inventory="${item.id}" title="Rekapan Bahan Event">▤</button><button class="icon-btn" data-event-materials="${item.id}" title="Daftar Bahan Event">＋</button>${isAdmin()?`<button class="icon-btn" data-edit-event="${item.id}" title="Edit Event">✎</button><button class="icon-btn danger" data-delete-event="${item.id}" title="Hapus Event">🗑</button>`:''}</div></td></tr>`;}).join('')}</tbody></table>`;
+        const source=eventListMode==='archived'?archivedList:activeList;
+        const rows=source.filter(item=>{
+          const status=getEventStatus(item);
+          const matchesQuery=!query||`${item.name} ${item.store||''} ${item.location} ${item.organizer} ${item.note}`.toLowerCase().includes(query);
+          const matchesStatus=eventListMode==='archived'||statusFilter==='all'||status.key===statusFilter;
+          return matchesQuery&&matchesStatus;
+        }).sort((a,b)=>eventListMode==='archived'
+          ? String(b.archivedAt||'').localeCompare(String(a.archivedAt||''))
+          : b.eventDate.localeCompare(a.eventDate));
+
+        if(!rows.length){
+          el('eventsTable').innerHTML=eventListMode==='archived'
+            ? emptyState('Belum ada event diarsipkan','Event yang diarsipkan akan tetap tersimpan di sini dan dapat dipulihkan kapan saja.')
+            : emptyState('Belum ada event',isOwner()?'Admin belum menambahkan data event.':'Tambahkan event untuk membuat ruang transaksi dan bahan yang terpisah dari toko.');
+        }else{
+          el('eventsTable').innerHTML=`<table><thead><tr><th>Event</th><th>Toko/Brand</th><th>Tanggal</th><th>Status</th><th>Pemasukan</th><th>Pengeluaran</th><th>Cash Bersih</th><th>Saldo</th><th>Bahan</th><th>Aksi</th></tr></thead><tbody>${rows.map(item=>{
+            const tx=state.transactions.filter(t=>t.eventId===item.id);
+            const income=sumByType(tx,'income');
+            const expense=sumByType(tx,'expense');
+            const cash=cashSummary(tx);
+            const materials=state.inventory.filter(i=>i.eventId===item.id);
+            const status=getEventStatus(item);
+            const archiveDetail=item.archivedAt?`<br><small class="muted">Diarsipkan ${escapeHtml(formatSavedDateTime(item.archivedAt))}</small>`:'';
+            const activeActions=`<button class="icon-btn" data-event-transactions="${item.id}" title="Pemasukan & Pengeluaran Event">⇄</button><button class="icon-btn" data-event-inventory="${item.id}" title="Rekapan Bahan Event">▤</button><button class="icon-btn" data-event-materials="${item.id}" title="Daftar Bahan Event">＋</button>${isAdmin()?`<button class="icon-btn" data-edit-event="${item.id}" title="Edit Event">✎</button><button class="icon-btn" data-archive-event="${item.id}" title="Arsipkan Event">▣</button><button class="icon-btn danger" data-delete-event="${item.id}" title="Pindahkan Event ke Sampah">🗑</button>`:''}`;
+            const archivedActions=`<button class="icon-btn" data-event-transactions="${item.id}" title="Lihat transaksi event">⇄</button><button class="icon-btn" data-event-inventory="${item.id}" title="Lihat rekapan bahan event">▤</button><button class="icon-btn" data-event-materials="${item.id}" title="Lihat daftar bahan event">☰</button>${isAdmin()?`<button class="btn btn-light btn-sm" data-restore-archived-event="${item.id}" title="Pulihkan event ke daftar aktif">Pulihkan</button>`:''}`;
+            return`<tr><td><div class="event-title"><strong>${escapeHtml(item.name)}</strong><small>${escapeHtml(item.location)}${item.organizer?` • ${escapeHtml(item.organizer)}`:''}</small>${archiveDetail}</div></td><td>${item.store?`<strong>${escapeHtml(item.store)}</strong>`:'<span class="badge badge-low">Belum dipilih</span>'}</td><td>${formatDate(item.eventDate)}${item.endDate!==item.eventDate?`<br><small class="muted">s.d. ${formatDate(item.endDate)}</small>`:''}</td><td><span class="badge ${status.className}">${status.label}</span></td><td class="amount-income">${money(income)}</td><td class="amount-expense">${money(expense)}</td><td><strong>${money(cash.net)}</strong></td><td><strong>${money(income-expense)}</strong></td><td><div class="mini-summary"><strong>${materials.length} bahan</strong></div></td><td><div class="actions">${item.archivedAt?archivedActions:activeActions}</div></td></tr>`;
+          }).join('')}</tbody></table>`;
+        }
         renderEventWorkspace();
       }
-
 
       function renderEventWorkspace(){
         if(!canViewEvents())return;
         const eventId=selectedEventWorkspaceId();
         const showAllEvents=eventId==='all';
         const selected=showAllEvents?null:eventById(eventId);
-        const disabled=!selected;
+        const archived=!!selected?.archivedAt;
+        const disabled=!selected||archived;
         el('eventWorkspaceSubtitle').textContent=showAllEvents
-          ? `Semua Event sedang dipilih untuk Rekapan Event. Pilih satu event tertentu untuk ${isOwner()?'melihat':'membuka dan mengelola'} data operasionalnya.`
-          : selected?`${selected.name}${selected.store?` • ${selected.store}`:' • Toko/brand belum dipilih'} • ${formatDate(selected.eventDate)}${selected.endDate!==selected.eventDate?`–${formatDate(selected.endDate)}`:''} • data event tersimpan terpisah dari operasional outlet.`:isEventEmployee()?'Event belum ditetapkan oleh Admin. Hubungi Admin agar akun ini dihubungkan ke satu event.':isOwner()?'Pilih event untuk melihat data operasional khusus event.':'Pilih atau tambahkan event untuk membuka data operasional khusus event.';
+          ? `Semua Event Aktif sedang dipilih untuk Rekapan Event. Pilih satu event tertentu untuk ${isOwner()?'melihat':'membuka dan mengelola'} data operasionalnya.`
+          : selected?`${selected.name}${selected.store?` • ${selected.store}`:' • Toko/brand belum dipilih'} • ${formatDate(selected.eventDate)}${selected.endDate!==selected.eventDate?`–${formatDate(selected.endDate)}`:''} • ${archived?'EVENT DIARSIPKAN — mode hanya lihat. Data historis tetap tersimpan.':'data event tersimpan terpisah dari operasional outlet.'}`:isEventEmployee()?'Event belum ditetapkan oleh Admin. Hubungi Admin agar akun ini dihubungkan ke satu event.':isOwner()?'Pilih event untuk melihat data operasional khusus event.':'Pilih atau tambahkan event untuk membuka data operasional khusus event.';
         if(el('addEventTransactionBtn'))el('addEventTransactionBtn').disabled=disabled||!isAdmin();
         if(el('addEventInventoryBtn'))el('addEventInventoryBtn').disabled=disabled||!isAdmin();
         if(el('closeEventDailyRecapBtn'))el('closeEventDailyRecapBtn').disabled=disabled||!canEditEventInventory();
@@ -4883,7 +4973,8 @@ NOTIFY pgrst, 'reload schema';`
           const matchesPayment=payment==='all'||normalizePaymentMethod(t.paymentMethod)===payment;
           return matchesQuery&&matchesType&&matchesPayment;
         }).sort((a,b)=>`${b.date}${b.createdAt||''}`.localeCompare(`${a.date}${a.createdAt||''}`));
-        el('eventTransactionsTable').innerHTML=rows.length?transactionTableMarkup(rows,isAdmin(),'event'):emptyState('Transaksi event tidak ditemukan','Ubah filter atau tambahkan transaksi khusus untuk event ini.');
+        const archived=isArchivedEvent(eventId);
+        el('eventTransactionsTable').innerHTML=rows.length?transactionTableMarkup(rows,isAdmin()&&!archived,'event'):emptyState('Transaksi event tidak ditemukan',archived?'Tidak ada transaksi pada event arsip ini.':'Ubah filter atau tambahkan transaksi khusus untuk event ini.');
       }
 
       function renderEventInventory(){
@@ -4932,15 +5023,16 @@ NOTIFY pgrst, 'reload schema';`
         sourceNotice.innerHTML=`<div><span>Master bahan untuk toko</span><strong>${sourceStore?escapeHtml(sourceStore):'Belum ditentukan'}</strong></div><small class="muted">${!eventMaterialCatalogAvailable?'Database master bahan belum aktif':sourceStore?`${catalogCount} bahan terdaftar khusus pada halaman Event`:'Edit event dan pilih Toko/Brand terlebih dahulu'}</small>`;
         const query=el('eventMaterialsSearch').value.toLowerCase().trim();
         const rows=state.inventory.filter(item=>item.eventId===eventId&&(!query||`${item.name} ${item.unit}`.toLowerCase().includes(query))).sort((a,b)=>a.name.localeCompare(b.name));
-        el('addEventInventoryBtn').hidden=!isAdmin();
-        el('addEventInventoryBtn').disabled=!isAdmin()||!sourceStore||!eventMaterialCatalogAvailable||!catalogCount;
+        const archived=isArchivedEvent(eventId);
+        el('addEventInventoryBtn').hidden=!isAdmin()||archived;
+        el('addEventInventoryBtn').disabled=!isAdmin()||archived||!sourceStore||!eventMaterialCatalogAvailable||!catalogCount;
         el('addEventInventoryBtn').title=!eventMaterialCatalogAvailable?'Jalankan SQL master bahan event':!sourceStore?'Tentukan toko pada data event':!catalogCount?`Daftarkan master bahan Event ${sourceStore} terlebih dahulu`:'Pilih bahan untuk event ini';
         if(!rows.length){
           const detail=!eventMaterialCatalogAvailable?'Jalankan SQL pembaruan master bahan event terlebih dahulu.':sourceStore?(catalogCount?`Tekan Pilih dari Daftar Bahan Event untuk memilih kebutuhan ${sourceStore}.`:`Daftarkan dahulu bahan khusus Event untuk ${sourceStore} pada bagian Master Bahan Event di atas.`):'Tentukan Toko/Brand pada data event terlebih dahulu.';
           el('eventMaterialsTable').innerHTML=emptyState('Belum ada bahan yang dipilih',isAdmin()?detail:'Admin belum memilih bahan untuk event ini.');
           return;
         }
-        el('eventMaterialsTable').innerHTML=`<table><thead><tr><th>Nama Bahan</th><th>Sumber</th><th>Stok Event</th><th>Stok Minimum</th><th>Status Bahan</th><th>Terakhir Diperbarui</th>${isAdmin()?'<th>Aksi</th>':''}</tr></thead><tbody>${rows.map(item=>{const status=getStockStatus(item);return`<tr class="material-status-row material-status-${status.key}"><td><strong>${escapeHtml(item.name)}</strong><br><small class="muted">${escapeHtml(item.unit||'unit')}</small></td><td><strong>${escapeHtml(sourceStore||'-')}</strong><br><small class="muted">Master bahan halaman Event</small></td><td><div class="material-stock-value"><strong>${number(item.stock)}</strong><small>${escapeHtml(item.unit||'unit')}</small></div></td><td><div class="material-stock-value"><strong>${number(item.min)}</strong><small>${escapeHtml(item.unit||'unit')}</small></div></td><td><span class="badge ${status.className}">${status.label}</span>${status.key==='low'?`<small class="status-detail">Kurang ${number(Math.max(0,item.min-item.stock))} ${escapeHtml(item.unit||'unit')} menuju batas minimum</small>`:status.key==='empty'?'<small class="status-detail">Stok event belum tersedia atau sudah habis</small>':'<small class="status-detail">Stok event masih di atas batas minimum</small>'}</td><td>${item.updatedAt?new Intl.DateTimeFormat('id-ID',{day:'2-digit',month:'short',year:'numeric'}).format(new Date(item.updatedAt)):'-'}</td>${isAdmin()?`<td><div class="actions"><button class="icon-btn" data-edit-inventory="${item.id}" title="Ubah stok minimum bahan event">✎</button><button class="icon-btn danger" data-delete-inventory="${item.id}" title="Hapus bahan dari event">🗑</button></div></td>`:''}</tr>`;}).join('')}</tbody></table>`;
+        el('eventMaterialsTable').innerHTML=`<table><thead><tr><th>Nama Bahan</th><th>Sumber</th><th>Stok Event</th><th>Stok Minimum</th><th>Status Bahan</th><th>Terakhir Diperbarui</th>${isAdmin()&&!archived?'<th>Aksi</th>':''}</tr></thead><tbody>${rows.map(item=>{const status=getStockStatus(item);return`<tr class="material-status-row material-status-${status.key}"><td><strong>${escapeHtml(item.name)}</strong><br><small class="muted">${escapeHtml(item.unit||'unit')}</small></td><td><strong>${escapeHtml(sourceStore||'-')}</strong><br><small class="muted">Master bahan halaman Event</small></td><td><div class="material-stock-value"><strong>${number(item.stock)}</strong><small>${escapeHtml(item.unit||'unit')}</small></div></td><td><div class="material-stock-value"><strong>${number(item.min)}</strong><small>${escapeHtml(item.unit||'unit')}</small></div></td><td><span class="badge ${status.className}">${status.label}</span>${status.key==='low'?`<small class="status-detail">Kurang ${number(Math.max(0,item.min-item.stock))} ${escapeHtml(item.unit||'unit')} menuju batas minimum</small>`:status.key==='empty'?'<small class="status-detail">Stok event belum tersedia atau sudah habis</small>':'<small class="status-detail">Stok event masih di atas batas minimum</small>'}</td><td>${item.updatedAt?new Intl.DateTimeFormat('id-ID',{day:'2-digit',month:'short',year:'numeric'}).format(new Date(item.updatedAt)):'-'}</td>${isAdmin()&&!archived?`<td><div class="actions"><button class="icon-btn" data-edit-inventory="${item.id}" title="Ubah stok minimum bahan event">✎</button><button class="icon-btn danger" data-delete-inventory="${item.id}" title="Hapus bahan dari event">🗑</button></div></td>`:''}</tr>`;}).join('')}</tbody></table>`;
       }
 
       function renderEventDailyRecapSummary(date,eventId,rows){
@@ -4960,8 +5052,9 @@ NOTIFY pgrst, 'reload schema';`
       function applyEventDailyActionState(date,eventId){
         const masterCount=eventId?state.inventory.filter(item=>item.eventId===eventId).length:0;
         const allowedDate=date<=todayISO();
-        el('closeEventDailyRecapBtn').hidden=!canEditEventInventory();
-        el('closeEventDailyRecapBtn').disabled=!canEditEventInventory()||!eventId||!allowedDate||!masterCount;
+        const archived=isArchivedEvent(eventId);
+        el('closeEventDailyRecapBtn').hidden=!canEditEventInventory()||archived;
+        el('closeEventDailyRecapBtn').disabled=!canEditEventInventory()||archived||!eventId||!allowedDate||!masterCount;
         el('closeEventDailyRecapBtn').textContent=date===todayISO()?'✓ Closing Hari Ini':'✓ Closing Tanggal Ini';
         el('closeEventDailyRecapBtn').title=!eventId?'Event belum ditetapkan oleh Admin':!allowedDate?'Closing belum tersedia untuk tanggal mendatang':!masterCount?(isAdmin()?'Tambahkan bahan melalui tab Daftar Bahan Event terlebih dahulu':'Admin belum menambahkan bahan pada event ini'):'Isi atau perbarui closing bahan event';
       }
@@ -5277,7 +5370,7 @@ NOTIFY pgrst, 'reload schema';`
         if(!canViewAll()||!el('profilesTable'))return;
         if(!state.profiles.length){el('profilesTable').innerHTML=emptyState('Belum ada profil akun','Sinkronkan ulang setelah membuat pengguna di Supabase Authentication.');return;}
         const editable=isAdmin();
-        const sortedEvents=state.events.slice().sort((a,b)=>b.eventDate.localeCompare(a.eventDate));
+        const sortedEvents=activeEvents().slice().sort((a,b)=>b.eventDate.localeCompare(a.eventDate));
         el('profilesTable').innerHTML=`<table><thead><tr><th>Email</th><th>Peran</th><th>Akses Toko/Event</th><th>Dibuat</th>${editable?'<th>Aksi</th>':''}</tr></thead><tbody>${state.profiles.map(profile=>{
           const role=profile.role||'employee';
           const isProfileAdmin=role==='admin';
@@ -5290,7 +5383,8 @@ NOTIFY pgrst, 'reload schema';`
           const accessLabel=isProfileAdmin?'Semua toko dan event':isProfileOwner?(profileStores.length?profileStores.join(', '):'Toko belum ditetapkan'):isProfileEventEmployee?(assignedEvent?.name||'Event belum ditetapkan'):(profile.branch||'Toko belum ditetapkan');
           const branchOptions=`<option value="">Pilih satu toko</option>`+STORES.map(store=>`<option value="${escapeHtml(store)}" ${profile.branch===store?'selected':''}>${escapeHtml(store)}</option>`).join('');
           const ownerOptions=STORES.map(store=>`<label class="owner-store-option"><input type="checkbox" data-owner-branch-user="${profile.user_id}" value="${escapeHtml(store)}" ${profileStores.includes(store)?'checked':''}><span>${escapeHtml(store)}</span></label>`).join('');
-          const eventOptions=`<option value="">Pilih satu event</option>`+sortedEvents.map(item=>`<option value="${item.id}" ${profile.event_id===item.id?'selected':''}>${escapeHtml(item.name)}${item.store?` — ${escapeHtml(item.store)}`:''} — ${formatDate(item.eventDate)}</option>`).join('');
+          const assignedArchived=assignedEvent?.archivedAt?`<option value="${assignedEvent.id}" selected>${escapeHtml(assignedEvent.name)} — Diarsipkan</option>`:'';
+          const eventOptions=`<option value="">Pilih satu event</option>`+assignedArchived+sortedEvents.map(item=>`<option value="${item.id}" ${profile.event_id===item.id?'selected':''}>${escapeHtml(item.name)}${item.store?` — ${escapeHtml(item.store)}`:''} — ${formatDate(item.eventDate)}</option>`).join('');
           const helpText=isProfileAdmin?'Admin dapat membuka dan mengubah semua data.':isProfileOwner?(profileStores.length?`Owner dapat melihat ${profileStores.length} toko dan seluruh data event tanpa mengubah data.`:'Owner dapat melihat seluruh data event. Pilih minimal satu toko untuk akses data toko.'):isProfileEventEmployee?(assignedEvent?`Karyawan Event hanya dapat membuka dan closing Rekapan Bahan event ${escapeHtml(assignedEvent.name)}.`:'Pilih tepat satu event untuk akun Karyawan Event.'):profile.branch?`Karyawan hanya dapat membuka Rekapan Bahan cabang ${escapeHtml(profile.branch)}.`:'Pilih tepat satu toko untuk akun Karyawan.';
           const warning=(isProfileOwner&&!profileStores.length)||(isProfileEmployee&&!profile.branch)||(isProfileEventEmployee&&!profile.event_id);
           const badgeClass=isProfileAdmin?'role-admin':isProfileOwner?'role-owner':isProfileEventEmployee?'role-event-employee':'role-employee';
@@ -5359,6 +5453,8 @@ NOTIFY pgrst, 'reload schema';`
         if(!canViewEvents()||isEventEmployee())return;
         const edit=event.target.closest('[data-edit-event]');
         const remove=event.target.closest('[data-delete-event]');
+        const archive=event.target.closest('[data-archive-event]');
+        const restoreArchive=event.target.closest('[data-restore-archived-event]');
         const tx=event.target.closest('[data-event-transactions]');
         const inventory=event.target.closest('[data-event-inventory]');
         const materials=event.target.closest('[data-event-materials]');
@@ -5366,6 +5462,18 @@ NOTIFY pgrst, 'reload schema';`
         if(tx)selectEventWorkspace(tx.dataset.eventTransactions,'transactions');
         if(inventory)selectEventWorkspace(inventory.dataset.eventInventory,'inventory');
         if(materials)selectEventWorkspace(materials.dataset.eventMaterials,'materials');
+        if(archive&&isAdmin()){
+          const item=eventById(archive.dataset.archiveEvent);
+          if(item&&!item.archivedAt&&confirm(`Arsipkan event ${item.name}? Data transaksi, bahan, dan closing tetap tersimpan dan event dapat dipulihkan kapan saja.`)){
+            try{const {error}=await db.from('events').update({archived_at:new Date().toISOString(),archived_by:currentSession?.user?.id||null}).eq('id',item.id);if(error)throw error;eventListMode='archived';await loadCloudData(true);toast('Event berhasil diarsipkan tanpa menghapus data.');}catch(error){showSyncError(error);}
+          }
+        }
+        if(restoreArchive&&isAdmin()){
+          const item=eventById(restoreArchive.dataset.restoreArchivedEvent);
+          if(item?.archivedAt){
+            try{const {error}=await db.from('events').update({archived_at:null,archived_by:null}).eq('id',item.id);if(error)throw error;eventListMode='active';await loadCloudData(true);toast('Event berhasil dipulihkan ke daftar aktif.');}catch(error){showSyncError(error);}
+          }
+        }
         if(remove&&isAdmin()&&confirm('Pindahkan event ini beserta transaksi, daftar bahan, dan rekapan bahan khusus event ke Sampah? Semua data dapat dipulihkan.')){
           try{const {error}=await db.rpc('soft_delete_event_bundle',{target_event_id:remove.dataset.deleteEvent});if(error)throw error;await loadCloudData(true);toast('Event beserta data khususnya dipindahkan ke Sampah.');}catch(error){showSyncError(error);}
         }
@@ -5504,7 +5612,7 @@ NOTIFY pgrst, 'reload schema';`
         downloadFile(`rekap-bahan-event-${eventName(eventId).replace(/[^a-z0-9]+/gi,'-').toLowerCase()}-${date}.csv`,'\ufeff'+toCSV(rows),'text/csv;charset=utf-8');toast('Rekapan bahan event berhasil diekspor.');
       }
 
-      function exportEventsCSV(){if(!canViewAll())return;const rows=[['Nama Event','Toko/Brand','Tanggal Mulai','Tanggal Selesai','Lokasi','Penyelenggara','Status','Pemasukan','Pengeluaran','Pengeluaran Cash','Cash Bersih','Saldo','Jumlah Bahan','Keterangan']];state.events.forEach(e=>{const tx=state.transactions.filter(t=>t.eventId===e.id),materials=state.inventory.filter(i=>i.eventId===e.id),income=sumByType(tx,'income'),expense=sumByType(tx,'expense'),cash=cashSummary(tx);rows.push([e.name,e.store||'',e.eventDate,e.endDate,e.location,e.organizer,getEventStatus(e).label,income,expense,cash.cashExpense,cash.net,income-expense,materials.length,e.note||'']);});downloadFile(`rekap-event-${todayISO()}.csv`,'\ufeff'+toCSV(rows),'text/csv;charset=utf-8');toast('File event berhasil diekspor.');}
+      function exportEventsCSV(){if(!canViewAll())return;const rows=[['Nama Event','Toko/Brand','Tanggal Mulai','Tanggal Selesai','Lokasi','Penyelenggara','Status','Tanggal Diarsipkan','Pemasukan','Pengeluaran','Pengeluaran Cash','Cash Bersih','Saldo','Jumlah Bahan','Keterangan']];state.events.forEach(e=>{const tx=state.transactions.filter(t=>t.eventId===e.id),materials=state.inventory.filter(i=>i.eventId===e.id),income=sumByType(tx,'income'),expense=sumByType(tx,'expense'),cash=cashSummary(tx);rows.push([e.name,e.store||'',e.eventDate,e.endDate,e.location,e.organizer,getEventStatus(e).label,e.archivedAt||'',income,expense,cash.cashExpense,cash.net,income-expense,materials.length,e.note||'']);});downloadFile(`rekap-event-${todayISO()}.csv`,'\ufeff'+toCSV(rows),'text/csv;charset=utf-8');toast('File event berhasil diekspor.');}
       const BACKUP_TABLES=['events','transactions','inventory','event_material_catalog','inventory_daily','employees','payroll','payroll_daily','payroll_advances','payroll_monthly_payments','profiles'];
       async function backupJSON(){
         if(!isAdmin())return;
