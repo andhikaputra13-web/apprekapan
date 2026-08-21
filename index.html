@@ -5030,7 +5030,6 @@ NOTIFY pgrst, 'reload schema';`
 
       try{if('scrollRestoration' in history)history.scrollRestoration='manual';}catch(_){}
 
-      let scrollRestoreSequence=0;
       function effectivePageScrollPosition(){
         const locked=document.body.classList.contains('modal-scroll-locked')||document.body.style.position==='fixed';
         return{
@@ -5055,27 +5054,65 @@ NOTIFY pgrst, 'reload schema';`
         if(!canViewAll()&&(view==='materials'||view==='events'||view==='payroll'||view==='settings'))return false;
         return true;
       }
-      function restoreSyncUiState(snapshot){
+      function currentLiveSyncUiState(fallback=null){
+        const locked=shouldLockBackground()||document.body.classList.contains('modal-scroll-locked');
+        if(locked&&fallback)return{...fallback};
+        const position=effectivePageScrollPosition();
+        return{
+          view:activeView,
+          scrollX:position.x,
+          scrollY:position.y,
+          focusedId:document.activeElement?.id||fallback?.focusedId||''
+        };
+      }
+      function renderWithoutViewportJump(renderFn,snapshot=null){
+        const desired=snapshot||captureSyncUiState();
+        if(shouldLockBackground()){
+          renderFn();
+          return desired;
+        }
+        const x=Math.max(0,Number(desired.scrollX)||0);
+        const y=Math.max(0,Number(desired.scrollY)||0);
+        const body=document.body;
+        const previous={
+          position:body.style.position,
+          top:body.style.top,
+          left:body.style.left,
+          right:body.style.right,
+          width:body.style.width,
+          overflowY:body.style.overflowY
+        };
+        body.style.position='fixed';
+        body.style.top=`-${y}px`;
+        body.style.left=`-${x}px`;
+        body.style.right='0';
+        body.style.width='100%';
+        body.style.overflowY='scroll';
+        try{
+          renderFn();
+        }finally{
+          body.style.position=previous.position;
+          body.style.top=previous.top;
+          body.style.left=previous.left;
+          body.style.right=previous.right;
+          body.style.width=previous.width;
+          body.style.overflowY=previous.overflowY;
+          const maxY=Math.max(0,document.documentElement.scrollHeight-window.innerHeight);
+          window.scrollTo(x,Math.min(y,maxY));
+        }
+        return desired;
+      }
+      function restoreSyncUiState(snapshot,{scroll=false}={}){
         if(!snapshot)return;
-        const sequence=++scrollRestoreSequence;
         if(canRestoreView(snapshot.view)&&activeView!==snapshot.view)switchView(snapshot.view);
-        const restore=()=>{
-          if(sequence!==scrollRestoreSequence||shouldLockBackground())return;
+        if(scroll&&!shouldLockBackground()){
           const maxY=Math.max(0,document.documentElement.scrollHeight-window.innerHeight);
           window.scrollTo(snapshot.scrollX,Math.min(snapshot.scrollY,maxY));
-        };
-        requestAnimationFrame(()=>{
-          restore();
-          requestAnimationFrame(()=>{
-            restore();
-            const focused=snapshot.focusedId?el(snapshot.focusedId):null;
-            if(focused&&!focused.disabled&&focused.offsetParent!==null){
-              try{focused.focus({preventScroll:true});}catch(_){focused.focus();}
-            }
-          });
-        });
-        setTimeout(restore,90);
-        setTimeout(restore,220);
+        }
+        const focused=snapshot.focusedId?el(snapshot.focusedId):null;
+        if(focused&&!focused.disabled&&focused.offsetParent!==null){
+          try{focused.focus({preventScroll:true});}catch(_){focused.focus();}
+        }
       }
 
       async function manualRefreshData(){
@@ -5196,12 +5233,18 @@ NOTIFY pgrst, 'reload schema';`
           state.deletedItems=deletedItemsResult.data||[];
           state.auditLogs=auditLogsResult.data||[];
           state.updatedAt=new Date().toISOString();
-          applyRoleUI();
-          refreshEventSelects();
-          el('lastSyncText').textContent=new Intl.DateTimeFormat('id-ID',{timeZone:'Asia/Jakarta',hour:'2-digit',minute:'2-digit',second:'2-digit'}).format(new Date());
-          hideSyncError();renderAll();restoreSyncUiState(syncUiState);setCloudStatus('online','Tersinkron');
+          const liveUiState=currentLiveSyncUiState(syncUiState);
+          renderWithoutViewportJump(()=>{
+            applyRoleUI();
+            refreshEventSelects();
+            el('lastSyncText').textContent=new Intl.DateTimeFormat('id-ID',{timeZone:'Asia/Jakarta',hour:'2-digit',minute:'2-digit',second:'2-digit'}).format(new Date());
+            hideSyncError();
+            renderAll();
+          },liveUiState);
+          restoreSyncUiState(liveUiState,{scroll:false});
+          setCloudStatus('online','Tersinkron');
           return true;
-        }catch(error){showSyncError(error);restoreSyncUiState(syncUiState);return false;}finally{dataLoading=false;}
+        }catch(error){showSyncError(error);restoreSyncUiState(syncUiState,{scroll:false});return false;}finally{dataLoading=false;}
       }
 
       function startCloudRefresh(){stopCloudRefresh();refreshTimer=setInterval(()=>loadCloudData(true),30000);try{cloudChannel=db.channel('rekap-toko-cloud-v8').on('postgres_changes',{event:'*',schema:'public',table:'transactions'},scheduleRealtimeRefresh).on('postgres_changes',{event:'*',schema:'public',table:'inventory'},scheduleRealtimeRefresh).on('postgres_changes',{event:'*',schema:'public',table:'event_material_catalog'},scheduleRealtimeRefresh).on('postgres_changes',{event:'*',schema:'public',table:'inventory_daily'},scheduleRealtimeRefresh).on('postgres_changes',{event:'*',schema:'public',table:'events'},scheduleRealtimeRefresh).on('postgres_changes',{event:'*',schema:'public',table:'employees'},scheduleRealtimeRefresh).on('postgres_changes',{event:'*',schema:'public',table:'payroll_daily'},scheduleRealtimeRefresh).on('postgres_changes',{event:'*',schema:'public',table:'payroll_advances'},scheduleRealtimeRefresh).on('postgres_changes',{event:'*',schema:'public',table:'payroll_monthly_payments'},scheduleRealtimeRefresh).on('postgres_changes',{event:'*',schema:'public',table:'profiles'},scheduleRealtimeRefresh).subscribe();}catch(error){console.warn('Realtime tidak aktif, polling tetap berjalan.',error);}}
