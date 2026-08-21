@@ -742,6 +742,32 @@
     .role-employee { background:#dcfce7; color:#166534; }
     .role-event-employee { background:#ede9fe; color:#6d28d9; }
     .balance-toggle { min-width:42px; }
+    .logout-icon-btn {
+      width:40px;
+      height:40px;
+      min-width:40px;
+      padding:0;
+      display:inline-grid;
+      place-items:center;
+      color:#b91c1c;
+      background:#fff;
+      border:1px solid #fecaca;
+    }
+    .logout-icon-btn:hover { background:#fff1f2; color:#991b1b; border-color:#fda4af; }
+    .logout-icon-btn svg { width:18px; height:18px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
+    .logout-confirm-panel { width:min(430px,100%); }
+    .logout-confirm-body { text-align:center; padding:26px 24px 22px; }
+    .logout-confirm-icon {
+      width:58px; height:58px; margin:0 auto 14px; border-radius:18px; display:grid; place-items:center;
+      background:#fff1f2; color:#b91c1c; border:1px solid #fecaca;
+    }
+    .logout-confirm-icon svg { width:28px; height:28px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
+    .logout-confirm-body h3 { margin:0 0 7px; font-size:18px; }
+    .logout-confirm-body p { margin:0; color:var(--muted); font-size:13px; line-height:1.6; }
+    .logout-confirm-actions { display:grid; grid-template-columns:1fr 1fr; gap:10px; padding:0 24px 24px; }
+    .logout-confirm-actions .btn { width:100%; }
+    .logout-confirm-yes { background:#dc2626; color:#fff; }
+    .logout-confirm-yes:hover { background:#b91c1c; }
     .balance-toggle .privacy-icon { display:inline-flex; align-items:center; justify-content:center; line-height:1; }
     .balance-toggle .privacy-icon svg { width:17px; height:17px; display:block; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
     .event-tag { display:inline-flex; align-items:center; gap:5px; border-radius:999px; padding:4px 8px; background:#fef3c7; color:#92400e; font-size:10px; font-weight:800; white-space:nowrap; }
@@ -1587,7 +1613,7 @@
         grid-column: 1 / -1;
         width: 100%;
         display: grid;
-        grid-template-columns: minmax(0, 1fr) 38px 38px 40px;
+        grid-template-columns: minmax(0, 1fr) 38px 38px 40px 40px;
         gap: 7px;
         align-items: center;
       }
@@ -1610,7 +1636,8 @@
       }
       .manual-refresh-btn { width: 38px; height: 38px; min-width: 38px; }
       .balance-toggle { width: 40px; min-width: 40px; height: 38px; padding: 0; }
-      #logoutBtn, .user-chip, .role-badge { display: none !important; }
+      .user-chip, .role-badge { display: none !important; }
+      #logoutBtn { display:grid !important; width:40px; min-width:40px; height:38px; }
 
       .content {
         padding: 14px 11px calc(28px + env(safe-area-inset-bottom));
@@ -1755,7 +1782,7 @@
     @media (max-width: 360px) {
       .content { padding-left: 8px; padding-right: 8px; }
       .topbar { padding-left: 9px; padding-right: 9px; }
-      .top-actions { grid-template-columns: minmax(0, 1fr) 36px 36px 38px; gap: 5px; }
+      .top-actions { grid-template-columns: minmax(0, 1fr) 36px 36px 38px 38px; gap: 5px; }
       .cloud-pill, .manual-refresh-btn { width: 36px; min-width: 36px; height: 36px; }
       .balance-toggle { width: 38px; min-width: 38px; height: 36px; }
       .table-wrap table { min-width: 620px; }
@@ -2044,6 +2071,19 @@
       }
     }
 
+
+    /* Global scroll reliability for every account role */
+    html, body { min-height: 100%; }
+    body:not(.modal-scroll-locked) { position: static; overflow-y: auto; }
+    .view.active { min-height: 0; }
+    .main, .content { min-height: 0; }
+    @media (max-width: 780px) {
+      body.modal-scroll-locked { touch-action: none; }
+      .modal.open .modal-panel,
+      .modal.open .modal-body,
+      .modal.open .payroll-modal-body,
+      .sidebar.open { touch-action: pan-y; }
+    }
 </style>
 </head>
 <body>
@@ -2168,7 +2208,9 @@
           <span class="role-badge role-employee" id="roleBadge">Karyawan</span>
           <span class="user-chip" id="userEmail"></span>
           <select class="store-select" id="globalStore" aria-label="Pilih toko"></select>
-          <button class="btn btn-light btn-sm" id="logoutBtn" title="Keluar">Keluar</button>
+          <button class="btn btn-sm logout-icon-btn" id="logoutBtn" type="button" title="Keluar akun" aria-label="Keluar akun">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 17l5-5-5-5"></path><path d="M15 12H3"></path><path d="M13 3h5a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-5"></path></svg>
+          </button>
         </div>
       </header>
 
@@ -2574,6 +2616,22 @@
         </section>
       </div>
     </main>
+  </div>
+
+  <div class="modal" id="logoutConfirmModal" role="dialog" aria-modal="true" aria-labelledby="logoutConfirmTitle">
+    <div class="modal-panel logout-confirm-panel">
+      <div class="logout-confirm-body">
+        <div class="logout-confirm-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><path d="M10 17l5-5-5-5"></path><path d="M15 12H3"></path><path d="M13 3h5a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-5"></path></svg>
+        </div>
+        <h3 id="logoutConfirmTitle">Keluar dari akun?</h3>
+        <p>Apakah Anda yakin ingin mengakhiri sesi pada perangkat ini?</p>
+      </div>
+      <div class="logout-confirm-actions">
+        <button class="btn btn-light" type="button" id="logoutNoBtn">Tidak</button>
+        <button class="btn logout-confirm-yes" type="button" id="logoutYesBtn">Ya, Keluar</button>
+      </div>
+    </div>
   </div>
 
   <div class="modal" id="transactionModal" role="dialog" aria-modal="true">
@@ -3955,11 +4013,12 @@ NOTIFY pgrst, 'reload schema';`
         if(event==='SIGNED_IN'||event==='INITIAL_SESSION'||event==='TOKEN_REFRESHED') await showApp(session);
       }
 
-      function showSetup(message=''){ el('appShell').hidden=true;el('authScreen').hidden=true;el('setupScreen').hidden=false;el('loadingCover').hidden=true;const config=currentConfig||getSavedConfig();if(config){el('setupUrl').value=config.url||'';el('setupKey').value=config.key||'';}setGateMessage(el('setupError'),message,'error'); }
-      function showAuth(message='',success=false){ el('appShell').hidden=true;el('setupScreen').hidden=true;el('authScreen').hidden=false;el('loadingCover').hidden=true;updateProjectLabels();setGateMessage(el('authMessage'),message,success?'success':'error'); }
+      function showSetup(message=''){ forceResetScrollState({closeModals:true,closeSidebarToo:true,restore:true}); el('appShell').hidden=true;el('authScreen').hidden=true;el('setupScreen').hidden=false;el('loadingCover').hidden=true;const config=currentConfig||getSavedConfig();if(config){el('setupUrl').value=config.url||'';el('setupKey').value=config.key||'';}setGateMessage(el('setupError'),message,'error'); }
+      function showAuth(message='',success=false){ forceResetScrollState({closeModals:true,closeSidebarToo:true,restore:true}); el('appShell').hidden=true;el('setupScreen').hidden=true;el('authScreen').hidden=false;el('loadingCover').hidden=true;updateProjectLabels();setGateMessage(el('authMessage'),message,success?'success':'error'); }
 
       async function showApp(session){
         try{
+          forceResetScrollState({closeModals:true,closeSidebarToo:true,restore:true});
           currentSession=session;
           await loadCurrentProfile(session.user);
           applyRoleUI();
@@ -4266,7 +4325,7 @@ NOTIFY pgrst, 'reload schema';`
       function bindEvents(){
         el('setupForm').addEventListener('submit',handleSetupSubmit);el('copySqlBtn').addEventListener('click',copyDatabaseSql);el('loginForm').addEventListener('submit',handleLogin);el('signupBtn').addEventListener('click',handleSignup);el('authChangeConfigBtn')?.addEventListener('click',()=>showSetup());
         document.addEventListener('input',clearWarningFromEvent);document.addEventListener('change',clearWarningFromEvent);
-        el('logoutBtn').addEventListener('click',logout);el('settingsLogoutBtn').addEventListener('click',logout);el('syncNowBtn').addEventListener('click',()=>loadCloudData(false));el('manualRefreshBtn').addEventListener('click',manualRefreshData);el('changeConfigBtn').addEventListener('click',changeConnection);el('balanceToggleBtn').addEventListener('click',toggleBalanceVisibility);el('themeToggleBtn').addEventListener('click',toggleTheme);
+        el('logoutBtn').addEventListener('click',openLogoutConfirm);el('settingsLogoutBtn').addEventListener('click',openLogoutConfirm);el('logoutNoBtn').addEventListener('click',()=>closeModal('logoutConfirmModal'));el('logoutYesBtn').addEventListener('click',logout);el('syncNowBtn').addEventListener('click',()=>loadCloudData(false));el('manualRefreshBtn').addEventListener('click',manualRefreshData);el('changeConfigBtn').addEventListener('click',changeConnection);el('balanceToggleBtn').addEventListener('click',toggleBalanceVisibility);el('themeToggleBtn').addEventListener('click',toggleTheme);
         el('dailyRecapToggle').addEventListener('click',()=>toggleDashboardRecap('daily'));
         el('monthlyRecapToggle').addEventListener('click',()=>toggleDashboardRecap('monthly'));
         el('dashboardDateFilter').addEventListener('change',event=>{selectedDashboardDate=event.target.value||'realtime';renderDashboard();});
@@ -4304,7 +4363,15 @@ NOTIFY pgrst, 'reload schema';`
         el('eventsTable').addEventListener('click',handleEventsTableClick);el('employeeTable').addEventListener('click',handleEmployeeTableClick);el('payrollDailyTable').addEventListener('click',handlePayrollDailyTableClick);el('payrollAdvanceTable').addEventListener('click',handlePayrollAdvanceTableClick);el('payrollMonthlyTable').addEventListener('click',handlePayrollMonthlyTableClick);el('profilesTable').addEventListener('change',handleProfileAccessDraftChange);el('profilesTable').addEventListener('click',handleProfileAccessSave);
         el('exportTransactionsBtn').addEventListener('click',exportTransactionsCSV);el('exportPayrollBtn').addEventListener('click',exportPayrollCSV);el('exportInventoryBtn').addEventListener('click',exportInventoryCSV);el('exportEventsBtn').addEventListener('click',exportEventsCSV);el('exportEventTransactionsBtn').addEventListener('click',exportEventTransactionsCSV);el('exportEventInventoryBtn').addEventListener('click',exportEventInventoryCSV);
         el('backupBtn').addEventListener('click',backupJSON);el('restoreBtn').addEventListener('click',()=>el('restoreInput').click());el('restoreInput').addEventListener('change',restoreJSON);el('trashTable').addEventListener('click',handleTrashTableClick);
-        window.addEventListener('resize',renderChart);window.addEventListener('online',()=>loadCloudData(true));window.addEventListener('offline',()=>setCloudStatus('error','Offline'));
+        window.addEventListener('resize',()=>{
+          renderChart();
+          if(window.innerWidth>780&&el('sidebar')?.classList.contains('open'))closeSidebar();
+          requestAnimationFrame(repairScrollState);
+        });
+        window.addEventListener('orientationchange',()=>setTimeout(repairScrollState,120));
+        window.addEventListener('pageshow',()=>setTimeout(repairScrollState,0));
+        document.addEventListener('visibilitychange',()=>{if(!document.hidden)setTimeout(repairScrollState,0);});
+        window.addEventListener('online',()=>loadCloudData(true));window.addEventListener('offline',()=>setCloudStatus('error','Offline'));
         document.querySelectorAll('.modal').forEach(modal=>{
           modal.addEventListener('click',event=>{if(event.target===modal)closeModal(modal.id);});
           modal.addEventListener('wheel',event=>{if(event.target===modal)event.preventDefault();},{passive:false});
@@ -4314,12 +4381,33 @@ NOTIFY pgrst, 'reload schema';`
           if(event.key!=='Escape')return;
           const modals=openedModals();
           if(modals.length)closeModal(modals[modals.length-1].id);
+          else if(mobileSidebarOpen())closeSidebar();
         });
+        document.addEventListener('touchmove',event=>{
+          if(!document.body.classList.contains('modal-scroll-locked'))return;
+          const activeModal=openedModals().at(-1);
+          if(activeModal&&activeModal.contains(event.target))return;
+          if(!activeModal&&mobileSidebarOpen()&&el('sidebar')?.contains(event.target))return;
+          event.preventDefault();
+        },{passive:false});
       }
 
-      async function logout(){if(db)await db.auth.signOut();}
+      function openLogoutConfirm(){const button=el('logoutYesBtn');if(button){button.disabled=false;button.textContent='Ya, Keluar';}openModal('logoutConfirmModal');}
+      async function logout(){
+        const button=el('logoutYesBtn');
+        if(button){button.disabled=true;button.textContent='Keluar...';}
+        try{
+          closeModal('logoutConfirmModal');
+          forceResetScrollState({closeModals:true,closeSidebarToo:true,restore:false});
+          if(db)await db.auth.signOut();
+        }catch(error){
+          showSyncError(error);
+          if(button){button.disabled=false;button.textContent='Ya, Keluar';}
+        }
+      }
       async function changeConnection(){if(!confirm('Ubah koneksi Supabase? Anda akan keluar dari sesi saat ini.'))return;forceSetupScreen=true;stopCloudRefresh();if(db)await db.auth.signOut();else showSetup();}
       function switchView(view){
+        repairScrollState();
         if(isEventEmployee())view='events';
         else if(isEmployee())view='inventory';
         if(!canViewAll()&&!canViewEvents()&&(view==='materials'||view==='settings'||view==='events'))view='inventory';
@@ -4337,15 +4425,30 @@ NOTIFY pgrst, 'reload schema';`
         if(view==='events')renderEvents();
         if(view==='payroll')renderPayroll();
         if(view==='settings'){renderProfiles();renderSafetyPanels();}
+        requestAnimationFrame(repairScrollState);
       }
-      function toggleSidebar(){el('sidebar').classList.toggle('open');el('overlay').classList.toggle('open');}
-      function closeSidebar(){el('sidebar').classList.remove('open');el('overlay').classList.remove('open');}
+      function toggleSidebar(){
+        const sidebar=el('sidebar'),overlay=el('overlay');
+        const opening=!sidebar.classList.contains('open');
+        sidebar.classList.toggle('open',opening);overlay.classList.toggle('open',opening);
+        if(window.innerWidth<=780){
+          if(opening)lockBackgroundScroll('sidebar');
+          else unlockBackgroundScroll('sidebar');
+        }
+      }
+      function closeSidebar(){
+        el('sidebar').classList.remove('open');el('overlay').classList.remove('open');
+        unlockBackgroundScroll('sidebar');
+      }
 
       let modalScrollY=0;
+      const scrollLockReasons=new Set();
       function openedModals(){return [...document.querySelectorAll('.modal.open')];}
-      function lockBackgroundScroll(){
+      function mobileSidebarOpen(){return window.innerWidth<=780&&el('sidebar')?.classList.contains('open');}
+      function shouldLockBackground(){return openedModals().length>0||mobileSidebarOpen();}
+      function applyBackgroundScrollLock(){
         if(document.body.classList.contains('modal-scroll-locked'))return;
-        modalScrollY=window.scrollY||window.pageYOffset||0;
+        modalScrollY=Math.max(0,window.scrollY||window.pageYOffset||0);
         document.documentElement.classList.add('modal-scroll-locked');
         document.body.classList.add('modal-scroll-locked');
         document.body.style.position='fixed';
@@ -4354,8 +4457,7 @@ NOTIFY pgrst, 'reload schema';`
         document.body.style.right='0';
         document.body.style.width='100%';
       }
-      function unlockBackgroundScroll(){
-        if(openedModals().length)return;
+      function releaseBackgroundScrollLock({restore=true}={}){
         if(!document.body.classList.contains('modal-scroll-locked'))return;
         document.documentElement.classList.remove('modal-scroll-locked');
         document.body.classList.remove('modal-scroll-locked');
@@ -4364,7 +4466,35 @@ NOTIFY pgrst, 'reload schema';`
         document.body.style.left='';
         document.body.style.right='';
         document.body.style.width='';
-        window.scrollTo(0,modalScrollY);
+        document.body.style.overflow='';
+        document.documentElement.style.overflow='';
+        if(restore)window.scrollTo(0,modalScrollY);
+      }
+      function syncBackgroundScrollLock({restore=true}={}){
+        if(shouldLockBackground())applyBackgroundScrollLock();
+        else releaseBackgroundScrollLock({restore});
+      }
+      function lockBackgroundScroll(reason='modal'){
+        scrollLockReasons.add(reason);
+        applyBackgroundScrollLock();
+      }
+      function unlockBackgroundScroll(reason='modal'){
+        scrollLockReasons.delete(reason);
+        if(!shouldLockBackground())releaseBackgroundScrollLock({restore:true});
+      }
+      function forceResetScrollState({closeModals=false,closeSidebarToo=false,restore=true}={}){
+        if(closeModals)document.querySelectorAll('.modal.open').forEach(modal=>modal.classList.remove('open'));
+        if(closeSidebarToo){el('sidebar')?.classList.remove('open');el('overlay')?.classList.remove('open');}
+        scrollLockReasons.clear();
+        if(!shouldLockBackground())releaseBackgroundScrollLock({restore});
+        document.body.style.touchAction='';
+      }
+      function repairScrollState(){
+        const hasOpenModal=openedModals().length>0;
+        const hasSidebar=mobileSidebarOpen();
+        const locked=document.body.classList.contains('modal-scroll-locked')||document.documentElement.classList.contains('modal-scroll-locked')||document.body.style.position==='fixed';
+        if((hasOpenModal||hasSidebar)&&!locked){applyBackgroundScrollLock();return;}
+        if(!hasOpenModal&&!hasSidebar&&locked){releaseBackgroundScrollLock({restore:true});}
       }
       function resetModalScroll(modal){
         const panel=modal?.querySelector('.modal-panel');
@@ -4373,8 +4503,8 @@ NOTIFY pgrst, 'reload schema';`
       }
       function openModal(id){
         const modal=el(id);if(!modal)return;
-        lockBackgroundScroll();
         modal.classList.add('open');
+        lockBackgroundScroll(`modal:${id}`);
         resetModalScroll(modal);
         requestAnimationFrame(()=>{
           const focusTarget=modal.querySelector('[autofocus], input:not([type=hidden]):not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled])');
@@ -4384,7 +4514,7 @@ NOTIFY pgrst, 'reload schema';`
       function closeModal(id){
         const modal=el(id);if(!modal)return;
         modal.classList.remove('open');
-        unlockBackgroundScroll();
+        unlockBackgroundScroll(`modal:${id}`);
       }
 
       function transactionEntries(){return[...el('transactionRows').querySelectorAll('[data-transaction-entry]')];}
@@ -4468,12 +4598,13 @@ NOTIFY pgrst, 'reload schema';`
         if(invalidIndex>=0){const target=entries[invalidIndex];target.scrollIntoView({behavior:'smooth',block:'center'});target.querySelector('.transaction-row-amount').focus();return toast(`Isi nominal yang valid pada baris ${invalidIndex+1}.`);}
         const totalAmount=items.reduce((sum,item)=>sum+item.amount,0);
         const scopeLabel=eventMode?'Event':'Toko';
+        const operationUiState=captureSyncUiState();
         const button=event.submitter;setButtonBusy(button,true,`Menyimpan Transaksi ${scopeLabel} ${rawMoney(totalAmount)}…`);
         try{
           const {error}=await db.from('transactions').upsert(items.map(transactionToRow));
           if(error)throw error;
           closeModal('transactionModal');
-          await loadCloudData(true);
+          await loadCloudData(true,operationUiState);
           toast(existing?`Transaksi ${scopeLabel} berhasil diperbarui. Total ${rawMoney(totalAmount)}.`:`${items.length} transaksi ${scopeLabel} berhasil ditambahkan. Total ${rawMoney(totalAmount)}.`);
         }catch(error){showSyncError(error);}finally{setButtonBusy(button,false);refreshTransactionEntryControls();}
       }
@@ -4897,11 +5028,22 @@ NOTIFY pgrst, 'reload schema';`
       function payrollMonthlyPaymentToRow(item){return{id:item.id,employee_id:item.employeeId,payroll_month:item.payrollMonth,store:item.store,employee_name:item.employeeName,payment_status:item.paymentStatus,paid_at:item.paidAt||null,note:item.note||'',updated_at:new Date().toISOString()};}
       function rowToPayrollMonthlyPayment(row){return{id:row.id,employeeId:row.employee_id,payrollMonth:String(row.payroll_month||'').slice(0,10),store:row.store,employeeName:row.employee_name,paymentStatus:row.payment_status==='paid'?'paid':'unpaid',paidAt:row.paid_at||null,note:row.note||'',createdAt:row.created_at,updatedAt:row.updated_at};}
 
+      try{if('scrollRestoration' in history)history.scrollRestoration='manual';}catch(_){}
+
+      let scrollRestoreSequence=0;
+      function effectivePageScrollPosition(){
+        const locked=document.body.classList.contains('modal-scroll-locked')||document.body.style.position==='fixed';
+        return{
+          x:Math.max(0,window.scrollX||window.pageXOffset||0),
+          y:locked?Math.max(0,modalScrollY||0):Math.max(0,window.scrollY||window.pageYOffset||0)
+        };
+      }
       function captureSyncUiState(){
+        const position=effectivePageScrollPosition();
         return{
           view:activeView,
-          scrollX:window.scrollX,
-          scrollY:window.scrollY,
+          scrollX:position.x,
+          scrollY:position.y,
           focusedId:document.activeElement?.id||''
         };
       }
@@ -4915,14 +5057,25 @@ NOTIFY pgrst, 'reload schema';`
       }
       function restoreSyncUiState(snapshot){
         if(!snapshot)return;
+        const sequence=++scrollRestoreSequence;
         if(canRestoreView(snapshot.view)&&activeView!==snapshot.view)switchView(snapshot.view);
+        const restore=()=>{
+          if(sequence!==scrollRestoreSequence||shouldLockBackground())return;
+          const maxY=Math.max(0,document.documentElement.scrollHeight-window.innerHeight);
+          window.scrollTo(snapshot.scrollX,Math.min(snapshot.scrollY,maxY));
+        };
         requestAnimationFrame(()=>{
-          window.scrollTo(snapshot.scrollX,snapshot.scrollY);
-          const focused=snapshot.focusedId?el(snapshot.focusedId):null;
-          if(focused&&!focused.disabled&&focused.offsetParent!==null){
-            try{focused.focus({preventScroll:true});}catch(_){focused.focus();}
-          }
+          restore();
+          requestAnimationFrame(()=>{
+            restore();
+            const focused=snapshot.focusedId?el(snapshot.focusedId):null;
+            if(focused&&!focused.disabled&&focused.offsetParent!==null){
+              try{focused.focus({preventScroll:true});}catch(_){focused.focus();}
+            }
+          });
         });
+        setTimeout(restore,90);
+        setTimeout(restore,220);
       }
 
       async function manualRefreshData(){
@@ -4953,9 +5106,9 @@ NOTIFY pgrst, 'reload schema';`
         }
       }
 
-      async function loadCloudData(silent=false){
+      async function loadCloudData(silent=false,preservedUiState=null){
         if(!db||dataLoading||!navigator.onLine){if(!navigator.onLine)setCloudStatus('error','Offline');return false;}
-        const syncUiState=captureSyncUiState();
+        const syncUiState=preservedUiState||captureSyncUiState();
         dataLoading=true;setCloudStatus('syncing','Menyinkronkan');
         try{
           if(currentSession?.user){
