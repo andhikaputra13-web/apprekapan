@@ -2084,6 +2084,123 @@
       .modal.open .payroll-modal-body,
       .sidebar.open { touch-action: pan-y; }
     }
+
+
+    /* =========================================================
+       POPUP SCROLL HARDENING — all roles, especially Employee Closing
+       Header/footer stay fixed inside the popup; only popup body scrolls.
+       ========================================================= */
+    .modal.open {
+      overflow: hidden !important;
+      overscroll-behavior: none;
+    }
+
+    .modal.open .modal-panel {
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      max-height: min(92dvh, calc(100dvh - 24px));
+      overflow: hidden !important;
+      overscroll-behavior: none;
+    }
+
+    .modal.open .modal-panel > form {
+      display: flex;
+      flex: 1 1 auto;
+      flex-direction: column;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    .modal.open .modal-head,
+    .modal.open .modal-foot {
+      position: relative !important;
+      top: auto !important;
+      bottom: auto !important;
+      flex: 0 0 auto;
+      z-index: 4;
+      background: var(--surface);
+    }
+
+    .modal.open .modal-body,
+    .modal.open .payroll-modal-body {
+      flex: 1 1 auto;
+      min-height: 0;
+      max-height: none;
+      overflow-y: auto !important;
+      overflow-x: hidden !important;
+      overscroll-behavior-y: contain;
+      overscroll-behavior-x: none;
+      -webkit-overflow-scrolling: touch;
+      touch-action: pan-y;
+      scrollbar-gutter: stable;
+    }
+
+    /* Tables inside a modal may move sideways, but vertical movement belongs
+       to the modal body. This avoids nested vertical-scroll traps. */
+    .modal.open .modal-body > .table-wrap,
+    .modal.open .payroll-modal-body > .table-wrap,
+    .modal.open #dailyClosingRows {
+      max-width: 100%;
+      overflow-x: auto !important;
+      overflow-y: visible !important;
+      overscroll-behavior-x: contain;
+      overscroll-behavior-y: auto;
+      -webkit-overflow-scrolling: touch;
+      touch-action: pan-x pan-y;
+    }
+
+    /* Closing is intentionally tall and table-heavy. Give it a defined
+       viewport so the body always has a real scroll area on every role. */
+    .modal.open .closing-modal-panel {
+      height: min(92vh, 860px);
+      height: min(92dvh, 860px);
+      max-height: 92vh;
+      max-height: min(92dvh, calc(100dvh - 24px));
+    }
+
+    .modal.open .closing-modal-panel .modal-body {
+      overflow-y: auto !important;
+      overflow-x: hidden !important;
+    }
+
+    .modal.open .closing-modal-panel #dailyClosingRows table {
+      margin-bottom: 2px;
+    }
+
+    @media (max-width: 780px) {
+      .modal.open .modal-panel {
+        max-height: calc(100dvh - max(10px, env(safe-area-inset-top)));
+      }
+
+      .modal.open .closing-modal-panel {
+        width: 100%;
+        height: calc(100vh - 10px);
+        height: calc(100dvh - max(10px, env(safe-area-inset-top)));
+        max-height: calc(100vh - 10px);
+        max-height: calc(100dvh - max(10px, env(safe-area-inset-top)));
+      }
+
+      .modal.open .modal-body,
+      .modal.open .payroll-modal-body {
+        padding-bottom: 18px;
+      }
+
+      /* Do not use touch-action:none on body: on iOS/Android it can also
+         cancel panning inside descendant modal scrollers. Background is
+         already locked by position:fixed + the touchmove guard in JS. */
+      body.modal-scroll-locked {
+        touch-action: auto !important;
+      }
+
+      .modal.open .modal-panel,
+      .modal.open .modal-panel > form,
+      .modal.open .modal-body,
+      .modal.open .payroll-modal-body {
+        touch-action: auto !important;
+      }
+    }
+
 </style>
 </head>
 <body>
@@ -4507,6 +4624,16 @@ NOTIFY pgrst, 'reload schema';`
         lockBackgroundScroll(`modal:${id}`);
         resetModalScroll(modal);
         requestAnimationFrame(()=>{
+          // Large/table-heavy popups (especially Closing) must not auto-focus
+          // an input on mobile because that opens the keyboard and can shrink
+          // the visual viewport before the scroll container is established.
+          const isTableHeavy=id==='dailyClosingModal';
+          const coarsePointer=window.matchMedia?.('(pointer: coarse)')?.matches;
+          if(isTableHeavy||coarsePointer){
+            const closeButton=modal.querySelector('.close-btn');
+            if(closeButton&&typeof closeButton.focus==='function')closeButton.focus({preventScroll:true});
+            return;
+          }
           const focusTarget=modal.querySelector('[autofocus], input:not([type=hidden]):not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled])');
           if(focusTarget&&typeof focusTarget.focus==='function')focusTarget.focus({preventScroll:true});
         });
