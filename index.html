@@ -2078,7 +2078,7 @@
     .view.active { min-height: 0; }
     .main, .content { min-height: 0; }
     @media (max-width: 780px) {
-      body.modal-scroll-locked { touch-action: none; }
+      body.modal-scroll-locked { touch-action: auto; }
       .modal.open .modal-panel,
       .modal.open .modal-body,
       .modal.open .payroll-modal-body,
@@ -2770,7 +2770,7 @@
                 <div class="field" id="transactionPaymentField"><label for="transactionPaymentMethod">Metode Pembayaran</label><select class="select transaction-row-payment" id="transactionPaymentMethod" required><option value="" disabled selected>Pilih metode pembayaran</option><option value="cash">Cash</option><option value="qris">QRIS</option></select></div>
                 <div class="field full"><label for="transactionCategory">Kategori</label><input class="input transaction-row-category" id="transactionCategory" list="categoryList" placeholder="Contoh: Penjualan Harian" required /></div>
                 <div class="field full"><label for="transactionNote">Keterangan</label><textarea class="textarea transaction-row-note" id="transactionNote" placeholder="Contoh: Penjualan menu reguler"></textarea></div>
-                <div class="field full"><label for="transactionAmount">Nominal (Rp)</label><input class="input transaction-row-amount" type="number" id="transactionAmount" min="0" step="1" placeholder="Masukkan nominal" required /></div>
+                <div class="field full"><label for="transactionAmount">Nominal (Rp)</label><input class="input transaction-row-amount" type="number" id="transactionAmount" min="1" step="1" placeholder="Masukkan nominal" required /></div>
               </div>
               <div class="transaction-add-wrap"><button type="button" class="btn btn-light transaction-add-small" id="addTransactionRowBtn" data-add-transaction-row>＋ Tambah Baris</button></div>
             </div>
@@ -3198,7 +3198,7 @@ CREATE TABLE IF NOT EXISTS public.transactions (
   type text NOT NULL CHECK (type IN ('income','expense')),
   payment_method text NOT NULL DEFAULT 'cash' CHECK (payment_method IN ('cash','qris')),
   category text NOT NULL,
-  amount numeric(15,2) NOT NULL DEFAULT 0 CHECK (amount >= 0),
+  amount numeric(15,2) NOT NULL DEFAULT 1 CHECK (amount > 0),
   note text NOT NULL DEFAULT '',
   created_at timestamptz NOT NULL DEFAULT now()
 );
@@ -4005,6 +4005,252 @@ BEGIN
   END IF;
 END $$;
 
+
+
+-- ============================================================
+-- REKAPAN.ID PRODUCTION SAFETY LAYER
+-- Soft delete, audit trail, archive-safe closing, dan constraint
+-- ini wajib ada karena aplikasi frontend terbaru menggunakannya.
+-- ============================================================
+
+-- Soft delete: data operasional tidak dihapus permanen dari browser.
+ALTER TABLE public.transactions ADD COLUMN IF NOT EXISTS deleted_at timestamptz;
+ALTER TABLE public.transactions ADD COLUMN IF NOT EXISTS deleted_by uuid REFERENCES auth.users(id) ON DELETE SET NULL;
+ALTER TABLE public.inventory ADD COLUMN IF NOT EXISTS deleted_at timestamptz;
+ALTER TABLE public.inventory ADD COLUMN IF NOT EXISTS deleted_by uuid REFERENCES auth.users(id) ON DELETE SET NULL;
+ALTER TABLE public.event_material_catalog ADD COLUMN IF NOT EXISTS deleted_at timestamptz;
+ALTER TABLE public.event_material_catalog ADD COLUMN IF NOT EXISTS deleted_by uuid REFERENCES auth.users(id) ON DELETE SET NULL;
+ALTER TABLE public.inventory_daily ADD COLUMN IF NOT EXISTS deleted_at timestamptz;
+ALTER TABLE public.inventory_daily ADD COLUMN IF NOT EXISTS deleted_by uuid REFERENCES auth.users(id) ON DELETE SET NULL;
+ALTER TABLE public.events ADD COLUMN IF NOT EXISTS deleted_at timestamptz;
+ALTER TABLE public.events ADD COLUMN IF NOT EXISTS deleted_by uuid REFERENCES auth.users(id) ON DELETE SET NULL;
+ALTER TABLE public.employees ADD COLUMN IF NOT EXISTS deleted_at timestamptz;
+ALTER TABLE public.employees ADD COLUMN IF NOT EXISTS deleted_by uuid REFERENCES auth.users(id) ON DELETE SET NULL;
+ALTER TABLE public.payroll ADD COLUMN IF NOT EXISTS deleted_at timestamptz;
+ALTER TABLE public.payroll ADD COLUMN IF NOT EXISTS deleted_by uuid REFERENCES auth.users(id) ON DELETE SET NULL;
+ALTER TABLE public.payroll_daily ADD COLUMN IF NOT EXISTS deleted_at timestamptz;
+ALTER TABLE public.payroll_daily ADD COLUMN IF NOT EXISTS deleted_by uuid REFERENCES auth.users(id) ON DELETE SET NULL;
+ALTER TABLE public.payroll_advances ADD COLUMN IF NOT EXISTS deleted_at timestamptz;
+ALTER TABLE public.payroll_advances ADD COLUMN IF NOT EXISTS deleted_by uuid REFERENCES auth.users(id) ON DELETE SET NULL;
+ALTER TABLE public.payroll_monthly_payments ADD COLUMN IF NOT EXISTS deleted_at timestamptz;
+ALTER TABLE public.payroll_monthly_payments ADD COLUMN IF NOT EXISTS deleted_by uuid REFERENCES auth.users(id) ON DELETE SET NULL;
+
+CREATE INDEX IF NOT EXISTS transactions_deleted_at_idx ON public.transactions(deleted_at);
+CREATE INDEX IF NOT EXISTS inventory_deleted_at_idx ON public.inventory(deleted_at);
+CREATE INDEX IF NOT EXISTS inventory_daily_deleted_at_idx ON public.inventory_daily(deleted_at);
+CREATE INDEX IF NOT EXISTS events_deleted_at_idx ON public.events(deleted_at);
+CREATE INDEX IF NOT EXISTS employees_deleted_at_idx ON public.employees(deleted_at);
+CREATE INDEX IF NOT EXISTS payroll_daily_deleted_at_idx ON public.payroll_daily(deleted_at);
+CREATE INDEX IF NOT EXISTS payroll_advances_deleted_at_idx ON public.payroll_advances(deleted_at);
+
+-- Unique rules only apply to active rows, so an item in Sampah does not
+-- prevent a replacement record from being created.
+DROP INDEX IF EXISTS public.event_material_catalog_store_name_uidx;
+CREATE UNIQUE INDEX event_material_catalog_store_name_uidx
+  ON public.event_material_catalog(store, lower(btrim(name))) WHERE deleted_at IS NULL;
+DROP INDEX IF EXISTS public.inventory_store_name_unique_idx;
+CREATE UNIQUE INDEX inventory_store_name_unique_idx
+  ON public.inventory(store, lower(btrim(name))) WHERE event_id IS NULL AND deleted_at IS NULL;
+DROP INDEX IF EXISTS public.inventory_event_name_unique_idx;
+CREATE UNIQUE INDEX inventory_event_name_unique_idx
+  ON public.inventory(event_id, lower(btrim(name))) WHERE event_id IS NOT NULL AND deleted_at IS NULL;
+DROP INDEX IF EXISTS public.inventory_daily_inventory_date_uidx;
+CREATE UNIQUE INDEX inventory_daily_inventory_date_uidx
+  ON public.inventory_daily(inventory_id, record_date) WHERE inventory_id IS NOT NULL AND deleted_at IS NULL;
+DROP INDEX IF EXISTS public.employees_store_name_uidx;
+CREATE UNIQUE INDEX employees_store_name_uidx
+  ON public.employees(store, lower(btrim(name))) WHERE deleted_at IS NULL;
+DROP INDEX IF EXISTS public.payroll_daily_employee_work_date_uidx;
+CREATE UNIQUE INDEX payroll_daily_employee_work_date_uidx
+  ON public.payroll_daily(employee_id, work_date) WHERE deleted_at IS NULL;
+DROP INDEX IF EXISTS public.payroll_monthly_employee_month_uidx;
+CREATE UNIQUE INDEX payroll_monthly_employee_month_uidx
+  ON public.payroll_monthly_payments(employee_id, payroll_month) WHERE deleted_at IS NULL;
+
+ALTER TABLE public.transactions DROP CONSTRAINT IF EXISTS transactions_amount_check;
+ALTER TABLE public.transactions ADD CONSTRAINT transactions_amount_check CHECK (amount > 0);
+
+-- Event archived = read-only until restored.
+CREATE OR REPLACE FUNCTION public.can_manage_event_inventory(target_event_id text)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path TO 'public'
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.events e
+    WHERE e.id=target_event_id AND e.deleted_at IS NULL AND e.archived_at IS NULL
+  ) AND (
+    public.is_admin()
+    OR EXISTS (
+      SELECT 1 FROM public.profiles
+      WHERE user_id=auth.uid() AND role='event_employee'
+        AND event_id IS NOT NULL AND event_id=target_event_id
+    )
+  );
+$$;
+
+-- Kasbon ignores rows in Sampah and never blocks the soft-delete operation.
+CREATE OR REPLACE FUNCTION public.validate_payroll_advance()
+RETURNS trigger
+LANGUAGE plpgsql
+SET search_path TO 'public'
+AS $$
+DECLARE
+  v_month date; v_salary_period date;
+  v_salary_limit numeric(15,2):=0; v_existing_total numeric(15,2):=0;
+  v_store text; v_employee_name text;
+BEGIN
+  IF NEW.deleted_at IS NOT NULL THEN NEW.updated_at:=now(); RETURN NEW; END IF;
+  SELECT store,name INTO v_store,v_employee_name FROM public.employees
+    WHERE id=NEW.employee_id AND deleted_at IS NULL;
+  IF NOT FOUND THEN RAISE EXCEPTION 'Karyawan tidak ditemukan atau berada di Sampah.'; END IF;
+  IF NEW.advance_date IS NULL THEN RAISE EXCEPTION 'Tanggal kasbon wajib diisi.'; END IF;
+  v_month:=date_trunc('month',NEW.advance_date)::date;
+  SELECT salary_month,total_net INTO v_salary_period,v_salary_limit FROM (
+    SELECT date_trunc('month',work_date)::date salary_month,
+           SUM(net_wage)::numeric(15,2) total_net
+    FROM public.payroll_daily
+    WHERE employee_id=NEW.employee_id AND deleted_at IS NULL
+      AND date_trunc('month',work_date)::date<v_month
+    GROUP BY 1 ORDER BY 1 DESC LIMIT 1
+  ) h;
+  IF v_salary_period IS NULL THEN
+    SELECT salary_month,total_net INTO v_salary_period,v_salary_limit FROM (
+      SELECT date_trunc('month',work_date)::date salary_month,
+             SUM(net_wage)::numeric(15,2) total_net
+      FROM public.payroll_daily
+      WHERE employee_id=NEW.employee_id AND deleted_at IS NULL
+        AND date_trunc('month',work_date)::date<=v_month
+      GROUP BY 1 ORDER BY 1 DESC LIMIT 1
+    ) h;
+  END IF;
+  v_salary_limit:=COALESCE(v_salary_limit,0);
+  IF v_salary_limit<=0 THEN RAISE EXCEPTION 'Gaji bersih terakhir belum tersedia untuk karyawan ini.'; END IF;
+  SELECT COALESCE(SUM(amount),0) INTO v_existing_total FROM public.payroll_advances
+    WHERE employee_id=NEW.employee_id AND payroll_month=v_month
+      AND deleted_at IS NULL AND id<>NEW.id;
+  IF COALESCE(NEW.amount,0)<=0 THEN RAISE EXCEPTION 'Nominal kasbon harus lebih dari nol.'; END IF;
+  IF v_existing_total+NEW.amount>v_salary_limit THEN
+    RAISE EXCEPTION 'Total kasbon melebihi gaji bersih terakhir. Batas %, sudah terpakai %.',v_salary_limit,v_existing_total;
+  END IF;
+  NEW.payroll_month:=v_month; NEW.store:=v_store; NEW.employee_name:=v_employee_name;
+  NEW.salary_limit:=v_salary_limit; NEW.salary_period:=v_salary_period; NEW.updated_at:=now();
+  RETURN NEW;
+END;
+$$;
+
+-- Safe RPCs used by the Admin UI for Sampah and event bundles.
+CREATE OR REPLACE FUNCTION public.restore_soft_deleted(target_table text,target_id text)
+RETURNS void LANGUAGE plpgsql SET search_path TO '' AS $$
+DECLARE bundle_deleted_at timestamptz; parent_event_id text; parent_deleted_at timestamptz;
+BEGIN
+  IF NOT public.is_admin() THEN RAISE EXCEPTION 'Akses ditolak'; END IF;
+  IF target_table NOT IN ('transactions','inventory','inventory_daily','events','event_material_catalog','employees','payroll','payroll_daily','payroll_advances','payroll_monthly_payments') THEN
+    RAISE EXCEPTION 'Tabel tidak diizinkan';
+  END IF;
+  IF target_table='events' THEN
+    SELECT deleted_at INTO bundle_deleted_at FROM public.events WHERE id=target_id;
+    IF bundle_deleted_at IS NULL THEN RETURN; END IF;
+    UPDATE public.transactions SET deleted_at=NULL,deleted_by=NULL WHERE event_id=target_id AND deleted_at=bundle_deleted_at;
+    UPDATE public.inventory_daily SET deleted_at=NULL,deleted_by=NULL WHERE event_id=target_id AND deleted_at=bundle_deleted_at;
+    UPDATE public.inventory SET deleted_at=NULL,deleted_by=NULL WHERE event_id=target_id AND deleted_at=bundle_deleted_at;
+    UPDATE public.events SET deleted_at=NULL,deleted_by=NULL WHERE id=target_id;
+    RETURN;
+  END IF;
+  IF target_table IN ('transactions','inventory','inventory_daily') THEN
+    IF target_table='transactions' THEN SELECT event_id INTO parent_event_id FROM public.transactions WHERE id=target_id;
+    ELSIF target_table='inventory' THEN SELECT event_id INTO parent_event_id FROM public.inventory WHERE id=target_id;
+    ELSE SELECT event_id INTO parent_event_id FROM public.inventory_daily WHERE id=target_id; END IF;
+    IF parent_event_id IS NOT NULL THEN
+      SELECT deleted_at INTO parent_deleted_at FROM public.events WHERE id=parent_event_id;
+      IF parent_deleted_at IS NOT NULL THEN RAISE EXCEPTION 'Pulihkan Event terlebih dahulu agar data terkait tetap konsisten.'; END IF;
+    END IF;
+  END IF;
+  EXECUTE format('update public.%I set deleted_at=null, deleted_by=null where id=$1',target_table) USING target_id;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.soft_delete_event_bundle(target_event_id text)
+RETURNS void LANGUAGE plpgsql SET search_path TO '' AS $$
+DECLARE actor_uid uuid:=auth.uid(); ts timestamptz:=now();
+BEGIN
+  IF NOT public.is_admin() THEN RAISE EXCEPTION 'Akses ditolak'; END IF;
+  UPDATE public.transactions SET deleted_at=ts,deleted_by=actor_uid WHERE event_id=target_event_id AND deleted_at IS NULL;
+  UPDATE public.inventory_daily SET deleted_at=ts,deleted_by=actor_uid WHERE event_id=target_event_id AND deleted_at IS NULL;
+  UPDATE public.inventory SET deleted_at=ts,deleted_by=actor_uid WHERE event_id=target_event_id AND deleted_at IS NULL;
+  UPDATE public.events SET deleted_at=ts,deleted_by=actor_uid WHERE id=target_event_id AND deleted_at IS NULL;
+END;
+$$;
+REVOKE EXECUTE ON FUNCTION public.restore_soft_deleted(text,text) FROM PUBLIC,anon;
+REVOKE EXECUTE ON FUNCTION public.soft_delete_event_bundle(text) FROM PUBLIC,anon;
+GRANT EXECUTE ON FUNCTION public.restore_soft_deleted(text,text) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.soft_delete_event_bundle(text) TO authenticated;
+
+-- Audit trail.
+CREATE SCHEMA IF NOT EXISTS private;
+CREATE TABLE IF NOT EXISTS public.audit_logs (
+  id bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+  occurred_at timestamptz NOT NULL DEFAULT now(),
+  actor_user_id uuid,
+  actor_email text,
+  action text NOT NULL,
+  table_name text NOT NULL,
+  row_id text,
+  old_data jsonb,
+  new_data jsonb
+);
+ALTER TABLE public.audit_logs ENABLE ROW LEVEL SECURITY;
+
+CREATE OR REPLACE FUNCTION private.audit_row_change()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path TO '' AS $$
+DECLARE claims jsonb; old_json jsonb; new_json jsonb; target_id text;
+BEGIN
+  claims:=CASE WHEN nullif(current_setting('request.jwt.claims',true),'') IS NULL THEN NULL ELSE nullif(current_setting('request.jwt.claims',true),'')::jsonb END;
+  old_json:=CASE WHEN tg_op IN ('UPDATE','DELETE') THEN to_jsonb(old) ELSE NULL END;
+  new_json:=CASE WHEN tg_op IN ('INSERT','UPDATE') THEN to_jsonb(new) ELSE NULL END;
+  target_id:=coalesce(new_json->>'id',old_json->>'id');
+  INSERT INTO public.audit_logs(actor_user_id,actor_email,action,table_name,row_id,old_data,new_data)
+  VALUES(auth.uid(),claims->>'email',tg_op,tg_table_name,target_id,old_json,new_json);
+  RETURN CASE WHEN tg_op='DELETE' THEN old ELSE new END;
+END;
+$$;
+
+DO $$
+DECLARE t text;
+BEGIN
+  FOREACH t IN ARRAY ARRAY['transactions','inventory','event_material_catalog','inventory_daily','events','employees','payroll','payroll_daily','payroll_advances','payroll_monthly_payments'] LOOP
+    EXECUTE format('DROP TRIGGER IF EXISTS %I ON public.%I','audit_'||t||'_changes',t);
+    EXECUTE format('CREATE TRIGGER %I AFTER INSERT OR UPDATE OR DELETE ON public.%I FOR EACH ROW EXECUTE FUNCTION private.audit_row_change()','audit_'||t||'_changes',t);
+  END LOOP;
+END $$;
+
+DROP POLICY IF EXISTS audit_logs_select_admin_owner ON public.audit_logs;
+CREATE POLICY audit_logs_select_admin_owner ON public.audit_logs FOR SELECT TO authenticated
+USING (public.is_admin() OR public.is_owner());
+
+CREATE OR REPLACE VIEW public.deleted_items WITH (security_invoker=true) AS
+SELECT 'transactions'::text table_name,id,deleted_at,deleted_by,coalesce(store,'') store,coalesce(category,'Transaksi') label,coalesce(note,'') detail FROM public.transactions WHERE deleted_at IS NOT NULL
+UNION ALL SELECT 'inventory',id,deleted_at,deleted_by,coalesce(store,''),coalesce(name,'Bahan'),coalesce(note,'') FROM public.inventory WHERE deleted_at IS NOT NULL
+UNION ALL SELECT 'inventory_daily',id,deleted_at,deleted_by,coalesce(store,''),coalesce(name,'Rekapan Bahan'),coalesce(note,'') FROM public.inventory_daily WHERE deleted_at IS NOT NULL
+UNION ALL SELECT 'events',id,deleted_at,deleted_by,coalesce(store,''),coalesce(name,'Event'),coalesce(note,'') FROM public.events WHERE deleted_at IS NOT NULL
+UNION ALL SELECT 'event_material_catalog',id,deleted_at,deleted_by,coalesce(store,''),coalesce(name,'Master Bahan Event'),coalesce(note,'') FROM public.event_material_catalog WHERE deleted_at IS NOT NULL
+UNION ALL SELECT 'employees',id,deleted_at,deleted_by,coalesce(store,''),coalesce(name,'Karyawan'),coalesce(position,'') FROM public.employees WHERE deleted_at IS NOT NULL
+UNION ALL SELECT 'payroll',id,deleted_at,deleted_by,coalesce(store,''),coalesce(employee_name,'Payroll'),coalesce(note,'') FROM public.payroll WHERE deleted_at IS NOT NULL
+UNION ALL SELECT 'payroll_daily',id,deleted_at,deleted_by,coalesce(store,''),coalesce(employee_name,'Gaji Harian'),coalesce(note,'') FROM public.payroll_daily WHERE deleted_at IS NOT NULL
+UNION ALL SELECT 'payroll_advances',id,deleted_at,deleted_by,coalesce(store,''),coalesce(employee_name,'Kasbon'),coalesce(note,'') FROM public.payroll_advances WHERE deleted_at IS NOT NULL
+UNION ALL SELECT 'payroll_monthly_payments',id,deleted_at,deleted_by,coalesce(store,''),coalesce(employee_name,'Gaji Bulanan'),coalesce(note,'') FROM public.payroll_monthly_payments WHERE deleted_at IS NOT NULL;
+
+-- Browser roles use least privilege. DELETE/TRUNCATE are intentionally absent.
+REVOKE ALL PRIVILEGES ON TABLE public.profiles,public.events,public.transactions,public.inventory,public.event_material_catalog,public.inventory_daily,public.employees,public.payroll,public.payroll_daily,public.payroll_advances,public.payroll_monthly_payments,public.audit_logs FROM anon;
+REVOKE ALL PRIVILEGES ON TABLE public.profiles,public.events,public.transactions,public.inventory,public.event_material_catalog,public.inventory_daily,public.employees,public.payroll,public.payroll_daily,public.payroll_advances,public.payroll_monthly_payments,public.audit_logs FROM authenticated;
+GRANT SELECT,UPDATE ON public.profiles TO authenticated;
+GRANT SELECT,INSERT,UPDATE ON public.events,public.transactions,public.inventory,public.event_material_catalog,public.inventory_daily,public.employees,public.payroll,public.payroll_daily,public.payroll_advances,public.payroll_monthly_payments TO authenticated;
+GRANT SELECT ON public.audit_logs,public.deleted_items TO authenticated;
+REVOKE ALL PRIVILEGES ON public.deleted_items FROM anon;
+
+
 NOTIFY pgrst, 'reload schema';`
 
       const state = { transactions: [], inventory: [], eventMaterialCatalog: [], inventoryDaily: [], events: [], employees: [], payrollDaily: [], payrollAdvances: [], payrollMonthlyPayments: [], profiles: [], deletedItems: [], auditLogs: [], profile: null, updatedAt: null };
@@ -4029,6 +4275,13 @@ NOTIFY pgrst, 'reload schema';`
       let eventMaterialCatalogAvailable = true;
 
       const el = id => document.getElementById(id);
+      function focusFieldIfDesktop(target){
+        if(!target)return;
+        const coarse=window.matchMedia?.('(pointer: coarse)')?.matches;
+        const compact=window.matchMedia?.('(max-width: 780px)')?.matches;
+        if(coarse||compact)return;
+        requestAnimationFrame(()=>{try{target.focus({preventScroll:true});}catch(_){target.focus();}});
+      }
       const rawMoney = value => new Intl.NumberFormat('id-ID',{style:'currency',currency:'IDR',maximumFractionDigits:0}).format(Number(value||0));
       const money = value => balanceHidden ? 'Rp ••••••' : rawMoney(value);
       const number = value => new Intl.NumberFormat('id-ID',{maximumFractionDigits:2}).format(Number(value||0));
@@ -4394,7 +4647,7 @@ NOTIFY pgrst, 'reload schema';`
         return{valid:false,invalid,labels:[...new Set(invalid.map(fieldLabel))]};
       }
       function clearWarningFromEvent(event){const control=event.target.closest?.('input,select,textarea');if(control)clearFieldWarning(control);}
-      function updateProjectLabels(){let host='-';try{host=currentConfig?new URL(currentConfig.url).host:'-';}catch(_){} if(el('authProjectHost'))el('authProjectHost').textContent=host;if(el('settingsProjectHost'))el('settingsProjectHost').textContent=host;}
+      function updateProjectLabels(){let host='-';try{host=currentConfig?new URL(currentConfig.url).host:'-';}catch(_){}if(el('settingsProjectHost'))el('settingsProjectHost').textContent=host;}
 
       async function handleSetupSubmit(event){event.preventDefault();const button=el('setupSubmitBtn');setGateMessage(el('setupError'),'','error');const validation=validateFormFields(el('setupForm'),{notify:false});if(!validation.valid)return setGateMessage(el('setupError'),`Lengkapi ${validation.labels.join(', ')} terlebih dahulu.`,'error');const url=el('setupUrl').value.trim().replace(/\/$/,'');const key=el('setupKey').value.trim();if(!/^https:\/\/.+\.supabase\.co$/i.test(url)){markFieldWarning(el('setupUrl'),'Project URL belum menggunakan format Supabase yang benar.');return setGateMessage(el('setupError'),'Project URL harus berbentuk https://xxxxx.supabase.co','error');}if(key.length<30){markFieldWarning(el('setupKey'),'Publishable Key terlihat belum lengkap.');return setGateMessage(el('setupError'),'Publishable key terlihat tidak lengkap.','error');}setButtonBusy(button,true,'Memeriksa koneksi…');try{const response=await fetch(`${url}/auth/v1/settings`,{headers:{apikey:key}});if(!response.ok)throw new Error('Project URL atau publishable key tidak valid.');saveConfig({url,key});await connectSupabase({url,key});}catch(error){setGateMessage(el('setupError'),friendlyError(error),'error');}finally{setButtonBusy(button,false);}}
       async function handleLogin(event){event.preventDefault();const button=el('loginBtn');setGateMessage(el('authMessage'),'','error');const validation=validateFormFields(el('loginForm'),{notify:false});if(!validation.valid)return setGateMessage(el('authMessage'),`Lengkapi ${validation.labels.join(', ')} terlebih dahulu.`,'error');setButtonBusy(button,true,'Memproses…');try{const {error}=await db.auth.signInWithPassword({email:el('authEmail').value.trim(),password:el('authPassword').value});if(error)throw error;}catch(error){setGateMessage(el('authMessage'),friendlyError(error),'error');}finally{setButtonBusy(button,false);}}
@@ -4648,7 +4901,7 @@ NOTIFY pgrst, 'reload schema';`
       function transactionTotalAmount(){return transactionEntries().reduce((total,entry)=>{const amount=Number(entry.querySelector('.transaction-row-amount')?.value||0);return total+(Number.isFinite(amount)&&amount>0?amount:0);},0);}
       function updateTransactionTotal(){const entries=transactionEntries();const total=transactionTotalAmount();const eventMode=el('transactionContext').value==='event';const scopeLabel=eventMode?'Event':'Toko';el('transactionTotalLabel').textContent=`Total nominal ${entries.length} baris`;el('transactionTotalAmount').textContent=rawMoney(total);const editing=!!el('transactionId').value;el('transactionSubmitBtn').textContent=editing?`Simpan Perubahan Transaksi ${scopeLabel} · ${rawMoney(total)}`:`Simpan ${entries.length} Transaksi ${scopeLabel} · ${rawMoney(total)}`;}
       function refreshTransactionEntryControls(){const entries=transactionEntries();const editing=!!el('transactionId').value;entries.forEach((entry,index)=>{entry.querySelector('.transaction-entry-title').textContent=editing?'Detail Transaksi':index===0?'Transaksi Utama':`Baris Tambahan ${index+1}`;const remove=entry.querySelector('[data-remove-transaction-row]');if(remove)remove.hidden=editing||index===0;const add=entry.querySelector('[data-add-transaction-row]');if(add)add.hidden=editing;});el('transactionBatchNote').hidden=editing;updateTransactionTotal();}
-      function addTransactionRow(afterEntry=null){if(el('transactionId').value)return;const entry=document.createElement('div');entry.className='transaction-entry transaction-extra-entry';entry.dataset.transactionEntry='';entry.innerHTML=`<div class="transaction-entry-head"><strong class="transaction-entry-title"></strong><button type="button" class="transaction-remove-btn" data-remove-transaction-row>Hapus</button></div><div class="form-grid"><div class="field full"><label>Keterangan</label><textarea class="textarea transaction-row-note" placeholder="Contoh: Penjualan menu tambahan"></textarea></div><div class="field full"><label>Nominal (Rp)</label><input class="input transaction-row-amount" type="number" min="0" step="1" placeholder="Masukkan nominal" required /></div></div><div class="transaction-add-wrap"><button type="button" class="btn btn-light transaction-add-small" data-add-transaction-row>＋ Tambah Baris</button></div>`;if(afterEntry&&afterEntry.parentElement===el('transactionRows'))afterEntry.insertAdjacentElement('afterend',entry);else el('transactionRows').appendChild(entry);refreshTransactionEntryControls();setTimeout(()=>entry.querySelector('.transaction-row-note').focus(),60);}
+      function addTransactionRow(afterEntry=null){if(el('transactionId').value)return;const entry=document.createElement('div');entry.className='transaction-entry transaction-extra-entry';entry.dataset.transactionEntry='';entry.innerHTML=`<div class="transaction-entry-head"><strong class="transaction-entry-title"></strong><button type="button" class="transaction-remove-btn" data-remove-transaction-row>Hapus</button></div><div class="form-grid"><div class="field full"><label>Keterangan</label><textarea class="textarea transaction-row-note" placeholder="Contoh: Penjualan menu tambahan"></textarea></div><div class="field full"><label>Nominal (Rp)</label><input class="input transaction-row-amount" type="number" min="1" step="1" placeholder="Masukkan nominal" required /></div></div><div class="transaction-add-wrap"><button type="button" class="btn btn-light transaction-add-small" data-add-transaction-row>＋ Tambah Baris</button></div>`;if(afterEntry&&afterEntry.parentElement===el('transactionRows'))afterEntry.insertAdjacentElement('afterend',entry);else el('transactionRows').appendChild(entry);refreshTransactionEntryControls();setTimeout(()=>entry.querySelector('.transaction-row-note').focus(),60);}
       function handleTransactionRowClick(event){const add=event.target.closest('[data-add-transaction-row]');if(add){addTransactionRow(add.closest('[data-transaction-entry]'));return;}const remove=event.target.closest('[data-remove-transaction-row]');if(!remove)return;const entry=remove.closest('[data-transaction-entry]');if(entry&&!entry.hasAttribute('data-main-transaction-entry')){entry.remove();refreshTransactionEntryControls();}}
       function openTransactionModal(id=null,context='store',presetEventId=null){
         if(!isAdmin())return toast('Fitur transaksi hanya untuk Admin.');
@@ -4693,7 +4946,7 @@ NOTIFY pgrst, 'reload schema';`
         }
         refreshTransactionEntryControls();
         openModal('transactionModal');
-        setTimeout(()=>el('transactionDate').focus(),80);
+        focusFieldIfDesktop(el('transactionDate'));
       }
       async function saveTransaction(event){
         event.preventDefault();
@@ -4721,8 +4974,8 @@ NOTIFY pgrst, 'reload schema';`
         }
         const createdBase=Date.now();
         const items=entries.map((entry,index)=>({id:editId&&index===0?editId:uid(),...common,amount:Number(entry.querySelector('.transaction-row-amount').value),note:entry.querySelector('.transaction-row-note').value.trim(),createdAt:existing?.createdAt||new Date(createdBase+index).toISOString()}));
-        const invalidIndex=items.findIndex(item=>!Number.isFinite(item.amount)||item.amount<0);
-        if(invalidIndex>=0){const target=entries[invalidIndex];target.scrollIntoView({behavior:'smooth',block:'center'});target.querySelector('.transaction-row-amount').focus();return toast(`Isi nominal yang valid pada baris ${invalidIndex+1}.`);}
+        const invalidIndex=items.findIndex(item=>!Number.isFinite(item.amount)||item.amount<=0);
+        if(invalidIndex>=0){const target=entries[invalidIndex];target.scrollIntoView({behavior:'smooth',block:'center'});target.querySelector('.transaction-row-amount').focus();return toast(`Nominal pada baris ${invalidIndex+1} harus lebih dari Rp0.`);}
         const totalAmount=items.reduce((sum,item)=>sum+item.amount,0);
         const scopeLabel=eventMode?'Event':'Toko';
         const operationUiState=captureSyncUiState();
@@ -4741,12 +4994,12 @@ NOTIFY pgrst, 'reload schema';`
       function selectedMaterialStore(){if(isEmployee())return employeeBranch();const value=el('globalStore').value;return value&&value!=='all'?value:'';}
       function selectedEventWorkspaceId(){return isEventEmployee()?eventEmployeeId():(el('eventWorkspaceSelect')?.value||'');}
       function selectedEventInventoryDate(){return el('eventInventoryDateFilter').value||todayISO();}
-      function shiftEventInventoryDate(days){const current=new Date(`${selectedEventInventoryDate()}T12:00:00`);current.setDate(current.getDate()+days);changeEventInventoryDate(jakartaDate(current));}
+      function shiftEventInventoryDate(days){const current=new Date(`${selectedEventInventoryDate()}T12:00:00+07:00`);current.setDate(current.getDate()+days);changeEventInventoryDate(jakartaDate(current));}
       function changeEventInventoryDate(date){el('eventInventoryDateFilter').value=date;renderEventInventory();}
       function selectEventWorkspace(eventId,tab='transactions'){if(isEventEmployee()){activeEventTab='inventory';renderEvents();return;}if(eventId&&[...el('eventWorkspaceSelect').options].some(option=>option.value===eventId))el('eventWorkspaceSelect').value=eventId;const selected=eventById(eventId);if(selected?.store&&el('eventCatalogStoreFilter')){populateStoreSelect(el('eventCatalogStoreFilter'),false);el('eventCatalogStoreFilter').value=selected.store;}activeEventTab=['transactions','inventory','materials'].includes(tab)?tab:'transactions';renderEvents();setTimeout(()=>el('eventWorkspace').scrollIntoView({behavior:'smooth',block:'start'}),40);}
       function switchEventTab(tab){activeEventTab=isEventEmployee()?'inventory':(['transactions','inventory','materials'].includes(tab)?tab:'transactions');document.querySelectorAll('[data-event-tab]').forEach(button=>button.classList.toggle('active',button.dataset.eventTab===activeEventTab));document.querySelectorAll('[data-event-panel]').forEach(panel=>panel.hidden=panel.dataset.eventPanel!==activeEventTab);applyEventEmployeeUI();if(activeEventTab==='transactions')renderEventTransactions();if(activeEventTab==='inventory')renderEventInventory();if(activeEventTab==='materials')renderEventMaterials();}
 
-      function shiftInventoryDate(days){const current=new Date(`${selectedInventoryDate()}T12:00:00`);current.setDate(current.getDate()+days);changeInventoryDate(jakartaDate(current));}
+      function shiftInventoryDate(days){const current=new Date(`${selectedInventoryDate()}T12:00:00+07:00`);current.setDate(current.getDate()+days);changeInventoryDate(jakartaDate(current));}
       function changeInventoryDate(date){el('inventoryDateFilter').value=date;renderInventory();}
       function dailyRowsForSelection(){const date=selectedInventoryDate();const store=selectedInventoryStore();return state.inventoryDaily.filter(row=>row.date===date&&(!store||row.store===store));}
       function dailyRecordToRow(item){return{id:item.id,inventory_id:item.inventoryId||null,store:item.store,event_id:item.eventId||null,record_date:item.date,name:item.name,unit:item.unit,opening_stock:item.openingStock,stock_in:item.stockIn||0,closing_stock:item.closingStock==null?null:item.closingStock,used_stock:item.usedStock||0,note:item.note||'',is_closed:!!item.isClosed,closed_at:item.closedAt||null,closed_by:item.closedBy||null,created_by:item.createdBy||currentSession?.user?.id||null,updated_at:item.updatedAt||new Date().toISOString()};}
@@ -4902,7 +5155,7 @@ NOTIFY pgrst, 'reload schema';`
         el('eventCatalogNote').value=existing?.note||'';
         el('eventCatalogModalTitle').textContent=existing?'Ubah Master Bahan Event':'Daftarkan Bahan Event';
         openModal('eventCatalogModal');
-        setTimeout(()=>el('eventCatalogName').focus(),80);
+        focusFieldIfDesktop(el('eventCatalogName'));
       }
 
       async function saveEventCatalogMaterial(event){
@@ -4974,7 +5227,7 @@ NOTIFY pgrst, 'reload schema';`
         el('eventMaterialPickerSearch').value='';
         renderEventMaterialPickerList();
         openModal('eventMaterialPickerModal');
-        setTimeout(()=>el('eventMaterialPickerSearch').focus(),80);
+        focusFieldIfDesktop(el('eventMaterialPickerSearch'));
       }
 
       function eventMaterialPickerRows(){
@@ -5040,7 +5293,7 @@ NOTIFY pgrst, 'reload schema';`
 
         const button=event.submitter;setButtonBusy(button,true,'Menambahkan…');
         try{
-          const {data:liveRows,error:liveError}=await db.from('inventory').select('id,name').eq('event_id',eventId);
+          const {data:liveRows,error:liveError}=await db.from('inventory').select('id,name').eq('event_id',eventId).is('deleted_at',null);
           if(liveError)throw liveError;
           const existingKeys=new Set((liveRows||[]).map(normalizedMaterialNameKey));
           const now=new Date().toISOString();
@@ -5107,7 +5360,7 @@ NOTIFY pgrst, 'reload schema';`
         el('inventoryModalStoreText').textContent=eventMode?`${linkedEventStore||'Toko belum ditentukan'} • ${eventName(eventId)}`:assignedStore;
         el('inventoryModalTitle').textContent=existing?(eventMode?'Ubah Stok Minimum Bahan Event':'Ubah Bahan & Stok Minimum'):(eventMode?'Tambah Bahan Event':'Tambah Bahan Toko');
         openModal('inventoryModal');
-        setTimeout(()=>el('inventoryName').focus(),80);
+        focusFieldIfDesktop(el('inventoryName'));
       }
       async function saveInventory(event){
         event.preventDefault();
@@ -5135,7 +5388,7 @@ NOTIFY pgrst, 'reload schema';`
         try{const {error}=await db.from('inventory').upsert(inventoryToRow(item));if(error)throw error;closeModal('inventoryModal');await loadCloudData(true);toast(existing?'Bahan, satuan, dan stok minimum berhasil diperbarui.':eventMode?'Bahan event beserta satuannya berhasil ditambahkan.':'Bahan toko beserta satuannya berhasil ditambahkan dan akan tampil setiap hari.');}catch(error){showSyncError(error);}finally{setButtonBusy(button,false);}
       }
 
-      function openEventModal(id=null){if(!isAdmin())return;el('eventForm').reset();clearFormWarnings(el('eventForm'));populateStoreSelect(el('eventStore'),false);el('eventId').value='';const today=todayISO();el('eventDate').value=today;el('eventEndDate').value=today;el('eventModalTitle').textContent='Tambah Event';if(id){const item=state.events.find(e=>e.id===id);if(!item)return;el('eventId').value=item.id;el('eventName').value=item.name;el('eventStore').value=item.store||'';el('eventDate').value=item.eventDate;el('eventEndDate').value=item.endDate;el('eventLocation').value=item.location;el('eventOrganizer').value=item.organizer;el('eventNote').value=item.note||'';el('eventModalTitle').textContent='Edit Event';}openModal('eventModal');setTimeout(()=>el('eventName').focus(),80);}
+      function openEventModal(id=null){if(!isAdmin())return;el('eventForm').reset();clearFormWarnings(el('eventForm'));populateStoreSelect(el('eventStore'),false);el('eventId').value='';const today=todayISO();el('eventDate').value=today;el('eventEndDate').value=today;el('eventModalTitle').textContent='Tambah Event';if(id){const item=state.events.find(e=>e.id===id);if(!item)return;el('eventId').value=item.id;el('eventName').value=item.name;el('eventStore').value=item.store||'';el('eventDate').value=item.eventDate;el('eventEndDate').value=item.endDate;el('eventLocation').value=item.location;el('eventOrganizer').value=item.organizer;el('eventNote').value=item.note||'';el('eventModalTitle').textContent='Edit Event';}openModal('eventModal');focusFieldIfDesktop(el('eventName'));}
       async function saveEvent(event){event.preventDefault();if(!isAdmin())return;const validation=validateFormFields(el('eventForm'),{message:'Lengkapi seluruh data wajib event, termasuk toko/brand, sebelum menyimpan.'});if(!validation.valid)return;const existing=state.events.find(e=>e.id===el('eventId').value);const item={id:el('eventId').value||uid(),name:el('eventName').value.trim(),store:el('eventStore').value,eventDate:el('eventDate').value,endDate:el('eventEndDate').value,location:el('eventLocation').value.trim(),organizer:el('eventOrganizer').value.trim(),note:el('eventNote').value.trim(),createdAt:existing?.createdAt||new Date().toISOString()};if(existing&&existing.store&&existing.store!==item.store&&state.inventory.some(material=>material.eventId===existing.id)){markFieldWarning(el('eventStore'),'Toko event tidak dapat diganti selama daftar bahan event masih terisi.');return toast('Hapus bahan event terlebih dahulu sebelum mengganti toko sumber.');}if(item.endDate<item.eventDate){markFieldWarning(el('eventEndDate'),'Tanggal selesai tidak boleh lebih awal dari tanggal mulai.');return toast('Periksa kembali rentang tanggal event.');}const button=event.submitter;setButtonBusy(button,true,'Menyimpan…');try{const {error}=await db.from('events').upsert(eventToRow(item));if(error)throw error;closeModal('eventModal');await loadCloudData(true);toast(existing?'Event berhasil diperbarui.':'Event berhasil ditambahkan.');}catch(error){showSyncError(error);}finally{setButtonBusy(button,false);}}
 
       function transactionToRow(item){return{id:item.id,transaction_date:item.date,store:item.store,event_id:item.eventId||null,type:item.type,payment_method:normalizePaymentMethod(item.paymentMethod),category:item.category,amount:item.amount,note:item.note||'',created_at:item.createdAt||new Date().toISOString()};}
@@ -5336,7 +5589,7 @@ NOTIFY pgrst, 'reload schema';`
             ? fetchAllCloudRows(()=>db.from('profiles').select('user_id,email,role,branch,branches,event_id,created_at').order('created_at',{ascending:true}).order('user_id',{ascending:true}))
             : Promise.resolve({data:[state.profile],error:null});
           const deletedItemsPromise=isAdmin()
-            ? db.from('deleted_items').select('*').order('deleted_at',{ascending:false}).limit(200)
+            ? fetchAllCloudRows(()=>db.from('deleted_items').select('*').order('deleted_at',{ascending:false}).order('id',{ascending:true}))
             : Promise.resolve({data:[],error:null});
           const auditLogsPromise=isAdmin()
             ? db.from('audit_logs').select('id,occurred_at,actor_user_id,actor_email,action,table_name,row_id,old_data,new_data').order('occurred_at',{ascending:false}).limit(200)
@@ -5932,7 +6185,7 @@ NOTIFY pgrst, 'reload schema';`
       }
       function openPayrollAdvanceModal(item=null){
         if(!isAdmin())return;if(!state.employees.some(employee=>employee.isActive)){switchPayrollTab('employees');return toast('Tambahkan minimal satu karyawan aktif terlebih dahulu.');}
-        clearFormWarnings(el('payrollAdvanceForm'));setPayrollAdvanceFormAlert('');el('payrollAdvanceForm').reset();el('payrollAdvanceId').value=item?.id||'';el('payrollAdvanceModalTitle').textContent=item?'Ubah Kasbon Karyawan':'Tambah Kasbon Karyawan';el('payrollAdvanceDate').value=item?.advanceDate||todayISO();el('payrollAdvanceDate').max=todayISO();refreshPayrollAdvanceEmployeeOptions(item?.employeeId||'');el('payrollAdvanceEmployeeSelect').value=item?.employeeId||'';el('payrollAdvanceAmount').value=item?.amount||'';el('payrollAdvanceNote').value=item?.note||'';syncPayrollAdvanceEmployeeSelection();openModal('payrollAdvanceModal');setTimeout(()=>el('payrollAdvanceEmployeeSelect')?.focus(),80);
+        clearFormWarnings(el('payrollAdvanceForm'));setPayrollAdvanceFormAlert('');el('payrollAdvanceForm').reset();el('payrollAdvanceId').value=item?.id||'';el('payrollAdvanceModalTitle').textContent=item?'Ubah Kasbon Karyawan':'Tambah Kasbon Karyawan';el('payrollAdvanceDate').value=item?.advanceDate||todayISO();el('payrollAdvanceDate').max=todayISO();refreshPayrollAdvanceEmployeeOptions(item?.employeeId||'');el('payrollAdvanceEmployeeSelect').value=item?.employeeId||'';el('payrollAdvanceAmount').value=item?.amount||'';el('payrollAdvanceNote').value=item?.note||'';syncPayrollAdvanceEmployeeSelection();openModal('payrollAdvanceModal');focusFieldIfDesktop(el('payrollAdvanceEmployeeSelect'));
       }
       async function savePayrollAdvance(event){
         event.preventDefault();if(!isAdmin())return;setPayrollAdvanceFormAlert('');const validation=validateFormFields(el('payrollAdvanceForm'),{message:'Lengkapi tanggal, nama karyawan, dan nominal kasbon.'});if(!validation.valid){setPayrollAdvanceFormAlert(`Kasbon belum dapat disimpan. Lengkapi: ${validation.labels.join(', ')}.`);return;}
@@ -5953,7 +6206,7 @@ NOTIFY pgrst, 'reload schema';`
         el('employeeShiftStart').value=item?.shiftStart||'09:00';
         el('employeeStatus').value=item?.isActive===false?'inactive':'active';
         el('employeeNote').value=item?.note||'';
-        openModal('employeeModal');setTimeout(()=>el('employeeName')?.focus(),80);
+        openModal('employeeModal');focusFieldIfDesktop(el('employeeName'));
       }
       async function saveEmployee(event){
         event.preventDefault();if(!isAdmin())return;setEmployeeFormAlert('');
@@ -6012,7 +6265,7 @@ NOTIFY pgrst, 'reload schema';`
         el('payrollExtraWageNote').value=item?.extraWageNote||'';
         syncPayrollEmployeeSelection();
         if(item){el('payrollScheduledTime').value=item.scheduledTime||'';el('payrollAttendanceTime').value=item.attendanceTime||'';el('payrollAttributeStatus').value=item.attributeStatus||'complete';el('payrollStorePreview').value=item.store||'';el('payrollDailyWagePreviewInput').value=rawMoney(item.dailyWage);updatePayrollDailyPreview();}
-        openModal('payrollDailyModal');setTimeout(()=>el('payrollEmployeeSelect')?.focus(),80);
+        openModal('payrollDailyModal');focusFieldIfDesktop(el('payrollEmployeeSelect'));
       }
       async function savePayrollDaily(event){
         event.preventDefault();if(!isAdmin())return;setPayrollDailyFormAlert('');
