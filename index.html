@@ -598,6 +598,14 @@
     .cloud-pill.online .cloud-dot { background: var(--green); box-shadow: 0 0 0 4px rgba(22,163,74,.12); }
     .cloud-pill.syncing .cloud-dot { background: var(--primary); }
     .cloud-pill.error .cloud-dot { background: var(--red); }
+    .cloud-pill { position: relative; }
+    .pending-sync-badge {
+      position: absolute; top: -6px; right: -6px; min-width: 18px; height: 18px; padding: 0 5px;
+      border-radius: 999px; display: inline-flex; align-items: center; justify-content: center;
+      background: #f59e0b; color: #fff; border: 2px solid var(--bg); font-size: 9px; font-weight: 900; line-height: 1;
+      box-shadow: 0 4px 10px rgba(15,23,42,.16);
+    }
+    .pending-sync-badge[hidden] { display: none !important; }
     .manual-refresh-btn {
       width: 34px; height: 34px; min-width: 34px; padding: 0; border-radius: 10px;
       display: inline-flex; align-items: center; justify-content: center;
@@ -631,7 +639,7 @@
 
     @media (max-width: 900px) {
       .user-chip { display: none; }
-      .cloud-pill span:last-child { display: none; }
+      #cloudStatusText { display: none; }
       .cloud-pill { width: 38px; height: 38px; justify-content: center; padding: 0; }
       .balance-toggle #balanceToggleText { display:none; }
     }
@@ -2315,7 +2323,7 @@
           <div class="page-title"><h2 id="pageHeading">Dashboard</h2><p id="todayText"></p></div>
         </div>
         <div class="top-actions">
-          <div class="cloud-pill" id="cloudPill"><span class="cloud-dot"></span><span id="cloudStatusText">Menghubungkan</span></div>
+          <div class="cloud-pill" id="cloudPill"><span class="cloud-dot"></span><span id="cloudStatusText">Menghubungkan</span><span class="pending-sync-badge" id="pendingSyncBadge" hidden>0</span></div>
           <button class="btn btn-light btn-sm manual-refresh-btn" id="manualRefreshBtn" type="button" aria-label="Refresh data" title="Refresh data sekarang">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6v5h-5"></path><path d="M4 18v-5h5"></path><path d="M6.1 9a7 7 0 0 1 11.7-2.6L20 11"></path><path d="M17.9 15a7 7 0 0 1-11.7 2.6L4 13"></path></svg>
           </button>
@@ -2711,12 +2719,12 @@
         <section class="view" data-full-view id="view-settings">
           <div class="toolbar"><div><h3>Cloud & Pengaturan</h3><p id="settingsAccessText">Admin dapat mengelola pengaturan. Owner dapat melihat informasi akun, data toko yang ditetapkan, dan seluruh data event dalam mode hanya lihat.</p></div></div>
           <div class="grid settings-grid">
-            <article class="card setting-box"><h3>Status Supabase</h3><p>Seluruh data tersimpan di database online yang sama.</p><div class="connection-list"><div class="connection-row"><span>Proyek</span><strong id="settingsProjectHost">-</strong></div><div class="connection-row"><span>Pengguna</span><strong id="settingsUserEmail">-</strong></div><div class="connection-row"><span>Hak akses</span><strong id="settingsUserRole">-</strong></div><div class="connection-row"><span>Cabang akses</span><strong id="settingsUserBranch">-</strong></div><div class="connection-row"><span>Sinkronisasi terakhir</span><strong id="lastSyncText">Belum</strong></div></div><div class="toolbar-actions"><button class="btn btn-dark" id="syncNowBtn">Sinkronkan Sekarang</button><button class="btn btn-light" id="changeConfigBtn" data-admin-write>Ubah Koneksi</button></div></article>
+            <article class="card setting-box"><h3>Status Supabase</h3><p>Seluruh data tersimpan di database online yang sama.</p><div class="connection-list"><div class="connection-row"><span>Proyek</span><strong id="settingsProjectHost">-</strong></div><div class="connection-row"><span>Pengguna</span><strong id="settingsUserEmail">-</strong></div><div class="connection-row"><span>Hak akses</span><strong id="settingsUserRole">-</strong></div><div class="connection-row"><span>Cabang akses</span><strong id="settingsUserBranch">-</strong></div><div class="connection-row"><span>Sinkronisasi terakhir</span><strong id="lastSyncText">Belum</strong></div><div class="connection-row"><span>Menunggu upload</span><strong id="pendingSyncText">0 data</strong></div><div class="connection-row"><span>Cache lokal aman</span><strong id="localCacheText">Belum tersedia</strong></div></div><div class="toolbar-actions"><button class="btn btn-dark" id="syncNowBtn">Sinkronkan Sekarang</button><button class="btn btn-light" id="changeConfigBtn" data-admin-write>Ubah Koneksi</button></div></article>
             <article class="card setting-box"><h3>Cadangkan Data Cloud</h3><p>Unduh backup lengkap termasuk data aktif, data di Sampah, profil akses, dan audit log.</p><button class="btn btn-dark" id="backupBtn">Unduh Backup Lengkap</button></article>
             <article class="card setting-box" data-admin-write><h3>Import Backup</h3><p>Isi backup akan digabungkan ke database berdasarkan ID. Data yang sudah ada tidak dikosongkan terlebih dahulu.</p><input type="file" id="restoreInput" accept="application/json" hidden /><button class="btn btn-light" id="restoreBtn">Pilih File Backup</button></article>
             <article class="card setting-box" data-admin-write><h3>Mode Produksi</h3><p>Data contoh dinonaktifkan pada database operasional agar tidak tercampur dengan rekapan bisnis.</p><span class="badge badge-ok">Produksi Aktif</span></article>
             <article class="card setting-box"><h3>Keluar dari Akun</h3><p>Akhiri sesi pada perangkat ini.</p><button class="btn btn-light" id="settingsLogoutBtn">Keluar</button></article>
-            <article class="card setting-box" data-admin-write><h3>Proteksi Data</h3><p>Hard delete dari browser dinonaktifkan. Tombol hapus memindahkan data ke Sampah dan seluruh perubahan dicatat pada Audit Log.</p><div class="connection-list"><div class="connection-row"><span>Hard delete</span><strong>Nonaktif</strong></div><div class="connection-row"><span>Soft delete</span><strong>Aktif</strong></div><div class="connection-row"><span>Audit log</span><strong>Aktif</strong></div><div class="connection-row"><span>Pagination</span><strong>Aktif</strong></div></div></article>
+            <article class="card setting-box" data-admin-write><h3>Proteksi Data</h3><p>Hard delete dari browser dinonaktifkan. Data operasional dilindungi oleh soft delete, audit, antrian offline, cache lokal, dan backup harian Supabase Pro.</p><div class="connection-list"><div class="connection-row"><span>Hard delete</span><strong>Nonaktif</strong></div><div class="connection-row"><span>Soft delete</span><strong>Aktif</strong></div><div class="connection-row"><span>Audit log</span><strong>Aktif</strong></div><div class="connection-row"><span>Antrian offline</span><strong>Aktif</strong></div><div class="connection-row"><span>Cache perangkat</span><strong>Aktif</strong></div><div class="connection-row"><span>Backup harian Pro</span><strong>7 hari</strong></div><div class="connection-row"><span>Pagination</span><strong>Aktif</strong></div></div></article>
           </div>
           <article class="card table-card" style="margin-top:18px">
             <div class="card-head"><div><h3>Hak Akses Akun</h3><p>Admin dapat mengatur akses akun. Owner dapat melihat akses akunnya sendiri dalam mode hanya lihat.</p></div></div>
@@ -4268,11 +4276,21 @@ NOTIFY pgrst, 'reload schema';`
       let cloudChannel = null;
       let refreshTimer = null;
       let realtimeDebounce = null;
+      let realtimeReady = false;
+      let realtimeReconnectNeedsSync = false;
+      let realtimeProfileReloadTimer = null;
       let dataLoading = false;
       let eventsBound = false;
       let forceSetupScreen = false;
       let activeClosingRows = [];
       let eventMaterialCatalogAvailable = true;
+      const DURABLE_DB_NAME='rekapan-durable-v1';
+      const DURABLE_DB_VERSION=1;
+      const DURABLE_PENDING_STORE='pending_ops';
+      const DURABLE_SNAPSHOT_STORE='snapshots';
+      let durableDbPromise=null;
+      let pendingSyncFlushRunning=false;
+      let snapshotSaveTimer=null;
 
       const el = id => document.getElementById(id);
       function focusFieldIfDesktop(target){
@@ -4317,6 +4335,186 @@ NOTIFY pgrst, 'reload schema';`
       const archivedEvents = () => state.events.filter(item=>!!item.archivedAt);
       const isArchivedEvent = id => !!eventById(id)?.archivedAt;
       const eventName = id => id ? (eventById(id)?.name || 'Event tidak ditemukan') : 'Non-Event';
+
+      function durableScopeKey(){
+        const project=(currentConfig?.url||DEFAULT_SUPABASE_URL||'').replace(/\/$/,'');
+        const user=currentSession?.user?.id||'guest';
+        return `${project}|${user}`;
+      }
+      function openDurableDb(){
+        if(durableDbPromise)return durableDbPromise;
+        durableDbPromise=new Promise((resolve,reject)=>{
+          if(!('indexedDB' in window)){reject(new Error('IndexedDB tidak tersedia'));return;}
+          const request=indexedDB.open(DURABLE_DB_NAME,DURABLE_DB_VERSION);
+          request.onupgradeneeded=()=>{
+            const idb=request.result;
+            if(!idb.objectStoreNames.contains(DURABLE_PENDING_STORE)){
+              const store=idb.createObjectStore(DURABLE_PENDING_STORE,{keyPath:'id'});
+              store.createIndex('scope','scope',{unique:false});
+              store.createIndex('createdAt','createdAt',{unique:false});
+            }
+            if(!idb.objectStoreNames.contains(DURABLE_SNAPSHOT_STORE))idb.createObjectStore(DURABLE_SNAPSHOT_STORE,{keyPath:'key'});
+          };
+          request.onsuccess=()=>resolve(request.result);
+          request.onerror=()=>reject(request.error||new Error('IndexedDB gagal dibuka'));
+        });
+        return durableDbPromise;
+      }
+      async function durablePut(storeName,value){
+        const idb=await openDurableDb();
+        return new Promise((resolve,reject)=>{
+          const tx=idb.transaction(storeName,'readwrite');
+          tx.objectStore(storeName).put(value);
+          tx.oncomplete=()=>resolve(true);tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error);
+        });
+      }
+      async function durableDelete(storeName,key){
+        const idb=await openDurableDb();
+        return new Promise((resolve,reject)=>{
+          const tx=idb.transaction(storeName,'readwrite');tx.objectStore(storeName).delete(key);
+          tx.oncomplete=()=>resolve(true);tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error);
+        });
+      }
+      async function durableGet(storeName,key){
+        const idb=await openDurableDb();
+        return new Promise((resolve,reject)=>{
+          const tx=idb.transaction(storeName,'readonly');const req=tx.objectStore(storeName).get(key);
+          req.onsuccess=()=>resolve(req.result||null);req.onerror=()=>reject(req.error);
+        });
+      }
+      async function durableGetAll(storeName){
+        const idb=await openDurableDb();
+        return new Promise((resolve,reject)=>{
+          const tx=idb.transaction(storeName,'readonly');const req=tx.objectStore(storeName).getAll();
+          req.onsuccess=()=>resolve(req.result||[]);req.onerror=()=>reject(req.error);
+        });
+      }
+      function retryableWriteError(error){
+        if(!navigator.onLine)return true;
+        const status=Number(error?.status||error?.statusCode||0);
+        if([408,425,429,500,502,503,504].includes(status))return true;
+        const code=String(error?.code||'').toUpperCase();
+        if(['57014','57P01','08000','08001','08003','08004','08006','53300'].includes(code))return true;
+        const text=`${error?.message||''} ${error?.details||''} ${error?.hint||''}`;
+        return /failed to fetch|network|timeout|timed out|connection (?:closed|reset|refused)|service unavailable|gateway|egress quota|project is restricted|temporarily unavailable/i.test(text);
+      }
+      async function executeDurableOperation(op){
+        if(!db)throw new Error('Koneksi database belum tersedia.');
+        if(op.kind==='batch'){
+          for(const step of op.steps||[])await executeDurableOperation(step);
+          return true;
+        }
+        if(op.kind==='upsert'){
+          const query=db.from(op.table).upsert(op.rows||[],op.options||undefined);
+          const {error}=await query;if(error)throw error;return true;
+        }
+        if(op.kind==='update'){
+          let query=db.from(op.table).update(op.payload||{});
+          for(const filter of op.filters||[]){
+            if(filter.type==='eq')query=query.eq(filter.column,filter.value);
+            else if(filter.type==='is')query=query.is(filter.column,filter.value);
+            else if(filter.type==='in')query=query.in(filter.column,filter.value);
+          }
+          const {error}=await query;if(error)throw error;return true;
+        }
+        if(op.kind==='rpc'){
+          const {error}=await db.rpc(op.fn,op.args||{});if(error)throw error;return true;
+        }
+        throw new Error(`Jenis operasi durable tidak dikenal: ${op.kind}`);
+      }
+      function applyDurableOperationLocally(op){
+        if(!op)return;
+        if(op.kind==='batch'){(op.steps||[]).forEach(applyDurableOperationLocally);return;}
+        if(op.kind==='upsert'){
+          const config=realtimeConfigFor(op.table);if(!config)return;
+          (op.rows||[]).forEach(row=>{try{const item=config.map(row);if(config.allow(item,row))upsertLocalState(config.stateKey,item);else removeLocalState(config.stateKey,row.id);}catch(_){}});
+          return;
+        }
+        if(op.kind==='rpc'&&op.fn==='update_inventory_stock_after_closing'){
+          const item=state.inventory.find(row=>row.id===op.args?.target_inventory_id);
+          if(item){item.stock=Number(op.args?.new_stock||0);item.updatedAt=op.args?.target_updated_at||new Date().toISOString();}
+          return;
+        }
+        if(op.kind==='update'&&op.table==='events'){
+          const id=(op.filters||[]).find(filter=>filter.type==='eq'&&filter.column==='id')?.value;
+          const item=state.events.find(row=>row.id===id);if(!item)return;
+          if(Object.prototype.hasOwnProperty.call(op.payload||{},'archived_at'))item.archivedAt=op.payload.archived_at||null;
+          if(Object.prototype.hasOwnProperty.call(op.payload||{},'archived_by'))item.archivedBy=op.payload.archived_by||null;
+        }
+      }
+      async function queuedOperationsForCurrentUser(){
+        try{return (await durableGetAll(DURABLE_PENDING_STORE)).filter(op=>op.scope===durableScopeKey()).sort((a,b)=>String(a.createdAt).localeCompare(String(b.createdAt)));}catch(_){return[];}
+      }
+      async function updatePendingSyncUI(){
+        const count=(await queuedOperationsForCurrentUser()).length;
+        const badge=el('pendingSyncBadge'),text=el('pendingSyncText');
+        if(badge){badge.hidden=count===0;badge.textContent=count>99?'99+':String(count);badge.title=count?`${count} operasi menunggu dikirim ke Supabase`:'';}
+        if(text)text.textContent=count?`${count} data`:'0 data';
+        return count;
+      }
+      async function enqueueDurableOperation(op){
+        const stored={...op,id:op.id||uid(),scope:durableScopeKey(),createdAt:op.createdAt||new Date().toISOString(),attempts:Number(op.attempts||0),blocked:false,lastError:''};
+        await durablePut(DURABLE_PENDING_STORE,stored);
+        applyDurableOperationLocally(stored);
+        state.updatedAt=new Date().toISOString();
+        scheduleRealtimeRender();
+        scheduleLocalSnapshotSave();
+        await updatePendingSyncUI();
+        return stored;
+      }
+      async function durableWrite(op){
+        const prepared={...op,id:op.id||uid(),scope:durableScopeKey(),createdAt:op.createdAt||new Date().toISOString()};
+        if(!navigator.onLine){await enqueueDurableOperation(prepared);return{queued:true};}
+        try{await executeDurableOperation(prepared);return{queued:false};}
+        catch(error){if(retryableWriteError(error)){await enqueueDurableOperation(prepared);return{queued:true,error};}throw error;}
+      }
+      async function flushPendingOperations({notify=false}={}){
+        if(pendingSyncFlushRunning||!db||!currentSession||!navigator.onLine)return{synced:0,pending:await updatePendingSyncUI()};
+        pendingSyncFlushRunning=true;let synced=0,blocked=0;
+        try{
+          const operations=await queuedOperationsForCurrentUser();
+          for(const op of operations){
+            try{await executeDurableOperation(op);await durableDelete(DURABLE_PENDING_STORE,op.id);synced++;}
+            catch(error){
+              if(retryableWriteError(error))break;
+              blocked++;await durablePut(DURABLE_PENDING_STORE,{...op,attempts:Number(op.attempts||0)+1,blocked:true,lastError:friendlyError(error),lastAttemptAt:new Date().toISOString()});
+            }
+          }
+          const pending=await updatePendingSyncUI();
+          if(notify&&synced)toast(`${synced} data tertunda berhasil dikirim ke Supabase.`);
+          if(notify&&blocked)toast(`${blocked} data tertunda perlu diperiksa karena ditolak database.`);
+          return{synced,pending,blocked};
+        }finally{pendingSyncFlushRunning=false;}
+      }
+      const LOCAL_SNAPSHOT_FIELDS=['transactions','inventory','eventMaterialCatalog','inventoryDaily','events','employees','payrollDaily','payrollAdvances','payrollMonthlyPayments','profiles','deletedItems','auditLogs','profile','updatedAt'];
+      async function saveLocalSnapshot(){
+        if(!currentSession?.user)return false;
+        try{
+          const data={};LOCAL_SNAPSHOT_FIELDS.forEach(key=>{data[key]=state[key];});
+          const savedAt=new Date().toISOString();
+          await durablePut(DURABLE_SNAPSHOT_STORE,{key:durableScopeKey(),savedAt,data});
+          const label=el('localCacheText');if(label)label.textContent=new Intl.DateTimeFormat('id-ID',{timeZone:'Asia/Jakarta',day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}).format(new Date(savedAt));
+          return true;
+        }catch(error){console.warn('Cache lokal tidak dapat disimpan.',error);return false;}
+      }
+      function scheduleLocalSnapshotSave(delay=800){clearTimeout(snapshotSaveTimer);snapshotSaveTimer=setTimeout(()=>saveLocalSnapshot(),delay);}
+      function hasLocalOperationalData(){return !!(state.updatedAt||state.transactions.length||state.inventory.length||state.inventoryDaily.length||state.events.length);}
+      async function restoreLocalSnapshot({render=true,force=false}={}){
+        if(!currentSession?.user)return false;
+        try{
+          const snapshot=await durableGet(DURABLE_SNAPSHOT_STORE,durableScopeKey());
+          if(!snapshot?.data)return false;
+          if(!force&&hasLocalOperationalData())return false;
+          LOCAL_SNAPSHOT_FIELDS.forEach(key=>{if(Object.prototype.hasOwnProperty.call(snapshot.data,key))state[key]=snapshot.data[key];});
+          if(render){
+            applyRoleUI();refreshEventSelects();renderAll();
+            const syncText=el('lastSyncText');if(syncText)syncText.textContent=`Lokal ${new Intl.DateTimeFormat('id-ID',{timeZone:'Asia/Jakarta',hour:'2-digit',minute:'2-digit'}).format(new Date(snapshot.savedAt))}`;
+            setCloudStatus('error','Offline · Data Lokal');
+          }
+          const label=el('localCacheText');if(label)label.textContent=new Intl.DateTimeFormat('id-ID',{timeZone:'Asia/Jakarta',day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}).format(new Date(snapshot.savedAt));
+          return true;
+        }catch(error){console.warn('Cache lokal tidak dapat dibaca.',error);return false;}
+      }
 
       function hasEmbeddedConfig(){ return DEFAULT_SUPABASE_URL.startsWith('https://') && !DEFAULT_SUPABASE_URL.includes('MASUKKAN_') && DEFAULT_SUPABASE_PUBLISHABLE_KEY.length>30 && !DEFAULT_SUPABASE_PUBLISHABLE_KEY.includes('MASUKKAN_'); }
       function getSavedConfig(){ try{const value=JSON.parse(localStorage.getItem(CONFIG_KEY));if(value?.url&&value?.key)return value;}catch(_){} return hasEmbeddedConfig()?{url:DEFAULT_SUPABASE_URL.trim(),key:DEFAULT_SUPABASE_PUBLISHABLE_KEY.trim()}:null; }
@@ -4379,7 +4577,7 @@ NOTIFY pgrst, 'reload schema';`
       }
 
       async function handleAuthState(event,session){
-        if(event==='SIGNED_OUT'||!session){stopCloudRefresh();currentSession=null;state.transactions=[];state.inventory=[];state.events=[];state.employees=[];state.payrollDaily=[];state.payrollAdvances=[];state.payrollMonthlyPayments=[];state.profiles=[];state.deletedItems=[];state.auditLogs=[];state.profile=null;renderAll();if(forceSetupScreen){forceSetupScreen=false;showSetup();}else showAuth();return;}
+        if(event==='SIGNED_OUT'||!session){stopCloudRefresh();currentSession=null;state.transactions=[];state.inventory=[];state.events=[];state.employees=[];state.payrollDaily=[];state.payrollAdvances=[];state.payrollMonthlyPayments=[];state.profiles=[];state.deletedItems=[];state.auditLogs=[];state.profile=null;renderAll();updatePendingSyncUI().catch(()=>{});if(forceSetupScreen){forceSetupScreen=false;showSetup();}else showAuth();return;}
         if(event==='SIGNED_IN'||event==='INITIAL_SESSION'||event==='TOKEN_REFRESHED') await showApp(session);
       }
 
@@ -4390,15 +4588,21 @@ NOTIFY pgrst, 'reload schema';`
         try{
           forceResetScrollState({closeModals:true,closeSidebarToo:true,restore:true});
           currentSession=session;
-          await loadCurrentProfile(session.user);
+          try{await loadCurrentProfile(session.user);}
+          catch(error){
+            const restored=await restoreLocalSnapshot({render:false,force:true});
+            if(!restored||!state.profile)throw error;
+          }
           applyRoleUI();
           el('setupScreen').hidden=true;el('authScreen').hidden=true;el('appShell').hidden=false;
           el('userEmail').textContent=session.user?.email||'Pengguna';
           el('sidebarUserEmail').textContent=session.user?.email||'Pengguna';
           el('settingsUserEmail').textContent=session.user?.email||'-';
           updateProjectLabels();
+          await updatePendingSyncUI();
           await loadCloudData(true);
           startCloudRefresh();
+          if(navigator.onLine)flushPendingOperations().catch(()=>{});
         }catch(error){showSetup(friendlyError(error));}
       }
 
@@ -4695,7 +4899,7 @@ NOTIFY pgrst, 'reload schema';`
       function bindEvents(){
         el('setupForm').addEventListener('submit',handleSetupSubmit);el('copySqlBtn').addEventListener('click',copyDatabaseSql);el('loginForm').addEventListener('submit',handleLogin);el('signupBtn').addEventListener('click',handleSignup);el('authChangeConfigBtn')?.addEventListener('click',()=>showSetup());
         document.addEventListener('input',clearWarningFromEvent);document.addEventListener('change',clearWarningFromEvent);
-        el('logoutBtn').addEventListener('click',openLogoutConfirm);el('settingsLogoutBtn').addEventListener('click',openLogoutConfirm);el('logoutNoBtn').addEventListener('click',()=>closeModal('logoutConfirmModal'));el('logoutYesBtn').addEventListener('click',logout);el('syncNowBtn').addEventListener('click',()=>loadCloudData(false));el('manualRefreshBtn').addEventListener('click',manualRefreshData);el('changeConfigBtn').addEventListener('click',changeConnection);el('balanceToggleBtn').addEventListener('click',toggleBalanceVisibility);el('themeToggleBtn').addEventListener('click',toggleTheme);
+        el('logoutBtn').addEventListener('click',openLogoutConfirm);el('settingsLogoutBtn').addEventListener('click',openLogoutConfirm);el('logoutNoBtn').addEventListener('click',()=>closeModal('logoutConfirmModal'));el('logoutYesBtn').addEventListener('click',logout);el('syncNowBtn').addEventListener('click',syncNowData);el('manualRefreshBtn').addEventListener('click',manualRefreshData);el('changeConfigBtn').addEventListener('click',changeConnection);el('balanceToggleBtn').addEventListener('click',toggleBalanceVisibility);el('themeToggleBtn').addEventListener('click',toggleTheme);
         el('dailyRecapToggle').addEventListener('click',()=>toggleDashboardRecap('daily'));
         el('monthlyRecapToggle').addEventListener('click',()=>toggleDashboardRecap('monthly'));
         el('dashboardDateFilter').addEventListener('change',event=>{selectedDashboardDate=event.target.value||'realtime';renderDashboard();});
@@ -4741,7 +4945,7 @@ NOTIFY pgrst, 'reload schema';`
         window.addEventListener('orientationchange',()=>setTimeout(repairScrollState,120));
         window.addEventListener('pageshow',()=>setTimeout(repairScrollState,0));
         document.addEventListener('visibilitychange',()=>{if(!document.hidden)setTimeout(repairScrollState,0);});
-        window.addEventListener('online',()=>loadCloudData(true));window.addEventListener('offline',()=>setCloudStatus('error','Offline'));
+        window.addEventListener('online',async()=>{await flushPendingOperations();await loadCloudData(true);});window.addEventListener('offline',async()=>{setCloudStatus('error','Offline');await restoreLocalSnapshot({render:!hasLocalOperationalData()});});
         document.querySelectorAll('.modal').forEach(modal=>{
           modal.addEventListener('click',event=>{if(event.target===modal)closeModal(modal.id);});
           modal.addEventListener('wheel',event=>{if(event.target===modal)event.preventDefault();},{passive:false});
@@ -4981,11 +5185,10 @@ NOTIFY pgrst, 'reload schema';`
         const operationUiState=captureSyncUiState();
         const button=event.submitter;setButtonBusy(button,true,`Menyimpan Transaksi ${scopeLabel} ${rawMoney(totalAmount)}…`);
         try{
-          const {error}=await db.from('transactions').upsert(items.map(transactionToRow));
-          if(error)throw error;
+          const result=await durableWrite({kind:'upsert',table:'transactions',rows:items.map(transactionToRow),label:'Transaksi'});
           closeModal('transactionModal');
-          await loadCloudData(true,operationUiState);
-          toast(existing?`Transaksi ${scopeLabel} berhasil diperbarui. Total ${rawMoney(totalAmount)}.`:`${items.length} transaksi ${scopeLabel} berhasil ditambahkan. Total ${rawMoney(totalAmount)}.`);
+          if(!result.queued)await settleAfterWrite(operationUiState);
+          toast(result.queued?`${items.length} transaksi tersimpan aman di perangkat dan akan dikirim otomatis saat koneksi pulih.`:(existing?`Transaksi ${scopeLabel} berhasil diperbarui. Total ${rawMoney(totalAmount)}.`:`${items.length} transaksi ${scopeLabel} berhasil ditambahkan. Total ${rawMoney(totalAmount)}.`));
         }catch(error){showSyncError(error);}finally{setButtonBusy(button,false);refreshTransactionEntryControls();}
       }
 
@@ -5094,7 +5297,13 @@ NOTIFY pgrst, 'reload schema';`
           }
         }
         const button=event.submitter;setButtonBusy(button,true,'Menyimpan…');
-        try{await upsertInChunks('inventory_daily',updates);for(const item of stockUpdates){const {error}=await db.rpc('update_inventory_stock_after_closing',{target_inventory_id:item.id,new_stock:item.stock,target_updated_at:now});if(error)throw error;}activeClosingRows=[];closeModal('dailyClosingModal');await loadCloudData(true);toast(eventMode?'Closing bahan event berhasil disimpan.':'Closing berhasil disimpan. Pemakaian bahan sudah dihitung otomatis.');}catch(error){showSyncError(error);}finally{setButtonBusy(button,false);}
+        try{
+          const steps=[{kind:'upsert',table:'inventory_daily',rows:updates,label:'Closing bahan'},...stockUpdates.map(item=>({kind:'rpc',fn:'update_inventory_stock_after_closing',args:{target_inventory_id:item.id,new_stock:item.stock,target_updated_at:now}}))];
+          const result=await durableWrite({kind:'batch',steps,label:eventMode?'Closing bahan event':'Closing bahan toko'});
+          activeClosingRows=[];closeModal('dailyClosingModal');
+          if(!result.queued)await settleAfterWrite();
+          toast(result.queued?'Closing tersimpan aman di perangkat dan akan disinkronkan otomatis saat koneksi pulih.':(eventMode?'Closing bahan event berhasil disimpan.':'Closing berhasil disimpan. Pemakaian bahan sudah dihitung otomatis.'));
+        }catch(error){showSyncError(error);}finally{setButtonBusy(button,false);}
       }
 
       const normalizedMaterialKey = item => `${String(item?.name||'').trim().toLowerCase()}|${String(item?.unit||'').trim().toLowerCase()}`;
@@ -5178,14 +5387,13 @@ NOTIFY pgrst, 'reload schema';`
         const item={id,store,name,unit,min,note,updatedAt:new Date().toISOString()};
         const button=event.submitter;setButtonBusy(button,true,'Menyimpan…');
         try{
-          const {error}=await db.from('event_material_catalog').upsert(eventMaterialCatalogToRow(item),{onConflict:'id'});
-          if(error)throw error;
+          const result=await durableWrite({kind:'upsert',table:'event_material_catalog',rows:[eventMaterialCatalogToRow(item)],options:{onConflict:'id'},label:'Master bahan event'});
           closeModal('eventCatalogModal');
-          await loadCloudData(true);
+          if(!result.queued)await settleAfterWrite();
           populateStoreSelect(el('eventCatalogStoreFilter'),false);
           el('eventCatalogStoreFilter').value=store;
           renderEventMaterialCatalog();
-          toast(el('eventCatalogId').value?'Master bahan event berhasil diperbarui.':'Bahan event berhasil didaftarkan.');
+          toast(result.queued?'Master bahan event tersimpan aman di perangkat dan akan disinkronkan otomatis.':(el('eventCatalogId').value?'Master bahan event berhasil diperbarui.':'Bahan event berhasil didaftarkan.'));
         }catch(error){
           if(error?.code==='23505'||/duplicate key|event_material_catalog_store_name/i.test(`${error?.message||''} ${error?.details||''}`)){
             markFieldWarning(el('eventCatalogName'),'Nama bahan tersebut sudah terdaftar untuk toko ini.');
@@ -5204,7 +5412,7 @@ NOTIFY pgrst, 'reload schema';`
           if(!item||!confirm(`Hapus ${item.name} dari master bahan Event ${item.store}? Bahan yang sudah dipilih ke event tetap tersimpan.`))return;
           try{
             await softDeleteRow('event_material_catalog',item.id);
-            await loadCloudData(true);
+            await settleAfterWrite();
             toast('Master bahan event berhasil dihapus.');
           }catch(error){showSyncError(error);}
         }
@@ -5293,42 +5501,31 @@ NOTIFY pgrst, 'reload schema';`
 
         const button=event.submitter;setButtonBusy(button,true,'Menambahkan…');
         try{
-          const {data:liveRows,error:liveError}=await db.from('inventory').select('id,name').eq('event_id',eventId).is('deleted_at',null);
-          if(liveError)throw liveError;
-          const existingKeys=new Set((liveRows||[]).map(normalizedMaterialNameKey));
+          let existingRows=state.inventory.filter(item=>item.eventId===eventId).map(item=>({id:item.id,name:item.name}));
+          if(navigator.onLine){
+            try{
+              const {data:liveRows,error:liveError}=await db.from('inventory').select('id,name').eq('event_id',eventId).is('deleted_at',null);
+              if(liveError)throw liveError;
+              existingRows=liveRows||[];
+            }catch(error){if(!retryableWriteError(error))throw error;}
+          }
+          const existingKeys=new Set(existingRows.map(normalizedMaterialNameKey));
           const now=new Date().toISOString();
-          let added=0,skipped=0;
-
+          const rows=[];let skipped=0;
           for(const source of selectedSources){
             const key=normalizedMaterialNameKey(source);
             if(existingKeys.has(key)){skipped++;continue;}
-            const item={
-              id:uid(),
-              store:EVENT_STORE,
-              eventId,
-              name:source.name.trim(),
-              unit:(source.unit||'unit').trim().toLowerCase(),
-              stock:0,
-              min:Number(source.min||0),
-              price:0,
-              note:`Dipilih dari Master Bahan Event ${sourceStore}`,
-              updatedAt:now
-            };
-            const {error}=await db.from('inventory').insert(inventoryToRow(item));
-            if(error){
-              const duplicate=error.code==='23505'||/duplicate key|inventory_event_name_unique_idx/i.test(`${error.message||''} ${error.details||''}`);
-              if(duplicate){skipped++;existingKeys.add(key);continue;}
-              throw error;
-            }
-            existingKeys.add(key);added++;
+            const item={id:uid(),store:EVENT_STORE,eventId,name:source.name.trim(),unit:(source.unit||'unit').trim().toLowerCase(),stock:0,min:Number(source.min||0),price:0,note:`Dipilih dari Master Bahan Event ${sourceStore}`,updatedAt:now};
+            rows.push(inventoryToRow(item));existingKeys.add(key);
           }
-
+          if(!rows.length){closeModal('eventMaterialPickerModal');switchEventTab('materials');toast('Semua bahan terpilih sudah tersedia pada event ini. Tidak ada data ganda yang dibuat.');return;}
+          const result=await durableWrite({kind:'upsert',table:'inventory',rows,label:'Bahan event'});
           closeModal('eventMaterialPickerModal');
-          await loadCloudData(true);
+          if(!result.queued)await settleAfterWrite();
           switchEventTab('materials');
-          if(added&&skipped)toast(`${added} bahan ditambahkan. ${skipped} bahan yang sudah tersedia dilewati otomatis.`);
-          else if(added)toast(`${added} bahan dari daftar Event ${sourceStore} berhasil ditambahkan.`);
-          else toast('Semua bahan terpilih sudah tersedia pada event ini. Tidak ada data ganda yang dibuat.');
+          if(result.queued)toast(`${rows.length} bahan event tersimpan aman di perangkat dan akan disinkronkan otomatis.`);
+          else if(skipped)toast(`${rows.length} bahan ditambahkan. ${skipped} bahan yang sudah tersedia dilewati otomatis.`);
+          else toast(`${rows.length} bahan dari daftar Event ${sourceStore} berhasil ditambahkan.`);
         }catch(error){showSyncError(error);}finally{setButtonBusy(button,false);}
       }
 
@@ -5385,11 +5582,11 @@ NOTIFY pgrst, 'reload schema';`
         if(duplicate){markFieldWarning(el('inventoryName'),eventMode?'Nama bahan tersebut sudah ada pada event ini.':'Nama bahan tersebut sudah ada pada cabang ini.');return toast(eventMode?'Nama bahan tersebut sudah ada pada event ini.':'Nama bahan tersebut sudah ada pada cabang ini.');}
         const item={id:itemId,store:assignedStore,eventId,name,unit,stock:Number(existing?.stock||0),min:minStock,price:Number(existing?.price||0),note:existing?.note||'',updatedAt:new Date().toISOString()};
         const button=event.submitter;setButtonBusy(button,true,'Menyimpan…');
-        try{const {error}=await db.from('inventory').upsert(inventoryToRow(item));if(error)throw error;closeModal('inventoryModal');await loadCloudData(true);toast(existing?'Bahan, satuan, dan stok minimum berhasil diperbarui.':eventMode?'Bahan event beserta satuannya berhasil ditambahkan.':'Bahan toko beserta satuannya berhasil ditambahkan dan akan tampil setiap hari.');}catch(error){showSyncError(error);}finally{setButtonBusy(button,false);}
+        try{const result=await durableWrite({kind:'upsert',table:'inventory',rows:[inventoryToRow(item)],label:'Bahan'});closeModal('inventoryModal');if(!result.queued)await settleAfterWrite();toast(result.queued?'Data bahan tersimpan aman di perangkat dan akan disinkronkan otomatis.':(existing?'Bahan, satuan, dan stok minimum berhasil diperbarui.':eventMode?'Bahan event beserta satuannya berhasil ditambahkan.':'Bahan toko beserta satuannya berhasil ditambahkan dan akan tampil setiap hari.'));}catch(error){showSyncError(error);}finally{setButtonBusy(button,false);}
       }
 
       function openEventModal(id=null){if(!isAdmin())return;el('eventForm').reset();clearFormWarnings(el('eventForm'));populateStoreSelect(el('eventStore'),false);el('eventId').value='';const today=todayISO();el('eventDate').value=today;el('eventEndDate').value=today;el('eventModalTitle').textContent='Tambah Event';if(id){const item=state.events.find(e=>e.id===id);if(!item)return;el('eventId').value=item.id;el('eventName').value=item.name;el('eventStore').value=item.store||'';el('eventDate').value=item.eventDate;el('eventEndDate').value=item.endDate;el('eventLocation').value=item.location;el('eventOrganizer').value=item.organizer;el('eventNote').value=item.note||'';el('eventModalTitle').textContent='Edit Event';}openModal('eventModal');focusFieldIfDesktop(el('eventName'));}
-      async function saveEvent(event){event.preventDefault();if(!isAdmin())return;const validation=validateFormFields(el('eventForm'),{message:'Lengkapi seluruh data wajib event, termasuk toko/brand, sebelum menyimpan.'});if(!validation.valid)return;const existing=state.events.find(e=>e.id===el('eventId').value);const item={id:el('eventId').value||uid(),name:el('eventName').value.trim(),store:el('eventStore').value,eventDate:el('eventDate').value,endDate:el('eventEndDate').value,location:el('eventLocation').value.trim(),organizer:el('eventOrganizer').value.trim(),note:el('eventNote').value.trim(),createdAt:existing?.createdAt||new Date().toISOString()};if(existing&&existing.store&&existing.store!==item.store&&state.inventory.some(material=>material.eventId===existing.id)){markFieldWarning(el('eventStore'),'Toko event tidak dapat diganti selama daftar bahan event masih terisi.');return toast('Hapus bahan event terlebih dahulu sebelum mengganti toko sumber.');}if(item.endDate<item.eventDate){markFieldWarning(el('eventEndDate'),'Tanggal selesai tidak boleh lebih awal dari tanggal mulai.');return toast('Periksa kembali rentang tanggal event.');}const button=event.submitter;setButtonBusy(button,true,'Menyimpan…');try{const {error}=await db.from('events').upsert(eventToRow(item));if(error)throw error;closeModal('eventModal');await loadCloudData(true);toast(existing?'Event berhasil diperbarui.':'Event berhasil ditambahkan.');}catch(error){showSyncError(error);}finally{setButtonBusy(button,false);}}
+      async function saveEvent(event){event.preventDefault();if(!isAdmin())return;const validation=validateFormFields(el('eventForm'),{message:'Lengkapi seluruh data wajib event, termasuk toko/brand, sebelum menyimpan.'});if(!validation.valid)return;const existing=state.events.find(e=>e.id===el('eventId').value);const item={id:el('eventId').value||uid(),name:el('eventName').value.trim(),store:el('eventStore').value,eventDate:el('eventDate').value,endDate:el('eventEndDate').value,location:el('eventLocation').value.trim(),organizer:el('eventOrganizer').value.trim(),note:el('eventNote').value.trim(),createdAt:existing?.createdAt||new Date().toISOString()};if(existing&&existing.store&&existing.store!==item.store&&state.inventory.some(material=>material.eventId===existing.id)){markFieldWarning(el('eventStore'),'Toko event tidak dapat diganti selama daftar bahan event masih terisi.');return toast('Hapus bahan event terlebih dahulu sebelum mengganti toko sumber.');}if(item.endDate<item.eventDate){markFieldWarning(el('eventEndDate'),'Tanggal selesai tidak boleh lebih awal dari tanggal mulai.');return toast('Periksa kembali rentang tanggal event.');}const button=event.submitter;setButtonBusy(button,true,'Menyimpan…');try{const result=await durableWrite({kind:'upsert',table:'events',rows:[eventToRow(item)],label:'Event'});closeModal('eventModal');if(!result.queued)await settleAfterWrite();toast(result.queued?'Event tersimpan aman di perangkat dan akan disinkronkan otomatis.':(existing?'Event berhasil diperbarui.':'Event berhasil ditambahkan.'));}catch(error){showSyncError(error);}finally{setButtonBusy(button,false);}}
 
       function transactionToRow(item){return{id:item.id,transaction_date:item.date,store:item.store,event_id:item.eventId||null,type:item.type,payment_method:normalizePaymentMethod(item.paymentMethod),category:item.category,amount:item.amount,note:item.note||'',created_at:item.createdAt||new Date().toISOString()};}
       function inventoryToRow(item){return{id:item.id,store:item.store,event_id:item.eventId||null,name:item.name,unit:item.unit,stock:item.stock,min_stock:item.min,price:item.price,note:item.note||'',updated_at:item.updatedAt||new Date().toISOString()};}
@@ -5495,14 +5692,23 @@ NOTIFY pgrst, 'reload schema';`
         }
       }
 
+      async function syncNowData(){
+        if(dataLoading){toast('Sinkronisasi data sedang berjalan.');return;}
+        if(!navigator.onLine){await restoreLocalSnapshot({render:!hasLocalOperationalData()});toast('Perangkat sedang offline. Data tertunda tetap aman di perangkat ini.');return;}
+        await flushPendingOperations({notify:true});
+        const success=await loadCloudData(false);
+        if(success)toast('Data cloud dan data tertunda sudah disinkronkan.');
+      }
       async function manualRefreshData(){
         if(dataLoading){toast('Sinkronisasi data sedang berjalan.');return;}
         const button=el('manualRefreshBtn');
         button.disabled=true;
         button.setAttribute('aria-busy','true');
         try{
+          if(navigator.onLine)await flushPendingOperations();
           const success=await loadCloudData(false);
           if(success)toast('Data berhasil diperbarui.');
+          else if(!navigator.onLine)toast('Offline. Data lokal terakhir tetap tersedia.');
         }finally{
           button.disabled=false;
           button.removeAttribute('aria-busy');
@@ -5510,6 +5716,18 @@ NOTIFY pgrst, 'reload schema';`
       }
 
       const CLOUD_PAGE_SIZE = 1000;
+
+      const CLOUD_SELECT = {
+        events:'id,name,event_date,end_date,location,organizer,note,created_at,store,archived_at,archived_by',
+        inventory:'id,store,event_id,name,unit,stock,min_stock,price,note,updated_at',
+        event_material_catalog:'id,store,name,unit,min_stock,note,updated_at',
+        transactions:'id,transaction_date,store,event_id,type,payment_method,category,amount,note,created_at',
+        inventory_daily:'id,inventory_id,store,event_id,record_date,name,unit,opening_stock,stock_in,closing_stock,used_stock,note,is_closed,closed_at,closed_by,created_by,updated_at',
+        employees:'id,store,name,position,daily_wage,shift_start,is_active,note,created_at,updated_at',
+        payroll_daily:'id,employee_id,work_date,store,employee_name,position,daily_wage,scheduled_time,attendance_time,late_status,note,created_at,updated_at,attribute_status,late_deduction,attribute_deduction,net_wage,extra_wage,extra_wage_note',
+        payroll_advances:'id,employee_id,advance_date,payroll_month,store,employee_name,amount,salary_limit,salary_period,note,created_at,updated_at',
+        payroll_monthly_payments:'id,employee_id,payroll_month,store,employee_name,payment_status,paid_at,note,created_at,updated_at'
+      };
 
       async function fetchAllCloudRows(buildQuery,pageSize=CLOUD_PAGE_SIZE){
         const rows=[];
@@ -5524,7 +5742,8 @@ NOTIFY pgrst, 'reload schema';`
       }
 
       async function loadCloudData(silent=false,preservedUiState=null){
-        if(!db||dataLoading||!navigator.onLine){if(!navigator.onLine)setCloudStatus('error','Offline');return false;}
+        if(!db||dataLoading)return false;
+        if(!navigator.onLine){setCloudStatus('error','Offline');await restoreLocalSnapshot({render:!hasLocalOperationalData()});return false;}
         const syncUiState=preservedUiState||captureSyncUiState();
         dataLoading=true;setCloudStatus('syncing','Menyinkronkan');
         try{
@@ -5538,29 +5757,29 @@ NOTIFY pgrst, 'reload schema';`
           const stores=accessibleStores();
 
           const eventPromise=isAdmin()||isOwner()
-            ? fetchAllCloudRows(()=>db.from('events').select('*').is('deleted_at',null).order('event_date',{ascending:false}).order('id',{ascending:true}))
+            ? fetchAllCloudRows(()=>db.from('events').select(CLOUD_SELECT.events).is('deleted_at',null).order('event_date',{ascending:false}).order('id',{ascending:true}))
             : isEventEmployee()&&assignedEventId
-              ? fetchAllCloudRows(()=>db.from('events').select('*').eq('id',assignedEventId).is('deleted_at',null).order('event_date',{ascending:false}).order('id',{ascending:true}))
+              ? fetchAllCloudRows(()=>db.from('events').select(CLOUD_SELECT.events).eq('id',assignedEventId).is('deleted_at',null).order('event_date',{ascending:false}).order('id',{ascending:true}))
               : Promise.resolve({data:[],error:null});
 
           const inventoryPromise=isAdmin()||isOwner()
-            ? fetchAllCloudRows(()=>db.from('inventory').select('*').is('deleted_at',null).order('store',{ascending:true}).order('name',{ascending:true}).order('id',{ascending:true}))
+            ? fetchAllCloudRows(()=>db.from('inventory').select(CLOUD_SELECT.inventory).is('deleted_at',null).order('store',{ascending:true}).order('name',{ascending:true}).order('id',{ascending:true}))
             : isEventEmployee()&&assignedEventId
-              ? fetchAllCloudRows(()=>db.from('inventory').select('*').eq('event_id',assignedEventId).is('deleted_at',null).order('name',{ascending:true}).order('id',{ascending:true}))
+              ? fetchAllCloudRows(()=>db.from('inventory').select(CLOUD_SELECT.inventory).eq('event_id',assignedEventId).is('deleted_at',null).order('name',{ascending:true}).order('id',{ascending:true}))
               : stores.length
-                ? fetchAllCloudRows(()=>db.from('inventory').select('*').in('store',stores).is('event_id',null).is('deleted_at',null).order('store',{ascending:true}).order('name',{ascending:true}).order('id',{ascending:true}))
+                ? fetchAllCloudRows(()=>db.from('inventory').select(CLOUD_SELECT.inventory).in('store',stores).is('event_id',null).is('deleted_at',null).order('store',{ascending:true}).order('name',{ascending:true}).order('id',{ascending:true}))
                 : Promise.resolve({data:[],error:null});
 
           const eventMaterialCatalogPromise=isAdmin()||isOwner()
-            ? fetchAllCloudRows(()=>db.from('event_material_catalog').select('*').is('deleted_at',null).order('store',{ascending:true}).order('name',{ascending:true}).order('id',{ascending:true}))
+            ? fetchAllCloudRows(()=>db.from('event_material_catalog').select(CLOUD_SELECT.event_material_catalog).is('deleted_at',null).order('store',{ascending:true}).order('name',{ascending:true}).order('id',{ascending:true}))
             : Promise.resolve({data:[],error:null});
 
           const transactionPromise=isAdmin()||isOwner()
-            ? fetchAllCloudRows(()=>db.from('transactions').select('*').is('deleted_at',null).order('transaction_date',{ascending:false}).order('created_at',{ascending:false}).order('id',{ascending:true}))
+            ? fetchAllCloudRows(()=>db.from('transactions').select(CLOUD_SELECT.transactions).is('deleted_at',null).order('transaction_date',{ascending:false}).order('created_at',{ascending:false}).order('id',{ascending:true}))
             : Promise.resolve({data:[],error:null});
 
           const dailyQueryFactory=()=>{
-            let query=db.from('inventory_daily').select('*').is('deleted_at',null).order('record_date',{ascending:false}).order('store',{ascending:true}).order('name',{ascending:true}).order('id',{ascending:true});
+            let query=db.from('inventory_daily').select(CLOUD_SELECT.inventory_daily).is('deleted_at',null).order('record_date',{ascending:false}).order('store',{ascending:true}).order('name',{ascending:true}).order('id',{ascending:true});
             if(isEventEmployee()&&assignedEventId)query=query.eq('event_id',assignedEventId);
             else if(!isAdmin()&&!isOwner()&&stores.length)query=query.in('store',stores).is('event_id',null);
             return query;
@@ -5570,19 +5789,19 @@ NOTIFY pgrst, 'reload schema';`
             : Promise.resolve({data:[],error:null});
 
           const employeesPromise=stores.length||isAdmin()
-            ? fetchAllCloudRows(()=>db.from('employees').select('*').in('store',stores.length?stores:STORES).is('deleted_at',null).order('store',{ascending:true}).order('name',{ascending:true}).order('id',{ascending:true}))
+            ? fetchAllCloudRows(()=>db.from('employees').select(CLOUD_SELECT.employees).in('store',stores.length?stores:STORES).is('deleted_at',null).order('store',{ascending:true}).order('name',{ascending:true}).order('id',{ascending:true}))
             : Promise.resolve({data:[],error:null});
 
           const payrollDailyPromise=stores.length||isAdmin()
-            ? fetchAllCloudRows(()=>db.from('payroll_daily').select('*').in('store',stores.length?stores:STORES).is('deleted_at',null).order('work_date',{ascending:false}).order('employee_name',{ascending:true}).order('id',{ascending:true}))
+            ? fetchAllCloudRows(()=>db.from('payroll_daily').select(CLOUD_SELECT.payroll_daily).in('store',stores.length?stores:STORES).is('deleted_at',null).order('work_date',{ascending:false}).order('employee_name',{ascending:true}).order('id',{ascending:true}))
             : Promise.resolve({data:[],error:null});
 
           const payrollAdvancePromise=stores.length||isAdmin()
-            ? fetchAllCloudRows(()=>db.from('payroll_advances').select('*').in('store',stores.length?stores:STORES).is('deleted_at',null).order('advance_date',{ascending:false}).order('employee_name',{ascending:true}).order('id',{ascending:true}))
+            ? fetchAllCloudRows(()=>db.from('payroll_advances').select(CLOUD_SELECT.payroll_advances).in('store',stores.length?stores:STORES).is('deleted_at',null).order('advance_date',{ascending:false}).order('employee_name',{ascending:true}).order('id',{ascending:true}))
             : Promise.resolve({data:[],error:null});
 
           const payrollMonthlyPromise=stores.length||isAdmin()
-            ? fetchAllCloudRows(()=>db.from('payroll_monthly_payments').select('*').in('store',stores.length?stores:STORES).is('deleted_at',null).order('payroll_month',{ascending:false}).order('employee_name',{ascending:true}).order('id',{ascending:true}))
+            ? fetchAllCloudRows(()=>db.from('payroll_monthly_payments').select(CLOUD_SELECT.payroll_monthly_payments).in('store',stores.length?stores:STORES).is('deleted_at',null).order('payroll_month',{ascending:false}).order('employee_name',{ascending:true}).order('id',{ascending:true}))
             : Promise.resolve({data:[],error:null});
 
           const profilesPromise=isAdmin()
@@ -5623,13 +5842,180 @@ NOTIFY pgrst, 'reload schema';`
           },liveUiState);
           restoreSyncUiState(liveUiState,{scroll:false});
           setCloudStatus('online','Tersinkron');
+          scheduleLocalSnapshotSave(0);
+          await updatePendingSyncUI();
           return true;
-        }catch(error){showSyncError(error);restoreSyncUiState(syncUiState,{scroll:false});return false;}finally{dataLoading=false;}
+        }catch(error){
+          const restored=!hasLocalOperationalData()?await restoreLocalSnapshot({render:true}):false;
+          if(!restored)showSyncError(error);
+          restoreSyncUiState(syncUiState,{scroll:false});return false;
+        }finally{dataLoading=false;}
       }
 
-      function startCloudRefresh(){stopCloudRefresh();refreshTimer=setInterval(()=>loadCloudData(true),30000);try{cloudChannel=db.channel('rekap-toko-cloud-v8').on('postgres_changes',{event:'*',schema:'public',table:'transactions'},scheduleRealtimeRefresh).on('postgres_changes',{event:'*',schema:'public',table:'inventory'},scheduleRealtimeRefresh).on('postgres_changes',{event:'*',schema:'public',table:'event_material_catalog'},scheduleRealtimeRefresh).on('postgres_changes',{event:'*',schema:'public',table:'inventory_daily'},scheduleRealtimeRefresh).on('postgres_changes',{event:'*',schema:'public',table:'events'},scheduleRealtimeRefresh).on('postgres_changes',{event:'*',schema:'public',table:'employees'},scheduleRealtimeRefresh).on('postgres_changes',{event:'*',schema:'public',table:'payroll_daily'},scheduleRealtimeRefresh).on('postgres_changes',{event:'*',schema:'public',table:'payroll_advances'},scheduleRealtimeRefresh).on('postgres_changes',{event:'*',schema:'public',table:'payroll_monthly_payments'},scheduleRealtimeRefresh).on('postgres_changes',{event:'*',schema:'public',table:'profiles'},scheduleRealtimeRefresh).subscribe();}catch(error){console.warn('Realtime tidak aktif, polling tetap berjalan.',error);}}
-      function scheduleRealtimeRefresh(){clearTimeout(realtimeDebounce);realtimeDebounce=setTimeout(async()=>{if(currentSession)await loadCurrentProfile(currentSession.user);applyRoleUI();loadCloudData(true);},400);}
-      function stopCloudRefresh(){clearInterval(refreshTimer);clearTimeout(realtimeDebounce);refreshTimer=null;if(cloudChannel&&db)db.removeChannel(cloudChannel);cloudChannel=null;}
+      function realtimeConfigFor(table){
+        const configs={
+          transactions:{stateKey:'transactions',map:rowToTransaction,allow:item=>item.eventId?canAccessEvent(item.eventId):canAccessStore(item.store)},
+          inventory:{stateKey:'inventory',map:rowToInventory,allow:item=>canAccessInventoryRecord(item)},
+          event_material_catalog:{stateKey:'eventMaterialCatalog',map:rowToEventMaterialCatalog,allow:()=>isAdmin()||isOwner()},
+          inventory_daily:{stateKey:'inventoryDaily',map:rowToDailyRecord,allow:item=>canAccessInventoryRecord(item)},
+          events:{stateKey:'events',map:rowToEvent,allow:item=>canAccessEvent(item.id)},
+          employees:{stateKey:'employees',map:rowToEmployee,allow:item=>canAccessStore(item.store)},
+          payroll_daily:{stateKey:'payrollDaily',map:rowToPayrollDaily,allow:item=>canAccessStore(item.store)},
+          payroll_advances:{stateKey:'payrollAdvances',map:rowToPayrollAdvance,allow:item=>canAccessStore(item.store)},
+          payroll_monthly_payments:{stateKey:'payrollMonthlyPayments',map:rowToPayrollMonthlyPayment,allow:item=>canAccessStore(item.store)}
+        };
+        return configs[table]||null;
+      }
+      function upsertLocalState(stateKey,item,key='id'){
+        if(!item)return;
+        const list=state[stateKey]||(state[stateKey]=[]);
+        const value=item[key];
+        const index=list.findIndex(row=>row?.[key]===value);
+        if(index>=0)list[index]=item;else list.unshift(item);
+      }
+      function removeLocalState(stateKey,id,key='id'){
+        const list=state[stateKey]||[];
+        const index=list.findIndex(row=>row?.[key]===id);
+        if(index>=0)list.splice(index,1);
+      }
+      function deletedItemFromRealtime(table,row){
+        const labels={
+          transactions:[row.category||'Transaksi',row.note||''],
+          inventory:[row.name||'Bahan',row.note||''],
+          inventory_daily:[row.name||'Rekapan Bahan',row.note||''],
+          events:[row.name||'Event',row.note||''],
+          event_material_catalog:[row.name||'Master Bahan Event',row.note||''],
+          employees:[row.name||'Karyawan',row.position||''],
+          payroll_daily:[row.employee_name||'Gaji Harian',row.note||''],
+          payroll_advances:[row.employee_name||'Kasbon',row.note||''],
+          payroll_monthly_payments:[row.employee_name||'Gaji Bulanan',row.note||'']
+        };
+        const [label,detail]=labels[table]||[row.id||table,''];
+        return{table_name:table,id:row.id,deleted_at:row.deleted_at,deleted_by:row.deleted_by||null,store:row.store||'',label,detail};
+      }
+      function syncDeletedItemFromRealtime(table,row){
+        if(!isAdmin()||!row?.id)return;
+        const key=`${table}:${row.id}`;
+        const index=(state.deletedItems||[]).findIndex(item=>`${item.table_name}:${item.id}`===key);
+        if(row.deleted_at){
+          const item=deletedItemFromRealtime(table,row);
+          if(index>=0)state.deletedItems[index]=item;else state.deletedItems.unshift(item);
+          state.deletedItems.sort((a,b)=>String(b.deleted_at||'').localeCompare(String(a.deleted_at||'')));
+        }else if(index>=0)state.deletedItems.splice(index,1);
+      }
+      function scheduleRealtimeRender(){
+        clearTimeout(realtimeDebounce);
+        realtimeDebounce=setTimeout(()=>{
+          if(!currentSession)return;
+          const uiState=captureSyncUiState();
+          renderWithoutViewportJump(()=>{
+            refreshEventSelects();
+            renderAll();
+            const syncText=el('lastSyncText');
+            if(syncText)syncText.textContent=new Intl.DateTimeFormat('id-ID',{timeZone:'Asia/Jakarta',hour:'2-digit',minute:'2-digit',second:'2-digit'}).format(new Date());
+          },uiState);
+          setCloudStatus('online','Real Time');
+          scheduleLocalSnapshotSave();
+        },120);
+      }
+      function scheduleProfileScopeReload(){
+        clearTimeout(realtimeProfileReloadTimer);
+        realtimeProfileReloadTimer=setTimeout(async()=>{
+          if(!currentSession||dataLoading)return;
+          try{await loadCloudData(true);}catch(error){console.warn('Gagal menyegarkan akses akun.',error);}
+        },350);
+      }
+      function handleRealtimeChange(table,payload){
+        try{
+          const eventType=payload?.eventType||payload?.event||'';
+          const row=(payload?.new&&Object.keys(payload.new).length)?payload.new:(payload?.old||{});
+          if(table==='audit_logs'){
+            if(!isAdmin()||eventType==='DELETE'||!row?.id)return;
+            upsertLocalState('auditLogs',row);
+            state.auditLogs=(state.auditLogs||[]).sort((a,b)=>String(b.occurred_at||'').localeCompare(String(a.occurred_at||''))).slice(0,200);
+            scheduleRealtimeRender();
+            return;
+          }
+          if(table==='profiles'){
+            const userId=row?.user_id;
+            if(!userId)return;
+            if(eventType==='DELETE')removeLocalState('profiles',userId,'user_id');
+            else if(isAdmin())upsertLocalState('profiles',row,'user_id');
+            if(currentSession?.user?.id===userId){
+              const before=JSON.stringify([state.profile?.role,state.profile?.branch,state.profile?.branches,state.profile?.event_id]);
+              state.profile=row;
+              const after=JSON.stringify([row.role,row.branch,row.branches,row.event_id]);
+              applyRoleUI();
+              if(before!==after)scheduleProfileScopeReload();else scheduleRealtimeRender();
+            }else scheduleRealtimeRender();
+            return;
+          }
+          const config=realtimeConfigFor(table);
+          if(!config||!row?.id)return;
+          const deleted=eventType==='DELETE'||!!row.deleted_at;
+          if(deleted){
+            removeLocalState(config.stateKey,row.id);
+            if(row.deleted_at)syncDeletedItemFromRealtime(table,row);
+          }else{
+            const item=config.map(row);
+            if(config.allow(item,row))upsertLocalState(config.stateKey,item);else removeLocalState(config.stateKey,row.id);
+            syncDeletedItemFromRealtime(table,row);
+          }
+          state.updatedAt=new Date().toISOString();
+          scheduleRealtimeRender();
+        }catch(error){console.warn(`Realtime ${table} gagal diproses`,error);}
+      }
+      async function settleAfterWrite(preservedUiState=null){
+        if(realtimeReady){
+          await new Promise(resolve=>setTimeout(resolve,280));
+          return true;
+        }
+        return loadCloudData(true,preservedUiState);
+      }
+      function startCloudRefresh(){
+        stopCloudRefresh();
+        realtimeReady=false;
+        realtimeReconnectNeedsSync=false;
+        try{
+          cloudChannel=db.channel('rekap-toko-cloud-v10')
+            .on('postgres_changes',{event:'*',schema:'public',table:'transactions'},payload=>handleRealtimeChange('transactions',payload))
+            .on('postgres_changes',{event:'*',schema:'public',table:'inventory'},payload=>handleRealtimeChange('inventory',payload))
+            .on('postgres_changes',{event:'*',schema:'public',table:'event_material_catalog'},payload=>handleRealtimeChange('event_material_catalog',payload))
+            .on('postgres_changes',{event:'*',schema:'public',table:'inventory_daily'},payload=>handleRealtimeChange('inventory_daily',payload))
+            .on('postgres_changes',{event:'*',schema:'public',table:'events'},payload=>handleRealtimeChange('events',payload))
+            .on('postgres_changes',{event:'*',schema:'public',table:'employees'},payload=>handleRealtimeChange('employees',payload))
+            .on('postgres_changes',{event:'*',schema:'public',table:'payroll_daily'},payload=>handleRealtimeChange('payroll_daily',payload))
+            .on('postgres_changes',{event:'*',schema:'public',table:'payroll_advances'},payload=>handleRealtimeChange('payroll_advances',payload))
+            .on('postgres_changes',{event:'*',schema:'public',table:'payroll_monthly_payments'},payload=>handleRealtimeChange('payroll_monthly_payments',payload))
+            .on('postgres_changes',{event:'*',schema:'public',table:'profiles'},payload=>handleRealtimeChange('profiles',payload))
+            .subscribe(status=>{
+              if(status==='SUBSCRIBED'){
+                const needsSync=realtimeReconnectNeedsSync;
+                realtimeReady=true;
+                realtimeReconnectNeedsSync=false;
+                setCloudStatus('online','Real Time');
+                flushPendingOperations().catch(()=>{});
+                if(needsSync&&currentSession&&!dataLoading)loadCloudData(true);
+              }else if(['CHANNEL_ERROR','TIMED_OUT','CLOSED'].includes(status)){
+                if(realtimeReady)realtimeReconnectNeedsSync=true;
+                realtimeReady=false;
+              }
+            });
+        }catch(error){
+          realtimeReady=false;
+          console.warn('Realtime tidak aktif. Gunakan tombol Refresh untuk sinkronisasi manual.',error);
+        }
+      }
+      function stopCloudRefresh(){
+        clearInterval(refreshTimer);
+        clearTimeout(realtimeDebounce);
+        clearTimeout(realtimeProfileReloadTimer);
+        refreshTimer=null;
+        realtimeReady=false;
+        realtimeReconnectNeedsSync=false;
+        if(cloudChannel&&db)db.removeChannel(cloudChannel);
+        cloudChannel=null;
+      }
 
       function renderAll(){renderDashboard();renderTransactions();renderInventory();renderMaterials();renderEvents();renderPayroll();renderProfiles();renderSafetyPanels();}
       function filteredByGlobal(items){const storeItems=items.filter(item=>!item.eventId&&canAccessStore(item.store));const activeStore=isEmployee()?employeeBranch():selectedGlobalStore;return activeStore==='all'||!activeStore?storeItems:storeItems.filter(item=>item.store===activeStore);}
@@ -6192,7 +6578,7 @@ NOTIFY pgrst, 'reload schema';`
         const employee=employeeById(el('payrollAdvanceEmployeeSelect').value),advanceDate=el('payrollAdvanceDate').value,id=el('payrollAdvanceId').value||uid(),amount=Number(el('payrollAdvanceAmount').value);if(!employee){markFieldWarning(el('payrollAdvanceEmployeeSelect'),'Karyawan tidak ditemukan.');setPayrollAdvanceFormAlert('Pilih kembali nama karyawan.');return;}if(advanceDate>todayISO()){markFieldWarning(el('payrollAdvanceDate'),'Tanggal kasbon tidak boleh di masa mendatang.');setPayrollAdvanceFormAlert('Pilih hari ini atau tanggal sebelumnya.');return;}
         const info=advanceLimitInfo(employee.id,advanceDate,el('payrollAdvanceId').value||'');if(info.salaryLimit<=0){markFieldWarning(el('payrollAdvanceEmployeeSelect'),'Gaji bersih terakhir belum tersedia.');setPayrollAdvanceFormAlert('Isi rekapan gaji harian terlebih dahulu sampai tersedia total gaji bersih terakhir.');return;}if(!Number.isFinite(amount)||amount<=0){markFieldWarning(el('payrollAdvanceAmount'),'Nominal harus lebih dari Rp0.');setPayrollAdvanceFormAlert('Masukkan nominal kasbon yang valid.');return;}if(amount>info.available){markFieldWarning(el('payrollAdvanceAmount'),`Maksimal ${rawMoney(info.available)}.`);setPayrollAdvanceFormAlert(`Kasbon melebihi batas. Maksimal yang masih dapat diinput ${rawMoney(info.available)}.`);return;}
         const item={id,employeeId:employee.id,advanceDate,payrollMonth:info.payrollMonth,store:employee.store,employeeName:employee.name,amount,salaryLimit:info.salaryLimit,salaryPeriod:info.salaryPeriod,note:el('payrollAdvanceNote').value.trim()},button=event.submitter||el('savePayrollAdvanceBtn');setButtonBusy(button,true,'Menyimpan…');
-        try{const {error}=await db.from('payroll_advances').upsert(payrollAdvanceToRow(item),{onConflict:'id'});if(error)throw error;closeModal('payrollAdvanceModal');el('payrollAdvanceMonthFilter').value=advanceDate.slice(0,7);switchPayrollTab('advances');await loadCloudData(true);toast(`Kasbon ${employee.name} sebesar ${money(amount)} berhasil disimpan.`);}catch(error){showSyncError(error);}finally{setButtonBusy(button,false);}
+        try{const result=await durableWrite({kind:'upsert',table:'payroll_advances',rows:[payrollAdvanceToRow(item)],options:{onConflict:'id'},label:'Kasbon'});closeModal('payrollAdvanceModal');el('payrollAdvanceMonthFilter').value=advanceDate.slice(0,7);switchPayrollTab('advances');if(!result.queued)await settleAfterWrite();toast(result.queued?`Kasbon ${employee.name} tersimpan aman di perangkat dan akan disinkronkan otomatis.`:`Kasbon ${employee.name} sebesar ${money(amount)} berhasil disimpan.`);}catch(error){showSyncError(error);}finally{setButtonBusy(button,false);}
       }
       function openEmployeeModal(item=null){
         if(!isAdmin())return;
@@ -6217,7 +6603,7 @@ NOTIFY pgrst, 'reload schema';`
         const duplicate=state.employees.some(employee=>employee.id!==item.id&&employee.store===item.store&&employee.name.trim().toLowerCase()===item.name.toLowerCase());
         if(duplicate){markFieldWarning(el('employeeName'),'Nama karyawan tersebut sudah terdaftar pada toko ini.');setEmployeeFormAlert('Nama karyawan yang sama sudah tersedia pada toko yang dipilih.');return;}
         const button=event.submitter||el('saveEmployeeBtn');setButtonBusy(button,true,'Menyimpan...');
-        try{const {error}=await db.from('employees').upsert(employeeToRow(item),{onConflict:'id'});if(error)throw error;closeModal('employeeModal');await loadCloudData(true);toast('Data karyawan berhasil disimpan.');}catch(error){showSyncError(error);}finally{setButtonBusy(button,false);}
+        try{const result=await durableWrite({kind:'upsert',table:'employees',rows:[employeeToRow(item)],options:{onConflict:'id'},label:'Karyawan'});closeModal('employeeModal');if(!result.queued)await settleAfterWrite();toast(result.queued?'Data karyawan tersimpan aman di perangkat dan akan disinkronkan otomatis.':'Data karyawan berhasil disimpan.');}catch(error){showSyncError(error);}finally{setButtonBusy(button,false);}
       }
       function refreshPayrollEmployeeOptions(selectedId=''){
         const select=el('payrollEmployeeSelect');if(!select)return;
@@ -6279,19 +6665,19 @@ NOTIFY pgrst, 'reload schema';`
         const duplicate=state.payrollDaily.some(record=>record.id!==item.id&&record.employeeId===item.employeeId&&record.workDate===item.workDate);
         if(duplicate){markFieldWarning(el('payrollEmployeeSelect'),'Karyawan ini sudah memiliki rekapan pada tanggal tersebut.');setPayrollDailyFormAlert('Satu karyawan hanya dapat memiliki satu rekapan gaji dalam satu tanggal.');return;}
         const button=event.submitter||el('savePayrollDailyBtn');setButtonBusy(button,true,'Menyimpan...');
-        try{const {error}=await db.from('payroll_daily').upsert(payrollDailyToRow(item),{onConflict:'id'});if(error)throw error;closeModal('payrollDailyModal');changePayrollDate(item.workDate);switchPayrollTab('daily');await loadCloudData(true);toast(`Rekapan tersimpan. Gaji bersih ${money(item.netWage)}.`);}catch(error){showSyncError(error);}finally{setButtonBusy(button,false);}
+        try{const result=await durableWrite({kind:'upsert',table:'payroll_daily',rows:[payrollDailyToRow(item)],options:{onConflict:'id'},label:'Gaji harian'});closeModal('payrollDailyModal');changePayrollDate(item.workDate);switchPayrollTab('daily');if(!result.queued)await settleAfterWrite();toast(result.queued?'Rekapan gaji tersimpan aman di perangkat dan akan disinkronkan otomatis.':`Rekapan tersimpan. Gaji bersih ${money(item.netWage)}.`);}catch(error){showSyncError(error);}finally{setButtonBusy(button,false);}
       }
       async function handleEmployeeTableClick(event){
         const edit=event.target.closest('[data-employee-edit]');if(edit){openEmployeeModal(employeeById(edit.dataset.employeeEdit));return;}
-        const del=event.target.closest('[data-employee-delete]');if(del){const employee=employeeById(del.dataset.employeeDelete);if(!employee||!confirm(`Pindahkan ${employee.name} ke Sampah? Riwayat gaji dan absensi tetap tersimpan.`))return;try{await softDeleteRow('employees',employee.id);await loadCloudData(true);toast('Data karyawan dipindahkan ke Sampah.');}catch(error){showSyncError(error);}}
+        const del=event.target.closest('[data-employee-delete]');if(del){const employee=employeeById(del.dataset.employeeDelete);if(!employee||!confirm(`Pindahkan ${employee.name} ke Sampah? Riwayat gaji dan absensi tetap tersimpan.`))return;try{await softDeleteRow('employees',employee.id);await settleAfterWrite();toast('Data karyawan dipindahkan ke Sampah.');}catch(error){showSyncError(error);}}
       }
       async function handlePayrollDailyTableClick(event){
         const edit=event.target.closest('[data-payroll-daily-edit]');if(edit){openPayrollDailyModal(state.payrollDaily.find(item=>item.id===edit.dataset.payrollDailyEdit));return;}
-        const del=event.target.closest('[data-payroll-daily-delete]');if(del&&confirm('Pindahkan rekapan gaji harian ini ke Sampah?')){try{await softDeleteRow('payroll_daily',del.dataset.payrollDailyDelete);await loadCloudData(true);toast('Rekapan gaji harian dipindahkan ke Sampah.');}catch(error){showSyncError(error);}}
+        const del=event.target.closest('[data-payroll-daily-delete]');if(del&&confirm('Pindahkan rekapan gaji harian ini ke Sampah?')){try{await softDeleteRow('payroll_daily',del.dataset.payrollDailyDelete);await settleAfterWrite();toast('Rekapan gaji harian dipindahkan ke Sampah.');}catch(error){showSyncError(error);}}
       }
       async function handlePayrollAdvanceTableClick(event){
         const edit=event.target.closest('[data-payroll-advance-edit]');if(edit){openPayrollAdvanceModal(state.payrollAdvances.find(item=>item.id===edit.dataset.payrollAdvanceEdit));return;}
-        const del=event.target.closest('[data-payroll-advance-delete]');if(del&&confirm('Pindahkan data kasbon ini ke Sampah?')){try{await softDeleteRow('payroll_advances',del.dataset.payrollAdvanceDelete);await loadCloudData(true);switchPayrollTab('advances');toast('Data kasbon dipindahkan ke Sampah.');}catch(error){showSyncError(error);}}
+        const del=event.target.closest('[data-payroll-advance-delete]');if(del&&confirm('Pindahkan data kasbon ini ke Sampah?')){try{await softDeleteRow('payroll_advances',del.dataset.payrollAdvanceDelete);await settleAfterWrite();switchPayrollTab('advances');toast('Data kasbon dipindahkan ke Sampah.');}catch(error){showSyncError(error);}}
       }
       async function handlePayrollMonthlyTableClick(event){
         const button=event.target.closest('[data-monthly-payment-toggle]');if(!button||!isAdmin())return;
@@ -6301,7 +6687,7 @@ NOTIFY pgrst, 'reload schema';`
         const nextStatus=row.paymentStatus==='paid'?'unpaid':'paid';
         const item={id:existing?.id||uid(),employeeId:row.employeeId,payrollMonth:monthDate,store:row.store,employeeName:row.employeeName,paymentStatus:nextStatus,paidAt:nextStatus==='paid'?new Date().toISOString():null,note:existing?.note||''};
         setButtonBusy(button,true,nextStatus==='paid'?'Menyimpan…':'Membatalkan…');
-        try{const {error}=await db.from('payroll_monthly_payments').upsert(payrollMonthlyPaymentToRow(item),{onConflict:'id'});if(error)throw error;await loadCloudData(true);switchPayrollTab('monthly');toast(`Status pembayaran ${row.employeeName}: ${paymentStatusLabel(nextStatus)}.`);}catch(error){showSyncError(error);}finally{setButtonBusy(button,false);}
+        try{const result=await durableWrite({kind:'upsert',table:'payroll_monthly_payments',rows:[payrollMonthlyPaymentToRow(item)],options:{onConflict:'id'},label:'Status gaji bulanan'});if(!result.queued)await settleAfterWrite();switchPayrollTab('monthly');toast(result.queued?'Status pembayaran tersimpan aman di perangkat dan akan disinkronkan otomatis.':`Status pembayaran ${row.employeeName}: ${paymentStatusLabel(nextStatus)}.`);}catch(error){showSyncError(error);}finally{setButtonBusy(button,false);}
       }
       function exportPayrollCSV(){
         if(activePayrollTab==='employees'){
@@ -6385,7 +6771,7 @@ NOTIFY pgrst, 'reload schema';`
         if(!button||!isAdmin())return;
         const table=button.dataset.restoreTable,id=button.dataset.restoreSoftDelete;
         if(!confirm(`Pulihkan data ${SAFETY_TABLE_LABELS[table]||table} ini ke daftar aktif?`))return;
-        try{setButtonBusy(button,true,'Memulihkan...');await restoreSoftDeleted(table,id);await loadCloudData(true);toast('Data berhasil dipulihkan dari Sampah.');}catch(error){showSyncError(error);}finally{setButtonBusy(button,false);}
+        try{setButtonBusy(button,true,'Memulihkan...');await restoreSoftDeleted(table,id);await settleAfterWrite();toast('Data berhasil dipulihkan dari Sampah.');}catch(error){showSyncError(error);}finally{setButtonBusy(button,false);}
       }
 
       async function handleTransactionTableClick(event){
@@ -6393,7 +6779,7 @@ NOTIFY pgrst, 'reload schema';`
         const edit=event.target.closest('[data-edit-transaction]');
         const remove=event.target.closest('[data-delete-transaction]');
         if(edit){const item=state.transactions.find(row=>row.id===edit.dataset.editTransaction);openTransactionModal(edit.dataset.editTransaction,item?.eventId?'event':'store',item?.eventId||null);}
-        if(remove&&confirm('Pindahkan transaksi ini ke Sampah? Data dapat dipulihkan oleh Admin.')){try{await softDeleteRow('transactions',remove.dataset.deleteTransaction);await loadCloudData(true);toast('Transaksi dipindahkan ke Sampah.');}catch(error){showSyncError(error);}}
+        if(remove&&confirm('Pindahkan transaksi ini ke Sampah? Data dapat dipulihkan oleh Admin.')){try{await softDeleteRow('transactions',remove.dataset.deleteTransaction);await settleAfterWrite();toast('Transaksi dipindahkan ke Sampah.');}catch(error){showSyncError(error);}}
       }
       async function handleInventoryTableClick(event){
         if(!canManageMaterials())return;
@@ -6404,7 +6790,7 @@ NOTIFY pgrst, 'reload schema';`
         if(targetItem&&!targetItem.eventId&&!canAccessStore(targetItem.store))return toast('Anda tidak memiliki akses ke cabang data ini.');
         if(edit)openInventoryModal(edit.dataset.editInventory,targetItem?.eventId?'event':'store',targetItem?.eventId||null);
         if(remove&&confirm(targetItem?.eventId?'Hapus bahan ini dari daftar event? Riwayat closing tetap tersimpan sampai event dihapus.':'Hapus bahan ini dari daftar aktif? Riwayat closing harian tetap tersimpan.')){
-          try{await softDeleteRow('inventory',remove.dataset.deleteInventory);await loadCloudData(true);toast('Bahan dipindahkan ke Sampah. Riwayat closing tetap tersimpan.');}catch(error){showSyncError(error);}
+          try{await softDeleteRow('inventory',remove.dataset.deleteInventory);await settleAfterWrite();toast('Bahan dipindahkan ke Sampah. Riwayat closing tetap tersimpan.');}catch(error){showSyncError(error);}
         }
       }
       async function handleEventsTableClick(event){
@@ -6423,17 +6809,17 @@ NOTIFY pgrst, 'reload schema';`
         if(archive&&isAdmin()){
           const item=eventById(archive.dataset.archiveEvent);
           if(item&&!item.archivedAt&&confirm(`Arsipkan event ${item.name}? Data transaksi, bahan, dan closing tetap tersimpan dan event dapat dipulihkan kapan saja.`)){
-            try{const {error}=await db.from('events').update({archived_at:new Date().toISOString(),archived_by:currentSession?.user?.id||null}).eq('id',item.id);if(error)throw error;eventListMode='archived';await loadCloudData(true);toast('Event berhasil diarsipkan tanpa menghapus data.');}catch(error){showSyncError(error);}
+            try{const result=await durableWrite({kind:'update',table:'events',payload:{archived_at:new Date().toISOString(),archived_by:currentSession?.user?.id||null},filters:[{type:'eq',column:'id',value:item.id}],label:'Arsip event'});eventListMode='archived';if(!result.queued)await settleAfterWrite();toast(result.queued?'Perubahan arsip event tersimpan aman di perangkat dan akan disinkronkan otomatis.':'Event berhasil diarsipkan tanpa menghapus data.');}catch(error){showSyncError(error);}
           }
         }
         if(restoreArchive&&isAdmin()){
           const item=eventById(restoreArchive.dataset.restoreArchivedEvent);
           if(item?.archivedAt){
-            try{const {error}=await db.from('events').update({archived_at:null,archived_by:null}).eq('id',item.id);if(error)throw error;eventListMode='active';await loadCloudData(true);toast('Event berhasil dipulihkan ke daftar aktif.');}catch(error){showSyncError(error);}
+            try{const result=await durableWrite({kind:'update',table:'events',payload:{archived_at:null,archived_by:null},filters:[{type:'eq',column:'id',value:item.id}],label:'Pulihkan event'});eventListMode='active';if(!result.queued)await settleAfterWrite();toast(result.queued?'Pemulihan event tersimpan aman di perangkat dan akan disinkronkan otomatis.':'Event berhasil dipulihkan ke daftar aktif.');}catch(error){showSyncError(error);}
           }
         }
         if(remove&&isAdmin()&&confirm('Pindahkan event ini beserta transaksi, daftar bahan, dan rekapan bahan khusus event ke Sampah? Semua data dapat dipulihkan.')){
-          try{const {error}=await db.rpc('soft_delete_event_bundle',{target_event_id:remove.dataset.deleteEvent});if(error)throw error;await loadCloudData(true);toast('Event beserta data khususnya dipindahkan ke Sampah.');}catch(error){showSyncError(error);}
+          try{const {error}=await db.rpc('soft_delete_event_bundle',{target_event_id:remove.dataset.deleteEvent});if(error)throw error;await settleAfterWrite();toast('Event beserta data khususnya dipindahkan ke Sampah.');}catch(error){showSyncError(error);}
         }
       }
       function handleProfileAccessDraftChange(event){
@@ -6506,9 +6892,14 @@ NOTIFY pgrst, 'reload schema';`
         try{
           const {error}=await db.from('profiles').update({role:newRole,branch:newBranch,branches:newBranches,event_id:newEventId}).eq('user_id',userId);
           if(error)throw error;
-          if(userId===state.profile.user_id)await loadCurrentProfile(currentSession.user);
-          applyRoleUI();
-          await loadCloudData(true);
+          if(userId===state.profile.user_id){
+            await loadCurrentProfile(currentSession.user);
+            applyRoleUI();
+            await loadCloudData(true);
+          }else{
+            applyRoleUI();
+            await settleAfterWrite();
+          }
           toast(newRole==='admin'?'Akun sekarang memiliki akses penuh semua toko dan event.':newRole==='owner'?`Akun Owner dapat melihat ${newBranches.length} toko dan seluruh data event.`:newRole==='event_employee'?`Akun hanya dapat mengelola Rekapan Bahan event ${selectedEvent?.name||''}.`:`Akun hanya dapat mengelola bahan toko ${newBranch}.`);
         }catch(error){
           renderProfiles();
@@ -6531,7 +6922,7 @@ NOTIFY pgrst, 'reload schema';`
       function setCloudStatus(status,text){el('cloudPill').className=`cloud-pill ${status}`;el('cloudStatusText').textContent=text;}
       function showSyncError(error){const message=friendlyError(error);setCloudStatus('error','Gagal sinkron');el('syncBanner').textContent=message;el('syncBanner').hidden=false;toast(message);}
       function hideSyncError(){el('syncBanner').hidden=true;el('syncBanner').textContent='';}
-      function friendlyError(error){const message=String(error?.message||error||'Terjadi kesalahan.');if(/payment_method.*schema cache|schema cache.*payment_method|Could not find the ['"]payment_method['"] column/i.test(message))return'Kolom metode pembayaran belum aktif di Supabase. Jalankan file fix_payment_method.sql, tunggu beberapa detik, lalu muat ulang halaman.';if(/Invalid login credentials/i.test(message))return'Email atau password salah.';if(/Email not confirmed/i.test(message))return'Email belum dikonfirmasi.';if(/Failed to fetch|NetworkError|fetch/i.test(message))return'Tidak dapat terhubung ke Supabase. Periksa internet, Project URL, dan publishable key.';if(/payroll_advances.*schema cache|Could not find the table ['"]?public\.payroll_advances|relation .*payroll_advances.* does not exist/i.test(message))return'Tabel Kasbon Karyawan belum aktif di Supabase. Jalankan file update_gaji_kasbon.sql, tunggu beberapa detik, lalu refresh data.';if(/Gaji bersih terakhir belum tersedia/i.test(message))return'Kasbon belum dapat disimpan karena gaji bersih terakhir karyawan belum tersedia.';if(/Total kasbon melebihi gaji bersih terakhir/i.test(message))return'Total kasbon melebihi batas gaji bersih terakhir karyawan.';if(/payroll_monthly_payments.*schema cache|Could not find the table ['"]?public\.payroll_monthly_payments|relation .*payroll_monthly_payments.* does not exist/i.test(message))return'Tabel Rekapan Gaji Bulanan belum aktif di Supabase. Jalankan file update_gaji_karyawan_lengkap.sql, tunggu beberapa detik, lalu refresh data.';if(/extra_wage|extra_wage_note/i.test(message))return'Kolom Tambahan Gaji belum aktif di Supabase. Jalankan SQL pembaruan tambahan gaji yang disertakan, tunggu beberapa detik, lalu refresh data.';if(/attribute_status|late_deduction|attribute_deduction|net_wage/i.test(message))return'Kolom potongan otomatis gaji harian belum aktif. Jalankan SQL terbaru pada halaman pengaturan koneksi, tunggu beberapa detik, lalu refresh data.';if(/employees.*schema cache|payroll_daily.*schema cache|Could not find the table ['"]?public\.(employees|payroll_daily)|relation .*(employees|payroll_daily).* does not exist/i.test(message))return'Tabel Gaji Harian belum aktif di Supabase. Jalankan file update_gaji_karyawan_lengkap.sql, tunggu beberapa detik, lalu refresh data.';if(/relation .* does not exist|Could not find the table|column .* does not exist/i.test(message))return'Struktur Supabase belum diperbarui. Jalankan SQL terbaru yang tersedia pada halaman pengaturan koneksi.';if(/row-level security|permission denied|policy/i.test(message))return'Akses database ditolak. Jalankan SQL terbaru agar aturan Admin, Owner, Karyawan, dan Karyawan Event aktif dengan benar.';if(/JWT|apikey|API key|Unauthorized/i.test(message))return'Publishable key tidak valid atau sudah berubah.';return message;}
+      function friendlyError(error){const message=String(error?.message||error||'Terjadi kesalahan.');if(/exceed(?:ed)?[_\s-]*egress|egress quota|service for this project is restricted/i.test(message))return'Kuota egress Supabase sudah terlampaui sehingga API proyek sedang dibatasi. Data tidak hilang. Pulihkan layanan dari Billing Supabase (upgrade paket / matikan Spend Cap jika tersedia) atau tunggu reset billing cycle. Versi web terbaru sudah dioptimalkan agar tidak mengunduh ulang seluruh database setiap 30 detik.';if(/payment_method.*schema cache|schema cache.*payment_method|Could not find the ['"]payment_method['"] column/i.test(message))return'Kolom metode pembayaran belum aktif di Supabase. Jalankan file fix_payment_method.sql, tunggu beberapa detik, lalu muat ulang halaman.';if(/Invalid login credentials/i.test(message))return'Email atau password salah.';if(/Email not confirmed/i.test(message))return'Email belum dikonfirmasi.';if(/Failed to fetch|NetworkError|fetch/i.test(message))return'Tidak dapat terhubung ke Supabase. Periksa internet, Project URL, dan publishable key.';if(/payroll_advances.*schema cache|Could not find the table ['"]?public\.payroll_advances|relation .*payroll_advances.* does not exist/i.test(message))return'Tabel Kasbon Karyawan belum aktif di Supabase. Jalankan file update_gaji_kasbon.sql, tunggu beberapa detik, lalu refresh data.';if(/Gaji bersih terakhir belum tersedia/i.test(message))return'Kasbon belum dapat disimpan karena gaji bersih terakhir karyawan belum tersedia.';if(/Total kasbon melebihi gaji bersih terakhir/i.test(message))return'Total kasbon melebihi batas gaji bersih terakhir karyawan.';if(/payroll_monthly_payments.*schema cache|Could not find the table ['"]?public\.payroll_monthly_payments|relation .*payroll_monthly_payments.* does not exist/i.test(message))return'Tabel Rekapan Gaji Bulanan belum aktif di Supabase. Jalankan file update_gaji_karyawan_lengkap.sql, tunggu beberapa detik, lalu refresh data.';if(/extra_wage|extra_wage_note/i.test(message))return'Kolom Tambahan Gaji belum aktif di Supabase. Jalankan SQL pembaruan tambahan gaji yang disertakan, tunggu beberapa detik, lalu refresh data.';if(/attribute_status|late_deduction|attribute_deduction|net_wage/i.test(message))return'Kolom potongan otomatis gaji harian belum aktif. Jalankan SQL terbaru pada halaman pengaturan koneksi, tunggu beberapa detik, lalu refresh data.';if(/employees.*schema cache|payroll_daily.*schema cache|Could not find the table ['"]?public\.(employees|payroll_daily)|relation .*(employees|payroll_daily).* does not exist/i.test(message))return'Tabel Gaji Harian belum aktif di Supabase. Jalankan file update_gaji_karyawan_lengkap.sql, tunggu beberapa detik, lalu refresh data.';if(/relation .* does not exist|Could not find the table|column .* does not exist/i.test(message))return'Struktur Supabase belum diperbarui. Jalankan SQL terbaru yang tersedia pada halaman pengaturan koneksi.';if(/row-level security|permission denied|policy/i.test(message))return'Akses database ditolak. Jalankan SQL terbaru agar aturan Admin, Owner, Karyawan, dan Karyawan Event aktif dengan benar.';if(/JWT|apikey|API key|Unauthorized/i.test(message))return'Publishable key tidak valid atau sudah berubah.';return message;}
 
       function downloadFile(name,content,type){const blob=new Blob([content],{type});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);}
       function toCSV(rows){return rows.map(row=>row.map(value=>`"${String(value??'').replace(/"/g,'""')}"`).join(',')).join('\n');}
