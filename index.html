@@ -2368,8 +2368,8 @@
             <div class="grid stats daily-stats">
               <article class="card stat-card income"><div class="stat-label" id="statDailyIncomeLabel">📥 Pemasukan Hari Ini</div><div class="stat-value" id="statDailyIncome">Rp0</div><div class="stat-sub" id="statDailyIncomeCount">0 transaksi pemasukan</div></article>
               <article class="card stat-card expense"><div class="stat-label" id="statDailyExpenseLabel">📤 Pengeluaran Hari Ini</div><div class="stat-value" id="statDailyExpense">Rp0</div><div class="stat-sub" id="statDailyExpenseCount">0 transaksi pengeluaran</div></article>
-              <article class="card stat-card profit"><div class="stat-label" id="statDailyProfitLabel">💰 Total Laba Hari Ini</div><div class="stat-value" id="statDailyProfit">Rp0</div><div class="stat-sub">Semua pemasukan dikurangi seluruh pengeluaran</div></article>
-              <article class="card stat-card cash-net"><div class="stat-label" id="statDailyCashNetLabel">💵 Estimasi Uang di Laci</div><div class="stat-value" id="statDailyCashNet">Rp0</div><div class="stat-sub" id="statDailyCashNetSub">Cash kotor dikurangi pengeluaran Cash</div></article>
+              <article class="card stat-card profit"><div class="stat-label" id="statDailyProfitLabel">💰 Saldo Bersih Hari Ini</div><div class="stat-value" id="statDailyProfit">Rp0</div><div class="stat-sub">Semua pemasukan dikurangi seluruh pengeluaran</div></article>
+              <article class="card stat-card cash-net"><div class="stat-label" id="statDailyCashNetLabel">💵 Cash Bersih Hari Ini</div><div class="stat-value" id="statDailyCashNet">Rp0</div><div class="stat-sub" id="statDailyCashNetSub">Cash kotor dikurangi pengeluaran Cash</div></article>
             </div>
           </div>
 
@@ -2381,8 +2381,8 @@
             <div class="grid stats monthly-stats">
               <article class="card stat-card income"><div class="stat-label" id="statIncomeLabel">📥 Pemasukan Bulan Ini</div><div class="stat-value" id="statIncome">Rp0</div><div class="stat-sub" id="statIncomeCount">0 transaksi pemasukan</div></article>
               <article class="card stat-card expense"><div class="stat-label" id="statExpenseLabel">📤 Pengeluaran Bulan Ini</div><div class="stat-value" id="statExpense">Rp0</div><div class="stat-sub" id="statExpenseCount">0 transaksi pengeluaran</div></article>
-              <article class="card stat-card profit"><div class="stat-label" id="statProfitLabel">💰 Total Laba Bulan Ini</div><div class="stat-value" id="statProfit">Rp0</div><div class="stat-sub">Semua pemasukan dikurangi seluruh pengeluaran</div></article>
-              <article class="card stat-card cash-net"><div class="stat-label" id="statCashNetLabel">💵 Estimasi Uang di Laci</div><div class="stat-value" id="statCashNet">Rp0</div><div class="stat-sub" id="statCashNetSub">Cash kotor dikurangi pengeluaran Cash</div></article>
+              <article class="card stat-card profit"><div class="stat-label" id="statProfitLabel">💰 Saldo Bersih Bulan Ini</div><div class="stat-value" id="statProfit">Rp0</div><div class="stat-sub">Semua pemasukan dikurangi seluruh pengeluaran</div></article>
+              <article class="card stat-card cash-net"><div class="stat-label" id="statCashNetLabel">💵 Cash Bersih Bulan Ini</div><div class="stat-value" id="statCashNet">Rp0</div><div class="stat-sub" id="statCashNetSub">Cash kotor dikurangi pengeluaran Cash</div></article>
               <article class="card stat-card stock-alert"><div class="stat-label">⚠️ Bahan Perlu Restok</div><div class="stat-value" id="statLowStock">0</div><div class="stat-sub">Khusus bahan operasional toko</div></article>
             </div>
           </div>
@@ -6065,12 +6065,12 @@ NOTIFY pgrst, 'reload schema';`
         const dailySuffix=isRealtime?'Hari Ini':shortDate;const monthlySuffix=isRealtime?'Bulan Ini':monthLabel;
         el('statDailyIncomeLabel').textContent=`📥 Pemasukan ${dailySuffix}`;
         el('statDailyExpenseLabel').textContent=`📤 Pengeluaran ${dailySuffix}`;
-        el('statDailyProfitLabel').textContent=`💰 Total Laba ${dailySuffix}`;
-        el('statDailyCashNetLabel').textContent=`💵 Estimasi Uang di Laci ${dailySuffix}`;
+        el('statDailyProfitLabel').textContent=`💰 Saldo Bersih ${dailySuffix}`;
+        el('statDailyCashNetLabel').textContent=`💵 Cash Bersih ${dailySuffix}`;
         el('statIncomeLabel').textContent=`📥 Pemasukan ${monthlySuffix}`;
         el('statExpenseLabel').textContent=`📤 Pengeluaran ${monthlySuffix}`;
-        el('statProfitLabel').textContent=`💰 Total Laba ${monthlySuffix}`;
-        el('statCashNetLabel').textContent=`💵 Estimasi Uang di Laci ${monthlySuffix}`;
+        el('statProfitLabel').textContent=`💰 Saldo Bersih ${monthlySuffix}`;
+        el('statCashNetLabel').textContent=`💵 Cash Bersih ${monthlySuffix}`;
         el('cashChartDescription').textContent=`Perbandingan pemasukan dan pengeluaran hingga ${monthLabel}`;
         el('storeSummaryDescription').textContent=`Saldo ${monthLabel}`;
       }
