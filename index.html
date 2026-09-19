@@ -6063,14 +6063,14 @@ NOTIFY pgrst, 'reload schema';`
         el('dailyRecapHeading').textContent=isRealtime?'Rekapan Hari Ini':`Rekapan ${shortDate}`;
         el('monthlyRecapHeading').textContent=isRealtime?'Rekapan Bulan Ini':`Rekapan ${monthLabel}`;
         const dailySuffix=isRealtime?'Hari Ini':shortDate;const monthlySuffix=isRealtime?'Bulan Ini':monthLabel;
-        el('statDailyIncomeLabel').textContent=`Pemasukan ${dailySuffix}`;
-        el('statDailyExpenseLabel').textContent=`Pengeluaran ${dailySuffix}`;
-        el('statDailyProfitLabel').textContent=`Saldo Bersih ${dailySuffix}`;
-        el('statDailyCashNetLabel').textContent=`Cash Bersih ${dailySuffix}`;
-        el('statIncomeLabel').textContent=`Pemasukan ${monthlySuffix}`;
-        el('statExpenseLabel').textContent=`Pengeluaran ${monthlySuffix}`;
-        el('statProfitLabel').textContent=`Saldo Bersih ${monthlySuffix}`;
-        el('statCashNetLabel').textContent=`Cash Bersih ${monthlySuffix}`;
+        el('statDailyIncomeLabel').textContent=`📥 Pemasukan ${dailySuffix}`;
+        el('statDailyExpenseLabel').textContent=`📤 Pengeluaran ${dailySuffix}`;
+        el('statDailyProfitLabel').textContent=`💰 Total Laba ${dailySuffix}`;
+        el('statDailyCashNetLabel').textContent=`💵 Estimasi Uang di Laci ${dailySuffix}`;
+        el('statIncomeLabel').textContent=`📥 Pemasukan ${monthlySuffix}`;
+        el('statExpenseLabel').textContent=`📤 Pengeluaran ${monthlySuffix}`;
+        el('statProfitLabel').textContent=`💰 Total Laba ${monthlySuffix}`;
+        el('statCashNetLabel').textContent=`💵 Estimasi Uang di Laci ${monthlySuffix}`;
         el('cashChartDescription').textContent=`Perbandingan pemasukan dan pengeluaran hingga ${monthLabel}`;
         el('storeSummaryDescription').textContent=`Saldo ${monthLabel}`;
       }
