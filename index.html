@@ -4298,7 +4298,12 @@ NOTIFY pgrst, 'reload schema';`
         const coarse=window.matchMedia?.('(pointer: coarse)')?.matches;
         const compact=window.matchMedia?.('(max-width: 780px)')?.matches;
         if(coarse||compact)return;
-        requestAnimationFrame(()=>{try{target.focus({preventScroll:true});}catch(_){target.focus();}});
+        requestAnimationFrame(()=>{
+          const currentX = window.scrollX || window.pageXOffset;
+          const currentY = window.scrollY || window.pageYOffset;
+          try{target.focus({preventScroll:true});}catch(_){target.focus();}
+          window.scrollTo(currentX, currentY);
+        });
       }
       const rawMoney = value => new Intl.NumberFormat('id-ID',{style:'currency',currency:'IDR',maximumFractionDigits:0}).format(Number(value||0));
       const money = value => balanceHidden ? 'Rp ••••••' : rawMoney(value);
@@ -5688,7 +5693,12 @@ NOTIFY pgrst, 'reload schema';`
         }
         const focused=snapshot.focusedId?el(snapshot.focusedId):null;
         if(focused&&!focused.disabled&&focused.offsetParent!==null){
+          const sx = window.scrollX || window.pageXOffset;
+          const sy = window.scrollY || window.pageYOffset;
           try{focused.focus({preventScroll:true});}catch(_){focused.focus();}
+          if(!scroll && !shouldLockBackground()){
+            window.scrollTo(sx, sy);
+          }
         }
       }
 
