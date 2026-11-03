@@ -72,3 +72,4 @@ GRANT ALL ON public.stores TO authenticated;
 
 -- Refresh cache Supabase PostgREST
 NOTIFY pgrst, 'reload schema';
+
