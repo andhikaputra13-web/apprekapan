@@ -6839,10 +6839,15 @@ ALTER TABLE public.inventory ADD COLUMN IF NOT EXISTS event_id text REFERENCES p
 
 -- Event adalah ruang data mandiri, bukan bagian dari cabang toko.
 ALTER TABLE public.transactions DROP CONSTRAINT IF EXISTS transactions_store_check;
+ALTER TABLE public.transactions DROP CONSTRAINT IF EXISTS transactions_scope_check;
 ALTER TABLE public.inventory DROP CONSTRAINT IF EXISTS inventory_store_check;
+ALTER TABLE public.inventory DROP CONSTRAINT IF EXISTS inventory_scope_check;
 ALTER TABLE public.inventory_daily DROP CONSTRAINT IF EXISTS inventory_daily_store_check;
+ALTER TABLE public.inventory_daily DROP CONSTRAINT IF EXISTS inventory_daily_scope_check;
 ALTER TABLE public.events DROP CONSTRAINT IF EXISTS events_store_check;
+ALTER TABLE public.events DROP CONSTRAINT IF EXISTS events_scope_check;
 ALTER TABLE public.event_material_catalog DROP CONSTRAINT IF EXISTS event_material_catalog_store_check;
+ALTER TABLE public.event_material_catalog DROP CONSTRAINT IF EXISTS event_material_catalog_scope_check;
 
 UPDATE public.transactions SET store = 'EVENT' WHERE event_id IS NOT NULL;
 UPDATE public.inventory SET store = 'EVENT' WHERE event_id IS NOT NULL;
@@ -7806,9 +7811,35 @@ UNION ALL SELECT 'payroll_monthly_payments',id,deleted_at,deleted_by,coalesce(st
 
 -- Browser roles use least privilege. DELETE/TRUNCATE are intentionally absent.
 ALTER TABLE public.employees DROP CONSTRAINT IF EXISTS employees_store_check;
+ALTER TABLE public.employees DROP CONSTRAINT IF EXISTS employees_scope_check;
+ALTER TABLE public.payroll DROP CONSTRAINT IF EXISTS payroll_store_check;
+ALTER TABLE public.payroll DROP CONSTRAINT IF EXISTS payroll_scope_check;
 ALTER TABLE public.payroll_daily DROP CONSTRAINT IF EXISTS payroll_daily_store_check;
+ALTER TABLE public.payroll_daily DROP CONSTRAINT IF EXISTS payroll_daily_scope_check;
 ALTER TABLE public.payroll_advances DROP CONSTRAINT IF EXISTS payroll_advances_store_check;
+ALTER TABLE public.payroll_advances DROP CONSTRAINT IF EXISTS payroll_advances_scope_check;
 ALTER TABLE public.payroll_monthly_payments DROP CONSTRAINT IF EXISTS payroll_monthly_payments_store_check;
+ALTER TABLE public.payroll_monthly_payments DROP CONSTRAINT IF EXISTS payroll_monthly_payments_scope_check;
+ALTER TABLE public.profiles DROP CONSTRAINT IF EXISTS profiles_scope_check;
+
+DO $$
+DECLARE
+  r RECORD;
+BEGIN
+  FOR r IN (
+    SELECT tc.table_schema, tc.table_name, tc.constraint_name
+    FROM information_schema.table_constraints tc
+    WHERE tc.table_schema = 'public'
+      AND tc.constraint_type = 'CHECK'
+      AND (
+        tc.constraint_name ILIKE '%scope_check%'
+        OR tc.constraint_name ILIKE '%store_check%'
+        OR tc.constraint_name ILIKE '%branch_check%'
+      )
+  ) LOOP
+    EXECUTE format('ALTER TABLE %I.%I DROP CONSTRAINT IF EXISTS %I', r.table_schema, r.table_name, r.constraint_name);
+  END LOOP;
+END $$;
 
 CREATE TABLE IF NOT EXISTS public.stores (
   id text PRIMARY KEY,
@@ -10748,7 +10779,7 @@ NOTIFY pgrst, 'reload schema';`
       function setCloudStatus(status, text) { el('cloudPill').className = `cloud-pill ${status}`; el('cloudStatusText').textContent = text; }
       function showSyncError(error) { const message = friendlyError(error); setCloudStatus('error', 'Gagal sinkron'); el('syncBanner').textContent = message; el('syncBanner').hidden = false; toast(message); }
       function hideSyncError() { el('syncBanner').hidden = true; el('syncBanner').textContent = ''; }
-      function friendlyError(error) { const message = String(error?.message || error || 'Terjadi kesalahan.'); if (/exceed(?:ed)?[_\s-]*egress|egress quota|service for this project is restricted/i.test(message)) return 'Kuota egress Supabase sudah terlampaui sehingga API proyek sedang dibatasi. Data tidak hilang. Pulihkan layanan dari Billing Supabase (upgrade paket / matikan Spend Cap jika tersedia) atau tunggu reset billing cycle. Versi web terbaru sudah dioptimalkan agar tidak mengunduh ulang seluruh database setiap 30 detik.'; if (/store_check|profiles_branch_check|profiles_branches_check|store.*check constraint/i.test(message)) return 'Nama toko belum diizinkan oleh database Supabase. Jalankan SQL terbaru pada menu Ubah Koneksi / Cloud & Pengaturan agar database Supabase menerima toko baru.';
+      function friendlyError(error) { const message = String(error?.message || error || 'Terjadi kesalahan.'); if (/exceed(?:ed)?[_\s-]*egress|egress quota|service for this project is restricted/i.test(message)) return 'Kuota egress Supabase sudah terlampaui sehingga API proyek sedang dibatasi. Data tidak hilang. Pulihkan layanan dari Billing Supabase (upgrade paket / matikan Spend Cap jika tersedia) atau tunggu reset billing cycle. Versi web terbaru sudah dioptimalkan agar tidak mengunduh ulang seluruh database setiap 30 detik.'; if (/store_check|scope_check|inventory_scope_check|profiles_branch_check|profiles_branches_check|store.*check constraint|scope.*check constraint/i.test(message)) return 'Database Supabase masih membatasi nama toko/bahan lama (constraint). Jalankan SQL perbaikan pada menu Cloud & Pengaturan / Supabase SQL Editor agar toko baru dapat digunakan.';
         if (/payment_method.*schema cache|schema cache.*payment_method|Could not find the ['"]payment_method['"] column/i.test(message)) return 'Kolom metode pembayaran belum aktif di Supabase. Jalankan file fix_payment_method.sql, tunggu beberapa detik, lalu muat ulang halaman.'; if (/Invalid login credentials/i.test(message)) return 'Email atau password salah.'; if (/Email not confirmed/i.test(message)) return 'Email belum dikonfirmasi.'; if (/Failed to fetch|NetworkError|fetch/i.test(message)) return 'Tidak dapat terhubung ke Supabase. Periksa internet, Project URL, dan publishable key.'; if (/payroll_advances.*schema cache|Could not find the table ['"]?public\.payroll_advances|relation .*payroll_advances.* does not exist/i.test(message)) return 'Tabel Kasbon Karyawan belum aktif di Supabase. Jalankan file update_gaji_kasbon.sql, tunggu beberapa detik, lalu refresh data.'; if (/Gaji bersih terakhir belum tersedia/i.test(message)) return 'Kasbon belum dapat disimpan karena gaji bersih terakhir karyawan belum tersedia.'; if (/Total kasbon melebihi gaji bersih terakhir/i.test(message)) return 'Total kasbon melebihi batas gaji bersih terakhir karyawan.'; if (/payroll_monthly_payments.*schema cache|Could not find the table ['"]?public\.payroll_monthly_payments|relation .*payroll_monthly_payments.* does not exist/i.test(message)) return 'Tabel Rekapan Gaji Bulanan belum aktif di Supabase. Jalankan file update_gaji_karyawan_lengkap.sql, tunggu beberapa detik, lalu refresh data.'; if (/extra_wage|extra_wage_note/i.test(message)) return 'Kolom Tambahan Gaji belum aktif di Supabase. Jalankan SQL pembaruan tambahan gaji yang disertakan, tunggu beberapa detik, lalu refresh data.'; if (/attribute_status|late_deduction|attribute_deduction|net_wage/i.test(message)) return 'Kolom potongan otomatis gaji harian belum aktif. Jalankan SQL terbaru pada halaman pengaturan koneksi, tunggu beberapa detik, lalu refresh data.'; if (/employees.*schema cache|payroll_daily.*schema cache|Could not find the table ['"]?public\.(employees|payroll_daily)|relation .*(employees|payroll_daily).* does not exist/i.test(message)) return 'Tabel Gaji Harian belum aktif di Supabase. Jalankan file update_gaji_karyawan_lengkap.sql, tunggu beberapa detik, lalu refresh data.'; if (/relation .* does not exist|Could not find the table|column .* does not exist/i.test(message)) return 'Struktur Supabase belum diperbarui. Jalankan SQL terbaru yang tersedia pada halaman pengaturan koneksi.'; if (/row-level security|permission denied|policy/i.test(message)) return 'Akses database ditolak. Jalankan SQL terbaru agar aturan Admin, Owner, Karyawan, dan Karyawan Event aktif dengan benar.'; if (/JWT|apikey|API key|Unauthorized/i.test(message)) return 'Publishable key tidak valid atau sudah berubah.'; return message; }
 
       function downloadFile(name, content, type) { const blob = new Blob([content], { type }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url); }
@@ -10876,7 +10907,7 @@ NOTIFY pgrst, 'reload schema';`
   <script>
     if ('serviceWorker' in navigator && location.protocol !== 'file:') {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js?v=tambah-toko-v2').then((registration) => {
+        navigator.serviceWorker.register('./sw.js?v=tambah-toko-v3').then((registration) => {
           registration.update().catch(() => { });
         }).catch((error) => {
           console.warn('Service worker tidak dapat didaftarkan:', error);
