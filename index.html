@@ -6599,6 +6599,7 @@
       const DASHBOARD_RECAP_VISIBILITY_KEY = 'rekapTokoDashboardRecapVisibility_v1';
       const THEME_KEY = 'rekapTokoTheme_v1';
       const ALLOW_PUBLIC_SIGNUP = false;
+      const state = { stores: [], transactions: [], inventory: [], eventMaterialCatalog: [], inventoryDaily: [], events: [], employees: [], payrollDaily: [], payrollAdvances: [], payrollMonthlyPayments: [], profiles: [], deletedItems: [], auditLogs: [], profile: null, updatedAt: null };
       const DEFAULT_STORES = ['Chickumbar Blok M', 'Susu Sore', 'Hi Fruit', 'Ngayamin', 'Chickumbar Barito'];
       const CUSTOM_STORES_KEY = 'rekapTokoCustomStores_v1';
       let STORES = [...DEFAULT_STORES];
@@ -6620,7 +6621,7 @@
       }
       function refreshStoresList() {
         const localList = getCustomStores();
-        const stateList = (typeof state !== 'undefined' && state && Array.isArray(state.stores))
+        const stateList = (Array.isArray(state?.stores))
           ? state.stores.map(s => typeof s === 'string' ? s : s.name).filter(Boolean)
           : [];
         const combined = [...new Set([...DEFAULT_STORES, ...stateList, ...localList])];
@@ -7839,7 +7840,7 @@ REVOKE ALL PRIVILEGES ON public.deleted_items FROM anon;
 
 NOTIFY pgrst, 'reload schema';`
 
-      const state = { stores: [], transactions: [], inventory: [], eventMaterialCatalog: [], inventoryDaily: [], events: [], employees: [], payrollDaily: [], payrollAdvances: [], payrollMonthlyPayments: [], profiles: [], deletedItems: [], auditLogs: [], profile: null, updatedAt: null };
+      // state declared above
       let activeView = 'dashboard';
       let activeEventTab = 'transactions';
       let eventListMode = 'active';
@@ -10875,7 +10876,7 @@ NOTIFY pgrst, 'reload schema';`
   <script>
     if ('serviceWorker' in navigator && location.protocol !== 'file:') {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js?v=tambah-toko-v1').then((registration) => {
+        navigator.serviceWorker.register('./sw.js?v=tambah-toko-v2').then((registration) => {
           registration.update().catch(() => { });
         }).catch((error) => {
           console.warn('Service worker tidak dapat didaftarkan:', error);
