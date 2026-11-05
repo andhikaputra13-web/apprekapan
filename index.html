@@ -7396,6 +7396,7 @@ NOTIFY pgrst, 'reload schema';`;
         };
       }
       function renderWithoutViewportJump(renderFn, snapshot = null) {
+        if (typeof renderFn !== "function") return snapshot || null;
         const desired = snapshot || captureSyncUiState();
         if (shouldLockBackground()) {
           renderFn();
@@ -7557,7 +7558,19 @@ NOTIFY pgrst, 'reload schema';`;
           setCloudStatus('online', 'Terhubung');
           hideSyncError();
           scheduleLocalSnapshotSave();
-          renderWithoutViewportJump(syncUiState);
+          const liveUiState = currentLiveSyncUiState(syncUiState);
+          renderWithoutViewportJump(() => {
+            applyRoleUI();
+            if (el('lastSyncText')) {
+              el('lastSyncText').textContent = new Intl.DateTimeFormat('id-ID', { timeZone: 'Asia/Jakarta', hour: '2-digit', minute: '2-digit', second: '2-digit' }).format(new Date());
+            }
+            hideSyncError();
+            renderAll();
+          }, liveUiState);
+          restoreSyncUiState(liveUiState, { scroll: false });
+          setCloudStatus('online', 'Tersinkron');
+          scheduleLocalSnapshotSave(0);
+          await updatePendingSyncUI();
           return true;
         } catch (error) {
           showSyncError(error);
@@ -9064,7 +9077,7 @@ NOTIFY pgrst, 'reload schema';`;
   <script>
     if ('serviceWorker' in navigator && location.protocol !== 'file:') {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js?v=rekapan-bahan-v2').then((registration) => {
+        navigator.serviceWorker.register('./sw.js?v=rekapan-bahan-v3').then((registration) => {
           registration.update().catch(() => { });
         }).catch((error) => {
           console.warn('Service worker tidak dapat didaftarkan:', error);
