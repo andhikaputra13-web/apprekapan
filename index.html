@@ -7736,24 +7736,11 @@ NOTIFY pgrst, 'reload schema';`;
       }
       function updateDashboardPeriodLabels(date, isRealtime) {
         const month = date.slice(0, 7); const shortDate = formatDate(date); const longDate = formatLongDate(date); const monthLabel = formatMonthYear(month);
-        el('dashboardRealtimeDot').hidden = !isRealtime;
+        if (el('dashboardRealtimeDot')) el('dashboardRealtimeDot').hidden = !isRealtime;
         const realtimeButton = el('dashboardRealtimeBtn');
         if (realtimeButton) { realtimeButton.disabled = isRealtime; realtimeButton.setAttribute('aria-pressed', String(isRealtime)); realtimeButton.title = isRealtime ? 'Dashboard sudah menampilkan data real time' : 'Kembali ke dashboard hari ini secara real time'; }
-        el('dashboardPeriodTitle').textContent = isRealtime ? 'Real Time' : `Tanggal ${shortDate}`;
-        el('dashboardPeriodDescription').textContent = isRealtime ? 'Menampilkan data hari ini dan diperbarui otomatis setiap sinkronisasi.' : `Menampilkan rekapan ${longDate} serta rekap bulanan ${monthLabel}.`;
-        el('dailyRecapHeading').textContent = isRealtime ? 'Rekapan Hari Ini' : `Rekapan ${shortDate}`;
-        el('monthlyRecapHeading').textContent = isRealtime ? 'Rekapan Bulan Ini' : `Rekapan ${monthLabel}`;
-        const dailySuffix = isRealtime ? 'Hari Ini' : shortDate; const monthlySuffix = isRealtime ? 'Bulan Ini' : monthLabel;
-        el('statDailyIncomeLabel').textContent = `📥 Pemasukan ${dailySuffix}`;
-        el('statDailyExpenseLabel').textContent = `📤 Pengeluaran ${dailySuffix}`;
-        el('statDailyProfitLabel').textContent = `💰 Saldo Bersih ${dailySuffix}`;
-        el('statDailyCashNetLabel').textContent = `💵 Cash Bersih ${dailySuffix}`;
-        el('statIncomeLabel').textContent = `📥 Pemasukan ${monthlySuffix}`;
-        el('statExpenseLabel').textContent = `📤 Pengeluaran ${monthlySuffix}`;
-        el('statProfitLabel').textContent = `💰 Saldo Bersih ${monthlySuffix}`;
-        el('statCashNetLabel').textContent = `💵 Cash Bersih ${monthlySuffix}`;
-        el('cashChartDescription').textContent = `Perbandingan pemasukan dan pengeluaran hingga ${monthLabel}`;
-        el('storeSummaryDescription').textContent = `Saldo ${monthLabel}`;
+        if (el('dashboardPeriodTitle')) el('dashboardPeriodTitle').textContent = isRealtime ? 'Real Time' : `Tanggal ${shortDate}`;
+        if (el('dashboardPeriodDescription')) el('dashboardPeriodDescription').textContent = isRealtime ? 'Menampilkan data hari ini dan diperbarui otomatis setiap sinkronisasi.' : `Menampilkan rekapan ${longDate} serta rekap bulanan ${monthLabel}.`;
       }
       function renderDashboard() {
         if (!canViewAll()) return;
@@ -9077,7 +9064,7 @@ NOTIFY pgrst, 'reload schema';`;
   <script>
     if ('serviceWorker' in navigator && location.protocol !== 'file:') {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js?v=rekapan-bahan-v3').then((registration) => {
+        navigator.serviceWorker.register('./sw.js?v=rekapan-bahan-v4').then((registration) => {
           registration.update().catch(() => { });
         }).catch((error) => {
           console.warn('Service worker tidak dapat didaftarkan:', error);
