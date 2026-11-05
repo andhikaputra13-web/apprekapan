@@ -1,34 +1,41 @@
 -- ==============================================================================
--- SQL PERBAIKAN: Hapus check constraint toko & scope
+-- SQL PERBAIKAN: Hapus check constraint inventory_scope_check & batasan toko
 -- Jalankan script ini di: Supabase Dashboard -> SQL Editor -> New Query -> Run
 -- ==============================================================================
 
--- 1. Hapus constraint kaku pada tabel inventory, transaksi, dan tabel lainnya
-ALTER TABLE public.inventory DROP CONSTRAINT IF EXISTS inventory_scope_check;
-ALTER TABLE public.inventory DROP CONSTRAINT IF EXISTS inventory_store_check;
-ALTER TABLE public.inventory_daily DROP CONSTRAINT IF EXISTS inventory_daily_scope_check;
-ALTER TABLE public.inventory_daily DROP CONSTRAINT IF EXISTS inventory_daily_store_check;
-ALTER TABLE public.transactions DROP CONSTRAINT IF EXISTS transactions_scope_check;
-ALTER TABLE public.transactions DROP CONSTRAINT IF EXISTS transactions_store_check;
-ALTER TABLE public.events DROP CONSTRAINT IF EXISTS events_scope_check;
-ALTER TABLE public.events DROP CONSTRAINT IF EXISTS events_store_check;
-ALTER TABLE public.event_material_catalog DROP CONSTRAINT IF EXISTS event_material_catalog_scope_check;
-ALTER TABLE public.event_material_catalog DROP CONSTRAINT IF EXISTS event_material_catalog_store_check;
-ALTER TABLE public.employees DROP CONSTRAINT IF EXISTS employees_scope_check;
-ALTER TABLE public.employees DROP CONSTRAINT IF EXISTS employees_store_check;
-ALTER TABLE public.payroll DROP CONSTRAINT IF EXISTS payroll_scope_check;
-ALTER TABLE public.payroll DROP CONSTRAINT IF EXISTS payroll_store_check;
-ALTER TABLE public.payroll_daily DROP CONSTRAINT IF EXISTS payroll_daily_scope_check;
-ALTER TABLE public.payroll_daily DROP CONSTRAINT IF EXISTS payroll_daily_store_check;
-ALTER TABLE public.payroll_advances DROP CONSTRAINT IF EXISTS payroll_advances_scope_check;
-ALTER TABLE public.payroll_advances DROP CONSTRAINT IF EXISTS payroll_advances_store_check;
-ALTER TABLE public.payroll_monthly_payments DROP CONSTRAINT IF EXISTS payroll_monthly_payments_scope_check;
-ALTER TABLE public.payroll_monthly_payments DROP CONSTRAINT IF EXISTS payroll_monthly_payments_store_check;
-ALTER TABLE public.profiles DROP CONSTRAINT IF EXISTS profiles_scope_check;
-ALTER TABLE public.profiles DROP CONSTRAINT IF EXISTS profiles_branch_check;
-ALTER TABLE public.profiles DROP CONSTRAINT IF EXISTS profiles_branches_check;
+-- 1. Hapus constraint kaku & kolom scope pada tabel inventory & inventory_daily
+ALTER TABLE public.inventory DROP CONSTRAINT IF EXISTS inventory_scope_check CASCADE;
+ALTER TABLE public.inventory DROP CONSTRAINT IF EXISTS inventory_store_check CASCADE;
+ALTER TABLE public.inventory DROP CONSTRAINT IF EXISTS inventory_event_id_fkey CASCADE;
+ALTER TABLE public.inventory DROP COLUMN IF EXISTS scope CASCADE;
+ALTER TABLE public.inventory ADD COLUMN IF NOT EXISTS event_id text;
 
--- 2. Bersihkan secara dinamis setiap check constraint yang masih memeriksa toko/cabang/scope
+ALTER TABLE public.inventory_daily DROP CONSTRAINT IF EXISTS inventory_daily_scope_check CASCADE;
+ALTER TABLE public.inventory_daily DROP CONSTRAINT IF EXISTS inventory_daily_store_check CASCADE;
+ALTER TABLE public.inventory_daily DROP CONSTRAINT IF EXISTS inventory_daily_event_id_fkey CASCADE;
+ALTER TABLE public.inventory_daily DROP COLUMN IF EXISTS scope CASCADE;
+ALTER TABLE public.inventory_daily ADD COLUMN IF NOT EXISTS event_id text;
+
+-- Tabel lain (jika masih ada dari versi sebelumnya)
+ALTER TABLE public.transactions DROP CONSTRAINT IF EXISTS transactions_scope_check CASCADE;
+ALTER TABLE public.transactions DROP CONSTRAINT IF EXISTS transactions_store_check CASCADE;
+ALTER TABLE public.events DROP CONSTRAINT IF EXISTS events_scope_check CASCADE;
+ALTER TABLE public.events DROP CONSTRAINT IF EXISTS events_store_check CASCADE;
+ALTER TABLE public.employees DROP CONSTRAINT IF EXISTS employees_scope_check CASCADE;
+ALTER TABLE public.employees DROP CONSTRAINT IF EXISTS employees_store_check CASCADE;
+ALTER TABLE public.payroll DROP CONSTRAINT IF EXISTS payroll_scope_check CASCADE;
+ALTER TABLE public.payroll DROP CONSTRAINT IF EXISTS payroll_store_check CASCADE;
+ALTER TABLE public.payroll_daily DROP CONSTRAINT IF EXISTS payroll_daily_scope_check CASCADE;
+ALTER TABLE public.payroll_daily DROP CONSTRAINT IF EXISTS payroll_daily_store_check CASCADE;
+ALTER TABLE public.payroll_advances DROP CONSTRAINT IF EXISTS payroll_advances_scope_check CASCADE;
+ALTER TABLE public.payroll_advances DROP CONSTRAINT IF EXISTS payroll_advances_store_check CASCADE;
+ALTER TABLE public.payroll_monthly_payments DROP CONSTRAINT IF EXISTS payroll_monthly_payments_scope_check CASCADE;
+ALTER TABLE public.payroll_monthly_payments DROP CONSTRAINT IF EXISTS payroll_monthly_payments_store_check CASCADE;
+ALTER TABLE public.profiles DROP CONSTRAINT IF EXISTS profiles_scope_check CASCADE;
+ALTER TABLE public.profiles DROP CONSTRAINT IF EXISTS profiles_branch_check CASCADE;
+ALTER TABLE public.profiles DROP CONSTRAINT IF EXISTS profiles_branches_check CASCADE;
+
+-- 2. Bersihkan secara otomatis seluruh check constraint yang membatasi toko/cabang/scope
 DO $$
 DECLARE
   r RECORD;
@@ -39,16 +46,16 @@ BEGIN
     WHERE tc.table_schema = 'public'
       AND tc.constraint_type = 'CHECK'
       AND (
-        tc.constraint_name ILIKE '%scope_check%'
-        OR tc.constraint_name ILIKE '%store_check%'
-        OR tc.constraint_name ILIKE '%branch_check%'
+        tc.constraint_name ILIKE '%scope%'
+        OR tc.constraint_name ILIKE '%store%'
+        OR tc.constraint_name ILIKE '%branch%'
       )
   ) LOOP
-    EXECUTE format('ALTER TABLE %I.%I DROP CONSTRAINT IF EXISTS %I', r.table_schema, r.table_name, r.constraint_name);
+    EXECUTE format('ALTER TABLE %I.%I DROP CONSTRAINT IF EXISTS %I CASCADE', r.table_schema, r.table_name, r.constraint_name);
   END LOOP;
 END $$;
 
--- 3. Pastikan tabel stores tersedia untuk menyimpan toko kustom secara cloud
+-- 3. Pastikan tabel stores tersedia untuk pendaftaran toko baru
 CREATE TABLE IF NOT EXISTS public.stores (
   id text PRIMARY KEY,
   name text NOT NULL UNIQUE,
@@ -70,6 +77,5 @@ WITH CHECK (public.is_admin());
 
 GRANT ALL ON public.stores TO authenticated;
 
--- Refresh cache Supabase PostgREST
+-- 4. Reload cache schema PostgREST Supabase
 NOTIFY pgrst, 'reload schema';
-
