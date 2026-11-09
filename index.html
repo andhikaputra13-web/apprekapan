@@ -5978,12 +5978,14 @@ $$;
 CREATE OR REPLACE FUNCTION public.can_access_store(target_store text)
 RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
   SELECT public.is_admin()
+    OR public.is_owner()
     OR EXISTS (
       SELECT 1 FROM public.profiles
       WHERE user_id = auth.uid()
+        AND role = 'employee'
         AND (
-          (role = 'owner' AND target_store = ANY(COALESCE(branches, '{}'::text[])))
-          OR (role = 'employee' AND branch IS NOT NULL AND branch = target_store)
+          (branches IS NOT NULL AND target_store = ANY(branches))
+          OR (branch IS NOT NULL AND branch = target_store)
         )
     );
 $$;
@@ -5991,12 +5993,15 @@ $$;
 CREATE OR REPLACE FUNCTION public.can_manage_inventory(target_store text)
 RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
   SELECT public.is_admin()
+    OR public.is_owner()
     OR EXISTS (
       SELECT 1 FROM public.profiles
       WHERE user_id = auth.uid()
         AND role = 'employee'
-        AND branch IS NOT NULL
-        AND branch = target_store
+        AND (
+          (branches IS NOT NULL AND target_store = ANY(branches))
+          OR (branch IS NOT NULL AND branch = target_store)
+        )
     );
 $$;
 
@@ -6072,12 +6077,14 @@ CREATE POLICY "Profiles manageable by admin" ON public.profiles FOR ALL TO authe
 DROP POLICY IF EXISTS "Stores readable by authenticated" ON public.stores;
 CREATE POLICY "Stores readable by authenticated" ON public.stores FOR SELECT TO authenticated USING (true);
 DROP POLICY IF EXISTS "Stores manageable by admin" ON public.stores;
-CREATE POLICY "Stores manageable by admin" ON public.stores FOR ALL TO authenticated USING (public.is_admin()) WITH CHECK (public.is_admin());
+DROP POLICY IF EXISTS "Stores manageable by authenticated" ON public.stores;
+CREATE POLICY "Stores manageable by authenticated" ON public.stores FOR ALL TO authenticated USING (true) WITH CHECK (true);
 
 DROP POLICY IF EXISTS "Inventory readable by access" ON public.inventory;
 CREATE POLICY "Inventory readable by access" ON public.inventory FOR SELECT TO authenticated USING (public.can_access_store(store));
 DROP POLICY IF EXISTS "Inventory manageable by admin" ON public.inventory;
-CREATE POLICY "Inventory manageable by admin" ON public.inventory FOR ALL TO authenticated USING (public.is_admin()) WITH CHECK (public.is_admin());
+DROP POLICY IF EXISTS "Inventory manageable" ON public.inventory;
+CREATE POLICY "Inventory manageable" ON public.inventory FOR ALL TO authenticated USING (public.is_admin() OR public.is_owner() OR public.can_manage_inventory(store)) WITH CHECK (public.is_admin() OR public.is_owner() OR public.can_manage_inventory(store));
 
 DROP POLICY IF EXISTS "Daily inventory readable by access" ON public.inventory_daily;
 CREATE POLICY "Daily inventory readable by access" ON public.inventory_daily FOR SELECT TO authenticated USING (public.can_access_store(store));
@@ -6088,6 +6095,19 @@ DROP POLICY IF EXISTS "Audit logs readable by admin" ON public.audit_logs;
 CREATE POLICY "Audit logs readable by admin" ON public.audit_logs FOR SELECT TO authenticated USING (public.is_admin());
 
 GRANT SELECT,INSERT,UPDATE,DELETE ON public.stores, public.inventory, public.inventory_daily, public.profiles, public.audit_logs TO authenticated;
+
+-- 10. Aktifkan Supabase Realtime untuk tabel stores, inventory, dan inventory_daily
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'supabase_realtime') THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.stores;
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.inventory;
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.inventory_daily;
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.profiles;
+  END IF;
+EXCEPTION WHEN OTHERS THEN
+  NULL;
+END $$;
 
 NOTIFY pgrst, 'reload schema';`;
 
@@ -6140,7 +6160,7 @@ NOTIFY pgrst, 'reload schema';`;
       const jakartaDate = (date = new Date()) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta', year: 'numeric', month: '2-digit', day: '2-digit' }).format(date);
       const todayISO = () => jakartaDate();
       const currentMonth = () => todayISO().slice(0, 7);
-      const uid = () => crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+      const uid = () => (typeof crypto !== 'undefined' && crypto?.randomUUID) ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
       const escapeHtml = (value = '') => String(value).replace(/[&<>'"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[c]));
       const isAdmin = () => state.profile?.role === 'admin';
       const isOwner = () => state.profile?.role === 'owner';
@@ -6240,10 +6260,29 @@ NOTIFY pgrst, 'reload schema';`;
         }
         if (op.kind === 'upsert') {
           const query = db.from(op.table).upsert(op.rows || [], op.options || undefined);
-          const { error } = await query; if (error) throw error; return true;
+          const { error } = await query;
+          if (error) {
+            // Defensive recovery for databases that still have legacy inventory_scope_check constraint
+            if (op.table === 'inventory' && /inventory_scope_check|scope_check/i.test(`${error.message || ''} ${error.details || ''}`)) {
+              const rowsWithScope = (op.rows || []).map(r => ({ ...r, scope: 'store' }));
+              const retry = await db.from(op.table).upsert(rowsWithScope, op.options || undefined);
+              if (!retry.error) return true;
+            }
+            throw error;
+          }
+          return true;
         }
         if (op.kind === 'update') {
           let query = db.from(op.table).update(op.payload || {});
+          for (const filter of op.filters || []) {
+            if (filter.type === 'eq') query = query.eq(filter.column, filter.value);
+            else if (filter.type === 'is') query = query.is(filter.column, filter.value);
+            else if (filter.type === 'in') query = query.in(filter.column, filter.value);
+          }
+          const { error } = await query; if (error) throw error; return true;
+        }
+        if (op.kind === 'delete') {
+          let query = db.from(op.table).delete();
           for (const filter of op.filters || []) {
             if (filter.type === 'eq') query = query.eq(filter.column, filter.value);
             else if (filter.type === 'is') query = query.is(filter.column, filter.value);
@@ -6260,8 +6299,33 @@ NOTIFY pgrst, 'reload schema';`;
         if (!op) return;
         if (op.kind === 'batch') { (op.steps || []).forEach(applyDurableOperationLocally); return; }
         if (op.kind === 'upsert') {
+          if (op.table === 'stores') {
+            (op.rows || []).forEach(row => {
+              const item = rowToStore(row);
+              upsertLocalState('stores', item);
+              const custom = getCustomStores();
+              if (!custom.includes(item.name) && !DEFAULT_STORES.includes(item.name)) {
+                custom.push(item.name);
+                saveCustomStores(custom);
+              }
+            });
+            refreshStoresList();
+            applyRoleUI();
+            return;
+          }
           const config = realtimeConfigFor(op.table); if (!config) return;
           (op.rows || []).forEach(row => { try { const item = config.map(row); if (config.allow(item, row)) upsertLocalState(config.stateKey, item); else removeLocalState(config.stateKey, row.id); } catch (_) { } });
+          return;
+        }
+        if (op.kind === 'delete' && op.table === 'stores') {
+          const nameFilter = (op.filters || []).find(f => f.column === 'name')?.value;
+          if (nameFilter) {
+            removeLocalState('stores', nameFilter, 'name');
+            const custom = getCustomStores().filter(s => s !== nameFilter);
+            saveCustomStores(custom);
+            refreshStoresList();
+            applyRoleUI();
+          }
           return;
         }
         if (op.kind === 'rpc' && op.fn === 'update_inventory_stock_after_closing') {
@@ -6429,8 +6493,19 @@ NOTIFY pgrst, 'reload schema';`;
       }
 
       async function loadCurrentProfile(user) {
-        const { data, error } = await db.from('profiles').select('user_id,email,role,branch,branches,event_id,created_at').eq('user_id', user.id).single();
+        let { data, error } = await db.from('profiles').select('user_id,email,role,branch,branches,event_id,created_at').eq('user_id', user.id).maybeSingle();
         if (error) throw error;
+        if (!data) {
+          try {
+            const { count } = await db.from('profiles').select('*', { count: 'exact', head: true });
+            const role = (count === 0) ? 'admin' : 'employee';
+            const newProfile = { user_id: user.id, email: user.email || '', role, branch: null, branches: [] };
+            const insertRes = await db.from('profiles').upsert([newProfile]).select().maybeSingle();
+            data = insertRes.data || newProfile;
+          } catch (_) {
+            data = { user_id: user.id, email: user.email || '', role: 'employee', branch: null, branches: [] };
+          }
+        }
         state.profile = data;
       }
 
@@ -7539,7 +7614,8 @@ NOTIFY pgrst, 'reload schema';`;
             : Promise.resolve({ data: [], error: null });
 
           const [inventoryResult, dailyResult, profilesResult, deletedItemsResult, auditLogsResult, storesResult] = await Promise.all([inventoryPromise, dailyPromise, profilesPromise, deletedItemsPromise, auditLogsPromise, storesPromise]);
-          for (const result of [inventoryResult, dailyResult, profilesResult, deletedItemsResult, auditLogsResult]) if (result.error) throw result.error;
+          for (const result of [inventoryResult, dailyResult]) if (result.error) throw result.error;
+          if (profilesResult.error && isAdmin()) throw profilesResult.error;
           
           const missingStoresTable = storesResult.error && (['42P01', 'PGRST205'].includes(storesResult.error.code) || /stores/i.test(`${storesResult.error.message || ''} ${storesResult.error.details || ''}`));
           if (storesResult.error && !missingStoresTable) throw storesResult.error;
@@ -7551,6 +7627,24 @@ NOTIFY pgrst, 'reload schema';`;
           state.auditLogs = auditLogsResult.data || [];
           if (!missingStoresTable && Array.isArray(storesResult.data)) {
             state.stores = storesResult.data.map(rowToStore);
+
+            // Rekonsiliasi otomatis: pulihkan toko kustom lokal yang belum ada di Supabase
+            const cloudNames = new Set(state.stores.map(s => s.name));
+            const localCustom = getCustomStores();
+            const missingInCloud = localCustom.filter(name => !cloudNames.has(name) && !DEFAULT_STORES.includes(name));
+            if (missingInCloud.length > 0 && db && navigator.onLine) {
+              const newRows = missingInCloud.map(name => storeToRow({ id: uid(), name, createdAt: new Date().toISOString() }));
+              db.from('stores').upsert(newRows).then(({ error }) => {
+                if (!error) {
+                  newRows.forEach(r => state.stores.push(rowToStore(r)));
+                  refreshStoresList();
+                }
+              }).catch(() => {});
+            }
+
+            // Gabungkan toko dari Supabase ke localStorage agar sinkron antar browser
+            const updatedLocal = [...new Set([...localCustom, ...state.stores.map(s => s.name).filter(n => !DEFAULT_STORES.includes(n))])];
+            saveCustomStores(updatedLocal);
           }
           refreshStoresList();
 
@@ -7577,6 +7671,62 @@ NOTIFY pgrst, 'reload schema';`;
           return false;
         } finally {
           dataLoading = false;
+        }
+      }
+
+      function realtimeConfigFor(table) {
+        const configs = {
+          stores: { stateKey: 'stores', map: rowToStore, allow: () => true },
+          inventory: { stateKey: 'inventory', map: rowToInventory, allow: item => canAccessInventoryRecord(item) },
+          inventory_daily: { stateKey: 'inventoryDaily', map: rowToDailyRecord, allow: item => canAccessInventoryRecord(item) },
+          profiles: { stateKey: 'profiles', map: row => row, allow: () => true },
+          audit_logs: { stateKey: 'auditLogs', map: row => row, allow: () => isAdmin() }
+        };
+        return configs[table] || null;
+      }
+
+      function upsertLocalState(stateKey, item, key = 'id') {
+        if (!item) return;
+        const list = state[stateKey] || (state[stateKey] = []);
+        const value = item[key];
+        const index = list.findIndex(row => row?.[key] === value);
+        if (index >= 0) list[index] = item;
+        else list.unshift(item);
+      }
+
+      function removeLocalState(stateKey, id, key = 'id') {
+        const list = state[stateKey] || [];
+        const index = list.findIndex(row => row?.[key] === id);
+        if (index >= 0) list.splice(index, 1);
+      }
+
+      function deletedItemFromRealtime(table, row) {
+        const labels = {
+          inventory: [row.name || 'Bahan', row.note || ''],
+          inventory_daily: [row.name || 'Rekapan Bahan', row.note || '']
+        };
+        const [label, detail] = labels[table] || [row.id || table, ''];
+        return {
+          table_name: table,
+          id: row.id,
+          deleted_at: row.deleted_at,
+          deleted_by: row.deleted_by || null,
+          store: row.store || '',
+          label,
+          detail
+        };
+      }
+
+      function syncDeletedItemFromRealtime(table, row) {
+        if (!isAdmin() || !row?.id) return;
+        const key = `${table}:${row.id}`;
+        const index = (state.deletedItems || []).findIndex(item => `${item.table_name}:${item.id}` === key);
+        if (row.deleted_at) {
+          const item = deletedItemFromRealtime(table, row);
+          if (index >= 0) state.deletedItems[index] = item;
+          else (state.deletedItems = state.deletedItems || []).unshift(item);
+        } else if (index >= 0) {
+          state.deletedItems.splice(index, 1);
         }
       }
 
@@ -7630,10 +7780,17 @@ NOTIFY pgrst, 'reload schema';`;
           if (table === 'stores') {
             const config = realtimeConfigFor(table);
             if (eventType === 'DELETE') {
-              removeLocalState('stores', row.id);
-            } else if (row?.id) {
+              removeLocalState('stores', row.id || row.name, row.id ? 'id' : 'name');
+              const custom = getCustomStores().filter(s => s !== row.name);
+              saveCustomStores(custom);
+            } else if (row?.name) {
               const item = config ? config.map(row) : rowToStore(row);
               upsertLocalState('stores', item);
+              const custom = getCustomStores();
+              if (!custom.includes(item.name) && !DEFAULT_STORES.includes(item.name)) {
+                custom.push(item.name);
+                saveCustomStores(custom);
+              }
             }
             refreshStoresList();
             applyRoleUI();
@@ -7685,6 +7842,12 @@ NOTIFY pgrst, 'reload schema';`;
               }
             });
         } catch (_) {}
+
+        // Fallback polling berkala (40 detik) agar data antar akun selalu tersinkronkan
+        refreshTimer = setInterval(() => {
+          if (!currentSession || dataLoading || !navigator.onLine) return;
+          loadCloudData(true).catch(() => {});
+        }, 40000);
       }
 
       function stopCloudRefresh() {
@@ -7697,6 +7860,18 @@ NOTIFY pgrst, 'reload schema';`;
         if (cloudChannel && db) db.removeChannel(cloudChannel);
         cloudChannel = null;
       }
+
+      window.addEventListener('online', () => {
+        if (currentSession) {
+          loadCloudData(true).catch(() => {});
+          flushPendingOperations().catch(() => {});
+        }
+      });
+      window.addEventListener('focus', () => {
+        if (currentSession && navigator.onLine && !dataLoading) {
+          loadCloudData(true).catch(() => {});
+        }
+      });
 
       function renderAll() { renderDashboard(); renderInventory(); renderMaterials(); renderProfiles(); renderSafetyPanels(); renderStoresTable(); }
       function filteredByGlobal(items) { const storeItems = items.filter(item => !item.eventId && canAccessStore(item.store)); const activeStore = isEmployee() ? employeeBranch() : selectedGlobalStore; return activeStore === 'all' || !activeStore ? storeItems : storeItems.filter(item => item.store === activeStore); }
@@ -8525,8 +8700,8 @@ NOTIFY pgrst, 'reload schema';`;
       }
 
       async function addStore(storeName) {
-        if (!isAdmin()) {
-          toast('Hanya Admin yang dapat menambahkan toko baru.');
+        if (!isAdmin() && !isOwner()) {
+          toast('Hanya Admin atau Owner yang dapat menambahkan toko baru.');
           return false;
         }
         const name = String(storeName || '').trim();
@@ -8559,44 +8734,44 @@ NOTIFY pgrst, 'reload schema';`;
         // 3. Refresh array STORES
         refreshStoresList();
 
-        // 4. Upsert ke Supabase stores jika koneksi cloud aktif
-        if (db && navigator.onLine) {
-          try {
-            await db.from('stores').upsert([storeToRow(newStoreObj)]);
-          } catch (err) {
-            console.warn('Toko tersimpan lokal. Supabase stores table:', err);
-          }
-        }
-
-        // 5. Perbarui seluruh UI & selektor
+        // 4. Perbarui selektor UI segera
         applyRoleUI();
         selectedGlobalStore = name;
         if (el('globalStore')) el('globalStore').value = name;
-        renderProfiles();
         renderStoresTable();
-        renderStoreSummary(currentMonth());
         renderAll();
         scheduleLocalSnapshotSave();
 
-        toast(`Toko "${name}" berhasil ditambahkan.`);
+        // 5. Simpan secara cloud via durableWrite
+        try {
+          const result = await durableWrite({
+            kind: 'upsert',
+            table: 'stores',
+            rows: [storeToRow(newStoreObj)],
+            label: 'Toko Baru'
+          });
+          if (!result.queued) await settleAfterWrite();
+          toast(result.queued ? `Toko "${name}" tersimpan di perangkat dan akan disinkronkan ke Supabase.` : `Toko "${name}" berhasil ditambahkan & tersinkronkan.`);
+        } catch (err) {
+          showSyncError(err);
+        }
+
         return true;
       }
 
       async function deleteStore(storeName) {
-        if (!isAdmin()) return;
+        if (!isAdmin() && !isOwner()) return;
         if (DEFAULT_STORES.includes(storeName)) {
           toast('Toko bawaan sistem tidak dapat dihapus.');
           return;
         }
-        const txCount = state.transactions.filter(t => !t.eventId && t.store === storeName).length;
-        const invCount = state.inventory.filter(i => !i.eventId && i.store === storeName).length;
-        const empCount = state.employees.filter(e => e.store === storeName).length;
+        const invCount = state.inventory.filter(i => i.store === storeName).length;
         const profileCount = state.profiles.filter(p => p.branch === storeName || (Array.isArray(p.branches) && p.branches.includes(storeName))).length;
-        const hasData = (txCount + invCount + empCount + profileCount) > 0;
+        const hasData = (invCount + profileCount) > 0;
 
         let confirmMsg = `Hapus toko "${storeName}" dari daftar toko?`;
         if (hasData) {
-          confirmMsg = `Toko "${storeName}" memiliki riwayat data (${txCount} transaksi, ${invCount} bahan, ${empCount} karyawan, ${profileCount} hak akses). Data yang sudah tercatat tidak akan dihapus, namun toko ini tidak lagi muncul pada pilihan dropdown baru. Lanjutkan?`;
+          confirmMsg = `Toko "${storeName}" memiliki riwayat data (${invCount} bahan, ${profileCount} hak akses). Data yang sudah tercatat tidak akan dihapus, namun toko ini tidak lagi muncul pada pilihan dropdown baru. Lanjutkan?`;
         }
         if (!confirm(confirmMsg)) return;
 
@@ -8609,25 +8784,16 @@ NOTIFY pgrst, 'reload schema';`;
           state.stores = state.stores.filter(s => (typeof s === 'string' ? s : s.name) !== storeName);
         }
 
-        // 3. Hapus dari Supabase jika online
-        if (db && navigator.onLine) {
-          try {
-            await db.from('stores').delete().eq('name', storeName);
-          } catch (err) {
-            console.warn('Gagal menghapus toko dari Supabase:', err);
-          }
-        }
-
-        // 4. Refresh array STORES
+        // 3. Refresh array STORES
         refreshStoresList();
 
-        // 5. Reset selectedGlobalStore jika toko yang dihapus sedang dipilih
+        // 4. Reset selectedGlobalStore jika toko yang dihapus sedang dipilih
         if (selectedGlobalStore === storeName) {
           selectedGlobalStore = 'all';
           if (el('globalStore')) el('globalStore').value = 'all';
         }
 
-        // 6. Perbarui tampilan
+        // 5. Perbarui tampilan
         applyRoleUI();
         renderProfiles();
         renderStoresTable();
@@ -8635,11 +8801,23 @@ NOTIFY pgrst, 'reload schema';`;
         renderAll();
         scheduleLocalSnapshotSave();
 
-        toast(`Toko "${storeName}" berhasil dihapus.`);
+        // 6. Hapus dari Supabase via durableWrite
+        try {
+          const result = await durableWrite({
+            kind: 'delete',
+            table: 'stores',
+            filters: [{ type: 'eq', column: 'name', value: storeName }],
+            label: 'Hapus Toko'
+          });
+          if (!result.queued) await settleAfterWrite();
+          toast(result.queued ? `Penghapusan toko "${storeName}" akan disinkronkan saat online.` : `Toko "${storeName}" berhasil dihapus.`);
+        } catch (err) {
+          showSyncError(err);
+        }
       }
 
       function openStoreModal() {
-        if (!isAdmin()) return;
+        if (!isAdmin() && !isOwner()) return;
         const form = el('storeForm');
         if (form) form.reset();
         clearFormWarnings(form);
@@ -8649,7 +8827,7 @@ NOTIFY pgrst, 'reload schema';`;
 
       async function handleStoreSubmit(event) {
         event.preventDefault();
-        if (!isAdmin()) return;
+        if (!isAdmin() && !isOwner()) return;
         const input = el('newStoreName');
         const name = input ? input.value.trim() : '';
         if (!name) {
@@ -8759,8 +8937,13 @@ NOTIFY pgrst, 'reload schema';`;
         if (error) throw error;
       }
       async function restoreSoftDeleted(table, id) {
-        const { error } = await db.rpc('restore_soft_deleted', { target_table: table, target_id: id });
-        if (error) throw error;
+        try {
+          const { error } = await db.rpc('restore_soft_deleted', { target_table: table, target_id: id });
+          if (error) throw error;
+        } catch (rpcError) {
+          const { error: directError } = await db.from(table).update({ deleted_at: null, deleted_by: null }).eq('id', id);
+          if (directError) throw rpcError || directError;
+        }
       }
       const SAFETY_TABLE_LABELS = { transactions: 'Transaksi', inventory: 'Daftar Bahan', inventory_daily: 'Rekapan Bahan', events: 'Event', event_material_catalog: 'Master Bahan Event', employees: 'Karyawan', payroll: 'Payroll', payroll_daily: 'Gaji Harian', payroll_advances: 'Kasbon', payroll_monthly_payments: 'Gaji Bulanan' };
       function auditActionLabel(action, row) {
@@ -8773,7 +8956,7 @@ NOTIFY pgrst, 'reload schema';`;
       }
       function renderSafetyPanels() {
         if (!el('trashTable') || !el('auditLogTable')) return;
-        if (!isAdmin()) { el('trashTable').innerHTML = ''; el('auditLogTable').innerHTML = ''; return; }
+        if (!canViewAll()) { el('trashTable').innerHTML = ''; el('auditLogTable').innerHTML = ''; return; }
         const trash = state.deletedItems || [];
         el('trashCountBadge').textContent = `${number(trash.length)} item`;
         el('trashTable').innerHTML = trash.length ? `<table><thead><tr><th>Dihapus</th><th>Jenis</th><th>Toko</th><th>Data</th><th>Detail</th><th>Aksi</th></tr></thead><tbody>${trash.map(item => `<tr><td>${escapeHtml(formatSavedDateTime(item.deleted_at))}</td><td><span class="badge badge-low">${escapeHtml(SAFETY_TABLE_LABELS[item.table_name] || item.table_name)}</span></td><td>${escapeHtml(item.store || '-')}</td><td><strong>${escapeHtml(item.label || item.id)}</strong><br><small class="muted">ID ${escapeHtml(item.id)}</small></td><td>${escapeHtml(item.detail || '-')}</td><td><button class="btn btn-light btn-sm" data-restore-soft-delete="${escapeHtml(item.id)}" data-restore-table="${escapeHtml(item.table_name)}">Pulihkan</button></td></tr>`).join('')}</tbody></table>` : emptyState('Sampah kosong', 'Belum ada data yang dihapus sejak proteksi soft-delete diaktifkan.');
@@ -8782,7 +8965,7 @@ NOTIFY pgrst, 'reload schema';`;
       }
       async function handleTrashTableClick(event) {
         const button = event.target.closest('[data-restore-soft-delete]');
-        if (!button || !isAdmin()) return;
+        if (!button || (!isAdmin() && !isOwner())) return;
         const table = button.dataset.restoreTable, id = button.dataset.restoreSoftDelete;
         if (!confirm(`Pulihkan data ${SAFETY_TABLE_LABELS[table] || table} ini ke daftar aktif?`)) return;
         try { setButtonBusy(button, true, 'Memulihkan...'); await restoreSoftDeleted(table, id); await settleAfterWrite(); toast('Data berhasil dipulihkan dari Sampah.'); } catch (error) { showSyncError(error); } finally { setButtonBusy(button, false); }
@@ -9064,7 +9247,7 @@ NOTIFY pgrst, 'reload schema';`;
   <script>
     if ('serviceWorker' in navigator && location.protocol !== 'file:') {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js?v=rekapan-bahan-v4').then((registration) => {
+        navigator.serviceWorker.register('./sw.js?v=rekapan-bahan-v5').then((registration) => {
           registration.update().catch(() => { });
         }).catch((error) => {
           console.warn('Service worker tidak dapat didaftarkan:', error);

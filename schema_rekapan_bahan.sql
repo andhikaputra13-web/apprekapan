@@ -146,12 +146,14 @@ $$;
 CREATE OR REPLACE FUNCTION public.can_access_store(target_store text)
 RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
   SELECT public.is_admin()
+    OR public.is_owner()
     OR EXISTS (
       SELECT 1 FROM public.profiles
       WHERE user_id = auth.uid()
+        AND role = 'employee'
         AND (
-          (role = 'owner' AND target_store = ANY(COALESCE(branches, '{}'::text[])))
-          OR (role = 'employee' AND branch IS NOT NULL AND branch = target_store)
+          (branches IS NOT NULL AND target_store = ANY(branches))
+          OR (branch IS NOT NULL AND branch = target_store)
         )
     );
 $$;
@@ -159,12 +161,15 @@ $$;
 CREATE OR REPLACE FUNCTION public.can_manage_inventory(target_store text)
 RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
   SELECT public.is_admin()
+    OR public.is_owner()
     OR EXISTS (
       SELECT 1 FROM public.profiles
       WHERE user_id = auth.uid()
         AND role = 'employee'
-        AND branch IS NOT NULL
-        AND branch = target_store
+        AND (
+          (branches IS NOT NULL AND target_store = ANY(branches))
+          OR (branch IS NOT NULL AND branch = target_store)
+        )
     );
 $$;
 
@@ -240,12 +245,14 @@ CREATE POLICY "Profiles manageable by admin" ON public.profiles FOR ALL TO authe
 DROP POLICY IF EXISTS "Stores readable by authenticated" ON public.stores;
 CREATE POLICY "Stores readable by authenticated" ON public.stores FOR SELECT TO authenticated USING (true);
 DROP POLICY IF EXISTS "Stores manageable by admin" ON public.stores;
-CREATE POLICY "Stores manageable by admin" ON public.stores FOR ALL TO authenticated USING (public.is_admin()) WITH CHECK (public.is_admin());
+DROP POLICY IF EXISTS "Stores manageable by authenticated" ON public.stores;
+CREATE POLICY "Stores manageable by authenticated" ON public.stores FOR ALL TO authenticated USING (true) WITH CHECK (true);
 
 DROP POLICY IF EXISTS "Inventory readable by access" ON public.inventory;
 CREATE POLICY "Inventory readable by access" ON public.inventory FOR SELECT TO authenticated USING (public.can_access_store(store));
 DROP POLICY IF EXISTS "Inventory manageable by admin" ON public.inventory;
-CREATE POLICY "Inventory manageable by admin" ON public.inventory FOR ALL TO authenticated USING (public.is_admin()) WITH CHECK (public.is_admin());
+DROP POLICY IF EXISTS "Inventory manageable" ON public.inventory;
+CREATE POLICY "Inventory manageable" ON public.inventory FOR ALL TO authenticated USING (public.is_admin() OR public.is_owner() OR public.can_manage_inventory(store)) WITH CHECK (public.is_admin() OR public.is_owner() OR public.can_manage_inventory(store));
 
 DROP POLICY IF EXISTS "Daily inventory readable by access" ON public.inventory_daily;
 CREATE POLICY "Daily inventory readable by access" ON public.inventory_daily FOR SELECT TO authenticated USING (public.can_access_store(store));
@@ -256,5 +263,18 @@ DROP POLICY IF EXISTS "Audit logs readable by admin" ON public.audit_logs;
 CREATE POLICY "Audit logs readable by admin" ON public.audit_logs FOR SELECT TO authenticated USING (public.is_admin());
 
 GRANT SELECT,INSERT,UPDATE,DELETE ON public.stores, public.inventory, public.inventory_daily, public.profiles, public.audit_logs TO authenticated;
+
+-- 10. Aktifkan Supabase Realtime untuk tabel stores, inventory, dan inventory_daily
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'supabase_realtime') THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.stores;
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.inventory;
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.inventory_daily;
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.profiles;
+  END IF;
+EXCEPTION WHEN OTHERS THEN
+  NULL;
+END $$;
 
 NOTIFY pgrst, 'reload schema';

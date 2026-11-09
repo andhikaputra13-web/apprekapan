@@ -1,5 +1,6 @@
 -- ==============================================================================
--- SQL PERBAIKAN: Hapus check constraint inventory_scope_check & batasan toko
+-- SQL PERBAIKAN: Hapus check constraint inventory_scope_check, batasan toko,
+-- aktifkan sinkronisasi multi-toko & Realtime Supabase untuk semua akun
 -- Jalankan script ini di: Supabase Dashboard -> SQL Editor -> New Query -> Run
 -- ==============================================================================
 
@@ -62,6 +63,16 @@ CREATE TABLE IF NOT EXISTS public.stores (
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
+-- Masukkan default stores jika belum ada
+INSERT INTO public.stores (id, name) VALUES
+  ('chickumbar-blok-m', 'Chickumbar Blok M'),
+  ('susu-sore', 'Susu Sore'),
+  ('hi-fruit', 'Hi Fruit'),
+  ('ngayamin', 'Ngayamin'),
+  ('chickumbar-barito', 'Chickumbar Barito')
+ON CONFLICT (name) DO NOTHING;
+
+-- 4. Hak Akses & RLS Toko (Bisa ditambahkan & dibaca oleh semua akun yang login)
 ALTER TABLE public.stores ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Stores readable by authenticated" ON public.stores;
@@ -70,12 +81,83 @@ ON public.stores FOR SELECT TO authenticated
 USING (true);
 
 DROP POLICY IF EXISTS "Stores manageable by admin" ON public.stores;
-CREATE POLICY "Stores manageable by admin"
+DROP POLICY IF EXISTS "Stores manageable by authenticated" ON public.stores;
+CREATE POLICY "Stores manageable by authenticated"
 ON public.stores FOR ALL TO authenticated
-USING (public.is_admin())
-WITH CHECK (public.is_admin());
+USING (true)
+WITH CHECK (true);
 
 GRANT ALL ON public.stores TO authenticated;
 
--- 4. Reload cache schema PostgREST Supabase
+-- 5. Fungsi Akses Toko & Bahan (Admin & Owner memiliki akses ke seluruh toko baru)
+CREATE OR REPLACE FUNCTION public.can_access_store(target_store text)
+RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
+  SELECT public.is_admin()
+    OR public.is_owner()
+    OR EXISTS (
+      SELECT 1 FROM public.profiles
+      WHERE user_id = auth.uid()
+        AND role = 'employee'
+        AND (
+          (branches IS NOT NULL AND target_store = ANY(branches))
+          OR (branch IS NOT NULL AND branch = target_store)
+        )
+    );
+$$;
+
+CREATE OR REPLACE FUNCTION public.can_manage_inventory(target_store text)
+RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
+  SELECT public.is_admin()
+    OR public.is_owner()
+    OR EXISTS (
+      SELECT 1 FROM public.profiles
+      WHERE user_id = auth.uid()
+        AND role = 'employee'
+        AND (
+          (branches IS NOT NULL AND target_store = ANY(branches))
+          OR (branch IS NOT NULL AND branch = target_store)
+        )
+    );
+$$;
+
+-- 6. Perbarui RLS Inventory agar Admin & Owner dapat mengelola semua toko baru
+DROP POLICY IF EXISTS "Inventory readable by access" ON public.inventory;
+CREATE POLICY "Inventory readable by access"
+ON public.inventory FOR SELECT TO authenticated
+USING (public.can_access_store(store));
+
+DROP POLICY IF EXISTS "Inventory manageable by admin" ON public.inventory;
+DROP POLICY IF EXISTS "Inventory manageable" ON public.inventory;
+CREATE POLICY "Inventory manageable"
+ON public.inventory FOR ALL TO authenticated
+USING (public.is_admin() OR public.is_owner() OR public.can_manage_inventory(store))
+WITH CHECK (public.is_admin() OR public.is_owner() OR public.can_manage_inventory(store));
+
+DROP POLICY IF EXISTS "Daily inventory readable by access" ON public.inventory_daily;
+CREATE POLICY "Daily inventory readable by access"
+ON public.inventory_daily FOR SELECT TO authenticated
+USING (public.can_access_store(store));
+
+DROP POLICY IF EXISTS "Daily inventory manageable" ON public.inventory_daily;
+CREATE POLICY "Daily inventory manageable"
+ON public.inventory_daily FOR ALL TO authenticated
+USING (public.is_admin() OR public.is_owner() OR public.can_manage_inventory(store))
+WITH CHECK (public.is_admin() OR public.is_owner() OR public.can_manage_inventory(store));
+
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.stores, public.inventory, public.inventory_daily, public.profiles TO authenticated;
+
+-- 7. Aktifkan Supabase Realtime untuk tabel stores, inventory, dan inventory_daily
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'supabase_realtime') THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.stores;
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.inventory;
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.inventory_daily;
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.profiles;
+  END IF;
+EXCEPTION WHEN OTHERS THEN
+  NULL;
+END $$;
+
+-- 8. Reload schema cache PostgREST Supabase
 NOTIFY pgrst, 'reload schema';
