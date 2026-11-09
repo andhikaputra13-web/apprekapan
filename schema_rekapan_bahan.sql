@@ -121,9 +121,10 @@ BEGIN
 END $$;
 
 -- 7. View soft-delete untuk panel Sampah
-CREATE OR REPLACE VIEW public.deleted_items AS
-SELECT 'inventory' AS table_name, id, deleted_at, deleted_by, coalesce(store,'') AS store, coalesce(name,'Bahan') AS title, coalesce(note,'') AS detail FROM public.inventory WHERE deleted_at IS NOT NULL
-UNION ALL SELECT 'inventory_daily', id, deleted_at, deleted_by, coalesce(store,''), coalesce(name,'Closing Bahan'), coalesce(note,'') FROM public.inventory_daily WHERE deleted_at IS NOT NULL;
+DROP VIEW IF EXISTS public.deleted_items CASCADE;
+CREATE VIEW public.deleted_items AS
+SELECT 'inventory' AS table_name, id, deleted_at, deleted_by, coalesce(store,'') AS store, coalesce(name,'Bahan') AS label, coalesce(name,'Bahan') AS title, coalesce(note,'') AS detail FROM public.inventory WHERE deleted_at IS NOT NULL
+UNION ALL SELECT 'inventory_daily', id, deleted_at, deleted_by, coalesce(store,''), coalesce(name,'Closing Bahan') AS label, coalesce(name,'Closing Bahan') AS title, coalesce(note,'') AS detail FROM public.inventory_daily WHERE deleted_at IS NOT NULL;
 
 -- 8. Fungsi Security & Operasional
 CREATE OR REPLACE FUNCTION public.is_admin()

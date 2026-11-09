@@ -6058,9 +6058,10 @@ ALTER TABLE public.inventory ADD COLUMN IF NOT EXISTS deleted_by uuid REFERENCES
 ALTER TABLE public.inventory_daily ADD COLUMN IF NOT EXISTS deleted_at timestamptz;
 ALTER TABLE public.inventory_daily ADD COLUMN IF NOT EXISTS deleted_by uuid REFERENCES auth.users(id) ON DELETE SET NULL;
 
-CREATE OR REPLACE VIEW public.deleted_items AS
-SELECT 'inventory' AS table_name, id, deleted_at, deleted_by, coalesce(store,'') AS store, coalesce(name,'Bahan') AS title, coalesce(note,'') AS detail FROM public.inventory WHERE deleted_at IS NOT NULL
-UNION ALL SELECT 'inventory_daily', id, deleted_at, deleted_by, coalesce(store,''), coalesce(name,'Closing Bahan'), coalesce(note,'') FROM public.inventory_daily WHERE deleted_at IS NOT NULL;
+DROP VIEW IF EXISTS public.deleted_items CASCADE;
+CREATE VIEW public.deleted_items AS
+SELECT 'inventory' AS table_name, id, deleted_at, deleted_by, coalesce(store,'') AS store, coalesce(name,'Bahan') AS label, coalesce(name,'Bahan') AS title, coalesce(note,'') AS detail FROM public.inventory WHERE deleted_at IS NOT NULL
+UNION ALL SELECT 'inventory_daily', id, deleted_at, deleted_by, coalesce(store,''), coalesce(name,'Closing Bahan') AS label, coalesce(name,'Closing Bahan') AS title, coalesce(note,'') AS detail FROM public.inventory_daily WHERE deleted_at IS NOT NULL;
 
 -- 9. Row Level Security & Policies Terbuka (authenticated & anon)
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
