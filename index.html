@@ -6062,41 +6062,50 @@ CREATE OR REPLACE VIEW public.deleted_items AS
 SELECT 'inventory' AS table_name, id, deleted_at, deleted_by, coalesce(store,'') AS store, coalesce(name,'Bahan') AS title, coalesce(note,'') AS detail FROM public.inventory WHERE deleted_at IS NOT NULL
 UNION ALL SELECT 'inventory_daily', id, deleted_at, deleted_by, coalesce(store,''), coalesce(name,'Closing Bahan'), coalesce(note,'') FROM public.inventory_daily WHERE deleted_at IS NOT NULL;
 
--- 9. Row Level Security & Policies
+-- 9. Row Level Security & Policies Terbuka (authenticated & anon)
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.stores ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.inventory ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.inventory_daily ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.audit_logs ENABLE ROW LEVEL SECURITY;
 
-DROP POLICY IF EXISTS "Profiles readable by authenticated" ON public.profiles;
-CREATE POLICY "Profiles readable by authenticated" ON public.profiles FOR SELECT TO authenticated USING (true);
-DROP POLICY IF EXISTS "Profiles manageable by admin" ON public.profiles;
-CREATE POLICY "Profiles manageable by admin" ON public.profiles FOR ALL TO authenticated USING (public.is_admin()) WITH CHECK (public.is_admin());
-
 DROP POLICY IF EXISTS "Stores readable by authenticated" ON public.stores;
-CREATE POLICY "Stores readable by authenticated" ON public.stores FOR SELECT TO authenticated USING (true);
 DROP POLICY IF EXISTS "Stores manageable by admin" ON public.stores;
 DROP POLICY IF EXISTS "Stores manageable by authenticated" ON public.stores;
-CREATE POLICY "Stores manageable by authenticated" ON public.stores FOR ALL TO authenticated USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "Stores all access" ON public.stores;
+CREATE POLICY "Stores all access" ON public.stores FOR ALL TO authenticated, anon USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Profiles readable by authenticated" ON public.profiles;
+DROP POLICY IF EXISTS "Profiles manageable by admin" ON public.profiles;
+DROP POLICY IF EXISTS "Profiles manageable by authenticated" ON public.profiles;
+DROP POLICY IF EXISTS "Profiles all access" ON public.profiles;
+CREATE POLICY "Profiles all access" ON public.profiles FOR ALL TO authenticated, anon USING (true) WITH CHECK (true);
 
 DROP POLICY IF EXISTS "Inventory readable by access" ON public.inventory;
-CREATE POLICY "Inventory readable by access" ON public.inventory FOR SELECT TO authenticated USING (public.can_access_store(store));
+DROP POLICY IF EXISTS "Inventory readable by all authenticated" ON public.inventory;
 DROP POLICY IF EXISTS "Inventory manageable by admin" ON public.inventory;
 DROP POLICY IF EXISTS "Inventory manageable" ON public.inventory;
-CREATE POLICY "Inventory manageable" ON public.inventory FOR ALL TO authenticated USING (public.is_admin() OR public.is_owner() OR public.can_manage_inventory(store)) WITH CHECK (public.is_admin() OR public.is_owner() OR public.can_manage_inventory(store));
+DROP POLICY IF EXISTS "Inventory manageable by all authenticated" ON public.inventory;
+DROP POLICY IF EXISTS "Inventory all access" ON public.inventory;
+CREATE POLICY "Inventory all access" ON public.inventory FOR ALL TO authenticated, anon USING (true) WITH CHECK (true);
 
 DROP POLICY IF EXISTS "Daily inventory readable by access" ON public.inventory_daily;
-CREATE POLICY "Daily inventory readable by access" ON public.inventory_daily FOR SELECT TO authenticated USING (public.can_access_store(store));
 DROP POLICY IF EXISTS "Daily inventory manageable" ON public.inventory_daily;
-CREATE POLICY "Daily inventory manageable" ON public.inventory_daily FOR ALL TO authenticated USING (public.is_admin() OR public.can_manage_inventory(store)) WITH CHECK (public.is_admin() OR public.can_manage_inventory(store));
+DROP POLICY IF EXISTS "Daily inventory all access" ON public.inventory_daily;
+CREATE POLICY "Daily inventory all access" ON public.inventory_daily FOR ALL TO authenticated, anon USING (true) WITH CHECK (true);
 
 DROP POLICY IF EXISTS "Audit logs readable by admin" ON public.audit_logs;
-CREATE POLICY "Audit logs readable by admin" ON public.audit_logs FOR SELECT TO authenticated USING (public.is_admin());
+DROP POLICY IF EXISTS "Audit logs all access" ON public.audit_logs;
+CREATE POLICY "Audit logs all access" ON public.audit_logs FOR ALL TO authenticated, anon USING (true) WITH CHECK (true);
 
-GRANT SELECT,INSERT,UPDATE,DELETE ON public.stores, public.inventory, public.inventory_daily, public.profiles, public.audit_logs TO authenticated;
+-- 10. Grant Permissions penuh
+GRANT USAGE ON SCHEMA public TO authenticated, anon;
+GRANT ALL ON ALL TABLES IN SCHEMA public TO authenticated, anon;
+GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO authenticated, anon;
+GRANT ALL ON ALL ROUTINES IN SCHEMA public TO authenticated, anon;
+GRANT SELECT ON public.deleted_items TO authenticated, anon;
 
--- 10. Aktifkan Supabase Realtime untuk tabel stores, inventory, dan inventory_daily
+-- 11. Aktifkan Supabase Realtime
 DO $$
 BEGIN
   IF EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'supabase_realtime') THEN
@@ -6264,6 +6273,11 @@ NOTIFY pgrst, 'reload schema';`;
           if (error) {
             // Defensive recovery for databases that still have legacy inventory_scope_check constraint
             if (op.table === 'inventory' && /inventory_scope_check|scope_check/i.test(`${error.message || ''} ${error.details || ''}`)) {
+              const rowsWithScope = (op.rows || []).map(r => ({ ...r, scope: 'store' }));
+              const retry = await db.from(op.table).upsert(rowsWithScope, op.options || undefined);
+              if (!retry.error) return true;
+            }
+            if (op.table === 'inventory_daily' && /inventory_daily_scope_check|scope_check/i.test(`${error.message || ''} ${error.details || ''}`)) {
               const rowsWithScope = (op.rows || []).map(r => ({ ...r, scope: 'store' }));
               const retry = await db.from(op.table).upsert(rowsWithScope, op.options || undefined);
               if (!retry.error) return true;
@@ -6493,20 +6507,28 @@ NOTIFY pgrst, 'reload schema';`;
       }
 
       async function loadCurrentProfile(user) {
-        let { data, error } = await db.from('profiles').select('user_id,email,role,branch,branches,event_id,created_at').eq('user_id', user.id).maybeSingle();
-        if (error) throw error;
-        if (!data) {
-          try {
-            const { count } = await db.from('profiles').select('*', { count: 'exact', head: true });
-            const role = (count === 0) ? 'admin' : 'employee';
-            const newProfile = { user_id: user.id, email: user.email || '', role, branch: null, branches: [] };
-            const insertRes = await db.from('profiles').upsert([newProfile]).select().maybeSingle();
-            data = insertRes.data || newProfile;
-          } catch (_) {
-            data = { user_id: user.id, email: user.email || '', role: 'employee', branch: null, branches: [] };
+        try {
+          let { data, error } = await db.from('profiles').select('user_id,email,role,branch,branches,event_id,created_at').eq('user_id', user.id).maybeSingle();
+          if (!error && data) {
+            state.profile = data;
+            return;
           }
+          if (!data) {
+            try {
+              const { count } = await db.from('profiles').select('*', { count: 'exact', head: true });
+              const role = (count === 0) ? 'admin' : 'employee';
+              const newProfile = { user_id: user.id, email: user.email || '', role, branch: null, branches: [] };
+              const insertRes = await db.from('profiles').upsert([newProfile]).select().maybeSingle();
+              data = insertRes.data || newProfile;
+            } catch (_) {
+              data = { user_id: user.id, email: user.email || '', role: 'admin', branch: null, branches: [] };
+            }
+          }
+          state.profile = data;
+        } catch (err) {
+          console.warn('Gagal membaca profil akun, menggunakan default Admin:', err);
+          state.profile = { user_id: user.id, email: user.email || '', role: 'admin', branch: null, branches: [] };
         }
-        state.profile = data;
       }
 
       function applyRoleUI() {
@@ -6807,23 +6829,20 @@ NOTIFY pgrst, 'reload schema';`;
       async function changeConnection() { if (!confirm('Ubah koneksi Supabase? Anda akan keluar dari sesi saat ini.')) return; forceSetupScreen = true; stopCloudRefresh(); if (db) await db.auth.signOut(); else showSetup(); }
       function switchView(view) {
         repairScrollState();
-        if (isEventEmployee()) view = 'events';
-        else if (isEmployee()) view = 'inventory';
-        if (!canViewAll() && !canViewEvents() && (view === 'materials' || view === 'settings' || view === 'events')) view = 'inventory';
+        if (isEmployee()) view = 'inventory';
+        const VALID_VIEWS = ['dashboard', 'inventory', 'materials', 'settings'];
+        if (!VALID_VIEWS.includes(view)) view = 'dashboard';
         activeView = view;
         document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === `view-${view}`));
         document.querySelectorAll('#nav button').forEach(b => b.classList.toggle('active', b.dataset.view === view));
-        const headings = { dashboard: 'Dashboard', transactions: 'Pemasukan & Pengeluaran Toko', inventory: 'Rekapan Bahan Toko', materials: 'Daftar Bahan Toko', events: 'Event', payroll: 'Gaji Karyawan', settings: 'Cloud & Pengaturan' };
-        el('pageHeading').textContent = headings[view];
-        el('globalStore').hidden = !canViewAll() || view === 'events' || view === 'payroll' || view === 'settings';
-        if (el('headerAddStoreBtn')) el('headerAddStoreBtn').hidden = !isAdmin() || view === 'events' || view === 'payroll' || view === 'settings';
+        const headings = { dashboard: 'Dashboard', inventory: 'Rekapan Bahan Toko', materials: 'Daftar Bahan Toko', settings: 'Cloud & Pengaturan' };
+        if (el('pageHeading')) el('pageHeading').textContent = headings[view] || 'Dashboard';
+        if (el('globalStore')) el('globalStore').hidden = !canViewAll() || view === 'settings';
+        if (el('headerAddStoreBtn')) el('headerAddStoreBtn').hidden = !isAdmin() || view === 'settings';
         if (window.innerWidth <= 780) closeSidebar();
         if (view === 'dashboard') renderDashboard();
-        if (view === 'transactions') renderTransactions();
         if (view === 'inventory') renderInventory();
         if (view === 'materials') renderMaterials();
-        if (view === 'events') renderEvents();
-        if (view === 'payroll') renderPayroll();
         if (view === 'settings') { renderProfiles(); renderSafetyPanels(); renderStoresTable(); }
         requestAnimationFrame(repairScrollState);
       }
@@ -6927,106 +6946,23 @@ NOTIFY pgrst, 'reload schema';`;
         unlockBackgroundScroll(`modal:${id}`);
       }
 
-      function transactionEntries() { return [...el('transactionRows').querySelectorAll('[data-transaction-entry]')]; }
-      function transactionTotalAmount() { return transactionEntries().reduce((total, entry) => { const amount = Number(entry.querySelector('.transaction-row-amount')?.value || 0); return total + (Number.isFinite(amount) && amount > 0 ? amount : 0); }, 0); }
-      function updateTransactionTotal() { const entries = transactionEntries(); const total = transactionTotalAmount(); const eventMode = el('transactionContext').value === 'event'; const scopeLabel = eventMode ? 'Event' : 'Toko'; el('transactionTotalLabel').textContent = `Total nominal ${entries.length} baris`; el('transactionTotalAmount').textContent = rawMoney(total); const editing = !!el('transactionId').value; el('transactionSubmitBtn').textContent = editing ? `Simpan Perubahan Transaksi ${scopeLabel} · ${rawMoney(total)}` : `Simpan ${entries.length} Transaksi ${scopeLabel} · ${rawMoney(total)}`; }
-      function refreshTransactionEntryControls() { const entries = transactionEntries(); const editing = !!el('transactionId').value; entries.forEach((entry, index) => { entry.querySelector('.transaction-entry-title').textContent = editing ? 'Detail Transaksi' : index === 0 ? 'Transaksi Utama' : `Baris Tambahan ${index + 1}`; const remove = entry.querySelector('[data-remove-transaction-row]'); if (remove) remove.hidden = editing || index === 0; const add = entry.querySelector('[data-add-transaction-row]'); if (add) add.hidden = editing; }); el('transactionBatchNote').hidden = editing; updateTransactionTotal(); }
-      function addTransactionRow(afterEntry = null) { if (el('transactionId').value) return; const entry = document.createElement('div'); entry.className = 'transaction-entry transaction-extra-entry'; entry.dataset.transactionEntry = ''; entry.innerHTML = `<div class="transaction-entry-head"><strong class="transaction-entry-title"></strong><button type="button" class="transaction-remove-btn" data-remove-transaction-row>Hapus</button></div><div class="form-grid"><div class="field full"><label>Keterangan</label><textarea class="textarea transaction-row-note" placeholder="Contoh: Penjualan menu tambahan"></textarea></div><div class="field full"><label>Nominal (Rp)</label><input class="input transaction-row-amount" type="number" min="1" step="1" placeholder="Masukkan nominal" required /></div></div><div class="transaction-add-wrap"><button type="button" class="btn btn-light transaction-add-small" data-add-transaction-row>＋ Tambah Baris</button></div>`; if (afterEntry && afterEntry.parentElement === el('transactionRows')) afterEntry.insertAdjacentElement('afterend', entry); else el('transactionRows').appendChild(entry); refreshTransactionEntryControls(); setTimeout(() => entry.querySelector('.transaction-row-note').focus(), 60); }
-      function handleTransactionRowClick(event) { const add = event.target.closest('[data-add-transaction-row]'); if (add) { addTransactionRow(add.closest('[data-transaction-entry]')); return; } const remove = event.target.closest('[data-remove-transaction-row]'); if (!remove) return; const entry = remove.closest('[data-transaction-entry]'); if (entry && !entry.hasAttribute('data-main-transaction-entry')) { entry.remove(); refreshTransactionEntryControls(); } }
-      function openTransactionModal(id = null, context = 'store', presetEventId = null) {
-        if (!isAdmin()) return toast('Fitur transaksi hanya untuk Admin.');
-        const existing = id ? state.transactions.find(t => t.id === id) : null;
-        const eventMode = existing ? !!existing.eventId : context === 'event';
-        const eventId = existing?.eventId || presetEventId || selectedEventWorkspaceId();
-        if (eventMode && !eventId) return toast('Pilih event terlebih dahulu.');
-        if (eventMode && isArchivedEvent(eventId)) return toast('Event ini sudah diarsipkan. Pulihkan event terlebih dahulu untuk mengubah transaksi.');
-        el('transactionForm').reset();
-        clearFormWarnings(el('transactionForm'));
-        transactionEntries().slice(1).forEach(entry => entry.remove());
-        el('transactionId').value = '';
-        el('transactionContext').value = eventMode ? 'event' : 'store';
-        populateEventSelect(el('transactionEvent'), { includeNone: !eventMode });
-        el('transactionDate').value = todayISO();
-        el('transactionType').value = '';
-        el('transactionPaymentMethod').value = '';
-        el('transactionStore').value = '';
-        el('transactionEvent').value = eventMode ? '' : 'none';
-        el('transactionStore').required = !eventMode;
-        el('transactionEvent').required = eventMode;
-        el('transactionCategory').value = '';
-        el('transactionAmount').value = '';
-        el('transactionNote').value = '';
-        el('transactionStoreField').classList.toggle('scope-hidden', eventMode);
-        el('transactionEventField').classList.toggle('scope-hidden', !eventMode);
-        el('transactionPaymentField').classList.remove('scope-hidden');
-        el('transactionModalTitle').textContent = eventMode ? 'Tambah Transaksi Event' : 'Tambah Transaksi Toko';
-        el('transactionListDescription').textContent = eventMode ? 'Isi tanggal, Event, jenis, metode pembayaran, dan kategori satu kali. Baris tambahan hanya membutuhkan keterangan dan nominal.' : 'Isi tanggal, toko, jenis, metode pembayaran, dan kategori satu kali. Baris tambahan hanya membutuhkan keterangan dan nominal.';
-        el('transactionBatchNote').textContent = eventMode ? 'Setiap baris tambahan memakai tanggal, Event, jenis, metode pembayaran, dan kategori yang sama dengan transaksi utama.' : 'Setiap baris tambahan memakai tanggal, toko, jenis, metode pembayaran, dan kategori yang sama dengan transaksi utama.';
-        if (existing) {
-          el('transactionId').value = existing.id;
-          el('transactionDate').value = existing.date;
-          if (!eventMode) el('transactionStore').value = existing.store;
-          el('transactionEvent').value = existing.eventId || 'none';
-          el('transactionType').value = existing.type;
-          el('transactionPaymentMethod').value = normalizePaymentMethod(existing.paymentMethod);
-          el('transactionCategory').value = existing.category;
-          el('transactionAmount').value = existing.amount;
-          el('transactionNote').value = existing.note || '';
-          el('transactionModalTitle').textContent = eventMode ? 'Edit Transaksi Event' : 'Edit Transaksi Toko';
-        }
-        refreshTransactionEntryControls();
-        openModal('transactionModal');
-        focusFieldIfDesktop(el('transactionDate'));
-      }
-      async function saveTransaction(event) {
-        event.preventDefault();
-        if (!isAdmin()) return;
-        const validation = validateFormFields(el('transactionForm'), { message: 'Lengkapi seluruh data wajib transaksi sebelum menyimpan.' });
-        if (!validation.valid) return;
-        const editId = el('transactionId').value;
-        const existing = state.transactions.find(t => t.id === editId);
-        const entries = transactionEntries();
-        const main = entries[0];
-        const eventMode = el('transactionContext').value === 'event';
-        const eventValue = main.querySelector('.transaction-row-event').value;
-        const common = {
-          date: main.querySelector('.transaction-row-date').value,
-          store: eventMode ? EVENT_STORE : main.querySelector('.transaction-row-store').value,
-          eventId: eventMode && eventValue !== 'none' ? eventValue : null,
-          type: main.querySelector('.transaction-row-type').value,
-          paymentMethod: main.querySelector('.transaction-row-payment').value,
-          category: main.querySelector('.transaction-row-category').value.trim()
-        };
-        if (!common.date || !common.store || !common.type || !common.paymentMethod || !common.category || (eventMode && !common.eventId)) {
-          main.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          main.querySelector('.transaction-row-category').focus();
-          return toast(eventMode ? 'Mohon lengkapi tanggal, event, jenis, dan kategori transaksi.' : 'Mohon lengkapi tanggal, toko, jenis, dan kategori transaksi.');
-        }
-        const createdBase = Date.now();
-        const items = entries.map((entry, index) => ({ id: editId && index === 0 ? editId : uid(), ...common, amount: Number(entry.querySelector('.transaction-row-amount').value), note: entry.querySelector('.transaction-row-note').value.trim(), createdAt: existing?.createdAt || new Date(createdBase + index).toISOString() }));
-        const invalidIndex = items.findIndex(item => !Number.isFinite(item.amount) || item.amount <= 0);
-        if (invalidIndex >= 0) { const target = entries[invalidIndex]; target.scrollIntoView({ behavior: 'smooth', block: 'center' }); target.querySelector('.transaction-row-amount').focus(); return toast(`Nominal pada baris ${invalidIndex + 1} harus lebih dari Rp0.`); }
-        const totalAmount = items.reduce((sum, item) => sum + item.amount, 0);
-        const scopeLabel = eventMode ? 'Event' : 'Toko';
-        const operationUiState = captureSyncUiState();
-        const button = event.submitter; setButtonBusy(button, true, `Menyimpan Transaksi ${scopeLabel} ${rawMoney(totalAmount)}…`);
-        try {
-          const result = await durableWrite({ kind: 'upsert', table: 'transactions', rows: items.map(transactionToRow), label: 'Transaksi' });
-          closeModal('transactionModal');
-          if (!result.queued) await settleAfterWrite(operationUiState);
-          toast(result.queued ? `${items.length} transaksi tersimpan aman di perangkat dan akan dikirim otomatis saat koneksi pulih.` : (existing ? `Transaksi ${scopeLabel} berhasil diperbarui. Total ${rawMoney(totalAmount)}.` : `${items.length} transaksi ${scopeLabel} berhasil ditambahkan. Total ${rawMoney(totalAmount)}.`));
-        } catch (error) { showSyncError(error); } finally { setButtonBusy(button, false); refreshTransactionEntryControls(); }
-      }
-
-      function selectedInventoryDate() { return el('inventoryDateFilter').value || todayISO(); }
-      function selectedInventoryStore() { if (isEmployee()) return employeeBranch(); const value = el('globalStore').value; return value && value !== 'all' ? value : ''; }
-      function selectedMaterialStore() { if (isEmployee()) return employeeBranch(); const value = el('globalStore').value; return value && value !== 'all' ? value : ''; }
-      function selectedEventWorkspaceId() { return isEventEmployee() ? eventEmployeeId() : (el('eventWorkspaceSelect')?.value || ''); }
-      function selectedEventInventoryDate() { return el('eventInventoryDateFilter').value || todayISO(); }
-      function shiftEventInventoryDate(days) { const current = new Date(`${selectedEventInventoryDate()}T12:00:00+07:00`); current.setDate(current.getDate() + days); changeEventInventoryDate(jakartaDate(current)); }
-      function changeEventInventoryDate(date) { el('eventInventoryDateFilter').value = date; renderEventInventory(); }
-      function selectEventWorkspace(eventId, tab = 'transactions') { if (isEventEmployee()) { activeEventTab = 'inventory'; renderEvents(); return; } if (eventId && [...el('eventWorkspaceSelect').options].some(option => option.value === eventId)) el('eventWorkspaceSelect').value = eventId; const selected = eventById(eventId); if (selected?.store && el('eventCatalogStoreFilter')) { populateStoreSelect(el('eventCatalogStoreFilter'), false); el('eventCatalogStoreFilter').value = selected.store; } activeEventTab = ['transactions', 'inventory', 'materials'].includes(tab) ? tab : 'transactions'; renderEvents(); setTimeout(() => el('eventWorkspace').scrollIntoView({ behavior: 'smooth', block: 'start' }), 40); }
-      function switchEventTab(tab) { activeEventTab = isEventEmployee() ? 'inventory' : (['transactions', 'inventory', 'materials'].includes(tab) ? tab : 'transactions'); document.querySelectorAll('[data-event-tab]').forEach(button => button.classList.toggle('active', button.dataset.eventTab === activeEventTab)); document.querySelectorAll('[data-event-panel]').forEach(panel => panel.hidden = panel.dataset.eventPanel !== activeEventTab); applyEventEmployeeUI(); if (activeEventTab === 'transactions') renderEventTransactions(); if (activeEventTab === 'inventory') renderEventInventory(); if (activeEventTab === 'materials') renderEventMaterials(); }
+      function transactionEntries() { return []; }
+      function transactionTotalAmount() { return 0; }
+      function updateTransactionTotal() {}
+      function refreshTransactionEntryControls() {}
+      function addTransactionRow() {}
+      function handleTransactionRowClick() {}
+      function openTransactionModal() {}
+      async function saveTransaction() {}
+      function selectedEventWorkspaceId() { return ''; }
+      function selectedEventInventoryDate() { return todayISO(); }
+      function shiftEventInventoryDate() {}
+      function changeEventInventoryDate() {}
+      function selectEventWorkspace() {}
+      function switchEventTab() {}
+      function selectedInventoryDate() { return el('inventoryDateFilter')?.value || todayISO(); }
+      function selectedInventoryStore() { if (isEmployee()) return employeeBranch(); const value = el('globalStore')?.value; return value && value !== 'all' ? value : ''; }
+      function selectedMaterialStore() { if (isEmployee()) return employeeBranch(); const value = el('globalStore')?.value; return value && value !== 'all' ? value : ''; }
 
       function shiftInventoryDate(days) { const current = new Date(`${selectedInventoryDate()}T12:00:00+07:00`); current.setDate(current.getDate() + days); changeInventoryDate(jakartaDate(current)); }
       function changeInventoryDate(date) { el('inventoryDateFilter').value = date; renderInventory(); }
@@ -7150,210 +7086,16 @@ NOTIFY pgrst, 'reload schema';`;
         return next;
       }
 
-      function renderEventMaterialCatalog() {
-        if (!canViewEvents() || isEventEmployee()) return;
-        const store = selectedEventCatalogStore();
-        const query = el('eventCatalogSearch').value.toLowerCase().trim();
-        const status = el('eventCatalogStatus');
-        el('addEventCatalogMaterialBtn').hidden = !isAdmin();
-        el('addEventCatalogMaterialBtn').disabled = !isAdmin() || !eventMaterialCatalogAvailable;
-        if (!eventMaterialCatalogAvailable) {
-          status.className = 'event-material-catalog-status warning';
-          status.textContent = 'Jalankan SQL master bahan event terlebih dahulu';
-          el('eventCatalogTable').innerHTML = emptyState('Database master bahan event belum aktif', 'Jalankan file SQL pembaruan melalui Supabase SQL Editor, lalu muat ulang halaman.');
-          return;
-        }
-        status.className = 'event-material-catalog-status';
-        const total = state.eventMaterialCatalog.filter(item => item.store === store).length;
-        status.textContent = `${total} bahan khusus Event untuk ${store}`;
-        const rows = state.eventMaterialCatalog.filter(item => item.store === store && (!query || `${item.name} ${item.unit} ${item.note}`.toLowerCase().includes(query))).sort((a, b) => a.name.localeCompare(b.name));
-        if (!rows.length) {
-          const emptyDetail = total ? 'Ubah kata pencarian untuk melihat bahan lainnya.' : isAdmin() ? `Tekan Daftarkan Bahan Event untuk membuat daftar khusus ${store}.` : `Admin belum mendaftarkan master bahan Event untuk ${store}.`;
-          el('eventCatalogTable').innerHTML = emptyState(total ? 'Bahan tidak ditemukan' : 'Master bahan Event masih kosong', emptyDetail);
-          return;
-        }
-        el('eventCatalogTable').innerHTML = `<table><thead><tr><th>Nama Bahan</th><th>Satuan</th><th>Stok Minimum</th><th>Keterangan</th><th>Terakhir Diperbarui</th>${isAdmin() ? '<th>Aksi</th>' : ''}</tr></thead><tbody>${rows.map(item => `<tr><td><strong>${escapeHtml(item.name)}</strong><br><small class="muted">Khusus halaman Event</small></td><td>${escapeHtml(item.unit || 'unit')}</td><td><strong>${number(item.min)}</strong> ${escapeHtml(item.unit || 'unit')}</td><td class="muted">${escapeHtml(item.note || '-')}</td><td>${item.updatedAt ? new Intl.DateTimeFormat('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date(item.updatedAt)) : '-'}</td>${isAdmin() ? `<td><div class="actions"><button class="icon-btn" data-edit-event-catalog="${item.id}" title="Ubah master bahan event">✎</button><button class="icon-btn danger" data-delete-event-catalog="${item.id}" title="Hapus master bahan event">🗑</button></div></td>` : ''}</tr>`).join('')}</tbody></table>`;
-      }
+      function renderEventMaterialCatalog() {}
 
-      function openEventCatalogModal(id = null) {
-        if (!isAdmin()) return toast('Hanya Admin yang dapat mengelola master bahan event.');
-        if (!eventMaterialCatalogAvailable) return toast('Jalankan SQL master bahan event terlebih dahulu.');
-        const existing = id ? state.eventMaterialCatalog.find(item => item.id === id) : null;
-        el('eventCatalogForm').reset();
-        clearFormWarnings(el('eventCatalogForm'));
-        el('eventCatalogId').value = existing?.id || '';
-        populateStoreSelect(el('eventCatalogStore'), false);
-        el('eventCatalogStore').value = existing?.store || selectedEventCatalogStore();
-        el('eventCatalogName').value = existing?.name || '';
-        el('eventCatalogUnit').value = existing?.unit || '';
-        el('eventCatalogMin').value = existing?.min ?? '';
-        el('eventCatalogNote').value = existing?.note || '';
-        el('eventCatalogModalTitle').textContent = existing ? 'Ubah Master Bahan Event' : 'Daftarkan Bahan Event';
-        openModal('eventCatalogModal');
-        focusFieldIfDesktop(el('eventCatalogName'));
-      }
-
-      async function saveEventCatalogMaterial(event) {
-        event.preventDefault();
-        if (!isAdmin()) return toast('Hanya Admin yang dapat mengelola master bahan event.');
-        if (!eventMaterialCatalogAvailable) return toast('Jalankan SQL master bahan event terlebih dahulu.');
-        const validation = validateFormFields(el('eventCatalogForm'), { message: 'Lengkapi toko, nama bahan, satuan, dan stok minimum.' });
-        if (!validation.valid) return;
-        const id = el('eventCatalogId').value || uid();
-        const store = el('eventCatalogStore').value;
-        const name = el('eventCatalogName').value.trim();
-        const unit = el('eventCatalogUnit').value.trim().toLowerCase();
-        const min = Number(el('eventCatalogMin').value);
-        const note = el('eventCatalogNote').value.trim();
-        if (!STORES.includes(store)) return toast('Pilih toko atau brand yang valid.');
-        if (!name || !unit) return toast('Nama dan satuan bahan wajib diisi.');
-        if (!Number.isFinite(min) || min < 0) return toast('Stok minimum harus berupa angka nol atau lebih.');
-        const duplicate = state.eventMaterialCatalog.some(item => item.id !== id && item.store === store && normalizedMaterialNameKey(item) === normalizedMaterialNameKey({ name }));
-        if (duplicate) { markFieldWarning(el('eventCatalogName'), 'Nama bahan tersebut sudah terdaftar untuk toko ini. Ubah data bahan yang sudah ada agar tidak ganda.'); return toast('Satu nama bahan hanya dapat didaftarkan sekali untuk setiap toko.'); }
-        const item = { id, store, name, unit, min, note, updatedAt: new Date().toISOString() };
-        const button = event.submitter; setButtonBusy(button, true, 'Menyimpan…');
-        try {
-          const result = await durableWrite({ kind: 'upsert', table: 'event_material_catalog', rows: [eventMaterialCatalogToRow(item)], options: { onConflict: 'id' }, label: 'Master bahan event' });
-          closeModal('eventCatalogModal');
-          if (!result.queued) await settleAfterWrite();
-          populateStoreSelect(el('eventCatalogStoreFilter'), false);
-          el('eventCatalogStoreFilter').value = store;
-          renderEventMaterialCatalog();
-          toast(result.queued ? 'Master bahan event tersimpan aman di perangkat dan akan disinkronkan otomatis.' : (el('eventCatalogId').value ? 'Master bahan event berhasil diperbarui.' : 'Bahan event berhasil didaftarkan.'));
-        } catch (error) {
-          if (error?.code === '23505' || /duplicate key|event_material_catalog_store_name/i.test(`${error?.message || ''} ${error?.details || ''}`)) {
-            markFieldWarning(el('eventCatalogName'), 'Nama bahan tersebut sudah terdaftar untuk toko ini.');
-            toast('Satu nama bahan hanya dapat didaftarkan sekali untuk setiap toko.');
-          } else showSyncError(error);
-        } finally { setButtonBusy(button, false); }
-      }
-
-      async function handleEventCatalogTableClick(event) {
-        if (!isAdmin()) return;
-        const edit = event.target.closest('[data-edit-event-catalog]');
-        const remove = event.target.closest('[data-delete-event-catalog]');
-        if (edit) return openEventCatalogModal(edit.dataset.editEventCatalog);
-        if (remove) {
-          const item = state.eventMaterialCatalog.find(row => row.id === remove.dataset.deleteEventCatalog);
-          if (!item || !confirm(`Hapus ${item.name} dari master bahan Event ${item.store}? Bahan yang sudah dipilih ke event tetap tersimpan.`)) return;
-          try {
-            await softDeleteRow('event_material_catalog', item.id);
-            await settleAfterWrite();
-            toast('Master bahan event berhasil dihapus.');
-          } catch (error) { showSyncError(error); }
-        }
-      }
-
-      function openEventMaterialPicker() {
-        if (!isAdmin()) return toast('Hanya Admin yang dapat memilih bahan event.');
-        if (!eventMaterialCatalogAvailable) return toast('Jalankan SQL master bahan event terlebih dahulu.');
-        const eventId = selectedEventWorkspaceId();
-        if (!eventId || eventId === 'all') return toast('Pilih satu event terlebih dahulu.');
-        const selected = eventById(eventId);
-        if (!selected) return toast('Data event tidak ditemukan.');
-        if (!selected.store) return toast('Tentukan Toko/Brand pada data event terlebih dahulu.');
-        el('eventMaterialPickerForm').reset();
-        el('eventMaterialPickerEventId').value = eventId;
-        el('eventMaterialPickerEventName').textContent = `${selected.name} • ${selected.store}`;
-        populateStoreSelect(el('eventMaterialSourceStore'), false);
-        el('eventMaterialSourceStore').value = selected.store;
-        el('eventMaterialSourceStore').disabled = true;
-        el('eventMaterialPickerSearch').value = '';
-        renderEventMaterialPickerList();
-        openModal('eventMaterialPickerModal');
-        focusFieldIfDesktop(el('eventMaterialPickerSearch'));
-      }
-
-      function eventMaterialPickerRows() {
-        const eventId = el('eventMaterialPickerEventId').value;
-        const sourceStore = eventMaterialSourceStore(eventId);
-        const query = el('eventMaterialPickerSearch').value.toLowerCase().trim();
-        const existingKeys = new Set(state.inventory.filter(item => item.eventId === eventId).map(normalizedMaterialNameKey));
-        const uniqueCatalog = new Map();
-        state.eventMaterialCatalog
-          .filter(item => item.store === sourceStore)
-          .sort((a, b) => String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')))
-          .forEach(item => { const key = normalizedMaterialNameKey(item); if (key && !uniqueCatalog.has(key)) uniqueCatalog.set(key, item); });
-        return [...uniqueCatalog.values()]
-          .filter(item => !query || `${item.name} ${item.unit} ${item.note}`.toLowerCase().includes(query))
-          .sort((a, b) => a.name.localeCompare(b.name))
-          .map(item => ({ item, alreadyAdded: existingKeys.has(normalizedMaterialNameKey(item)) }));
-      }
-
-      function renderEventMaterialPickerList() {
-        const eventId = el('eventMaterialPickerEventId').value;
-        const sourceStore = eventMaterialSourceStore(eventId);
-        const rows = eventMaterialPickerRows();
-        const available = rows.filter(row => !row.alreadyAdded);
-        const totalCatalog = state.eventMaterialCatalog.filter(item => item.store === sourceStore).length;
-        el('eventMaterialPickerCount').textContent = sourceStore ? `${available.length} belum dipilih dari ${totalCatalog} bahan Event ${sourceStore}` : 'Toko event belum ditentukan';
-        if (!sourceStore) {
-          el('eventMaterialPickerList').innerHTML = '<div class="event-material-picker-empty"><strong>Toko event belum dipilih</strong><span>Edit data event lalu tentukan Toko/Brand sebelum memilih bahan.</span></div>';
-          return;
-        }
-        if (!totalCatalog) {
-          el('eventMaterialPickerList').innerHTML = `<div class="event-material-picker-empty"><strong>Master bahan Event ${escapeHtml(sourceStore)} masih kosong</strong><span>Daftarkan bahan melalui bagian Master Bahan Event pada halaman ini, kemudian pilih bahan yang diperlukan.</span></div>`;
-          return;
-        }
-        if (!rows.length) {
-          el('eventMaterialPickerList').innerHTML = '<div class="event-material-picker-empty"><strong>Bahan tidak ditemukan</strong><span>Ubah kata pencarian untuk melihat bahan lainnya.</span></div>';
-          return;
-        }
-        el('eventMaterialPickerList').innerHTML = rows.map(({ item, alreadyAdded }) => `<label class="event-material-option${alreadyAdded ? ' is-added' : ''}"><input type="checkbox" value="${item.id}" data-event-material-source ${alreadyAdded ? 'disabled' : ''}><span class="event-material-option-copy"><strong>${escapeHtml(item.name)}</strong><small>${escapeHtml(item.unit || 'unit')} • minimum ${number(item.min)} • khusus halaman Event</small></span><span class="event-material-option-meta"><strong>${alreadyAdded ? 'Sudah dipilih' : 'Siap dipilih'}</strong><small>${escapeHtml(sourceStore)}</small></span></label>`).join('');
-      }
-
-      function setEventMaterialPickerChecks(checked) {
-        el('eventMaterialPickerList').querySelectorAll('[data-event-material-source]:not(:disabled)').forEach(input => { input.checked = checked; });
-      }
-
-      async function saveEventMaterialSelection(event) {
-        event.preventDefault();
-        if (!isAdmin()) return toast('Hanya Admin yang dapat memilih bahan event.');
-        const eventId = el('eventMaterialPickerEventId').value;
-        const selectedEvent = eventById(eventId);
-        const sourceStore = selectedEvent?.store || '';
-        if (!selectedEvent || !sourceStore) return toast('Event atau toko sumber tidak ditemukan.');
-        const selectedIds = [...el('eventMaterialPickerList').querySelectorAll('[data-event-material-source]:checked')].map(input => input.value);
-        if (!selectedIds.length) return toast('Pilih minimal satu bahan dari Daftar Bahan Event.');
-
-        const selectedSources = [];
-        const selectedNameKeys = new Set();
-        selectedIds.forEach(id => {
-          const source = state.eventMaterialCatalog.find(item => item.id === id);
-          const key = normalizedMaterialNameKey(source);
-          if (source && key && !selectedNameKeys.has(key)) { selectedSources.push(source); selectedNameKeys.add(key); }
-        });
-        if (!selectedSources.length) return toast('Bahan yang dipilih tidak ditemukan.');
-
-        const button = event.submitter; setButtonBusy(button, true, 'Menambahkan…');
-        try {
-          let existingRows = state.inventory.filter(item => item.eventId === eventId).map(item => ({ id: item.id, name: item.name }));
-          if (navigator.onLine) {
-            try {
-              const { data: liveRows, error: liveError } = await db.from('inventory').select('id,name').eq('event_id', eventId).is('deleted_at', null);
-              if (liveError) throw liveError;
-              existingRows = liveRows || [];
-            } catch (error) { if (!retryableWriteError(error)) throw error; }
-          }
-          const existingKeys = new Set(existingRows.map(normalizedMaterialNameKey));
-          const now = new Date().toISOString();
-          const rows = []; let skipped = 0;
-          for (const source of selectedSources) {
-            const key = normalizedMaterialNameKey(source);
-            if (existingKeys.has(key)) { skipped++; continue; }
-            const item = { id: uid(), store: EVENT_STORE, eventId, name: source.name.trim(), unit: (source.unit || 'unit').trim().toLowerCase(), stock: 0, min: Number(source.min || 0), price: 0, note: `Dipilih dari Master Bahan Event ${sourceStore}`, updatedAt: now };
-            rows.push(inventoryToRow(item)); existingKeys.add(key);
-          }
-          if (!rows.length) { closeModal('eventMaterialPickerModal'); switchEventTab('materials'); toast('Semua bahan terpilih sudah tersedia pada event ini. Tidak ada data ganda yang dibuat.'); return; }
-          const result = await durableWrite({ kind: 'upsert', table: 'inventory', rows, label: 'Bahan event' });
-          closeModal('eventMaterialPickerModal');
-          if (!result.queued) await settleAfterWrite();
-          switchEventTab('materials');
-          if (result.queued) toast(`${rows.length} bahan event tersimpan aman di perangkat dan akan disinkronkan otomatis.`);
-          else if (skipped) toast(`${rows.length} bahan ditambahkan. ${skipped} bahan yang sudah tersedia dilewati otomatis.`);
-          else toast(`${rows.length} bahan dari daftar Event ${sourceStore} berhasil ditambahkan.`);
-        } catch (error) { showSyncError(error); } finally { setButtonBusy(button, false); }
-      }
+      function openEventCatalogModal() {}
+      async function saveEventCatalogMaterial() {}
+      async function handleEventCatalogTableClick() {}
+      function openEventMaterialPicker() {}
+      function eventMaterialPickerRows() { return []; }
+      function renderEventMaterialPickerList() {}
+      function setEventMaterialPickerChecks() {}
+      async function saveEventMaterialSelection() {}
 
       function openInventoryModal(id = null, context = 'store', presetEventId = null) {
         if (!isAdmin()) return toast('Hanya Admin yang dapat mengelola Daftar Bahan.');
@@ -7411,8 +7153,8 @@ NOTIFY pgrst, 'reload schema';`;
         try { const result = await durableWrite({ kind: 'upsert', table: 'inventory', rows: [inventoryToRow(item)], label: 'Bahan' }); closeModal('inventoryModal'); if (!result.queued) await settleAfterWrite(); toast(result.queued ? 'Data bahan tersimpan aman di perangkat dan akan disinkronkan otomatis.' : (existing ? 'Bahan, satuan, dan stok minimum berhasil diperbarui.' : eventMode ? 'Bahan event beserta satuannya berhasil ditambahkan.' : 'Bahan toko beserta satuannya berhasil ditambahkan dan akan tampil setiap hari.')); } catch (error) { showSyncError(error); } finally { setButtonBusy(button, false); }
       }
 
-      function openEventModal(id = null) { if (!isAdmin()) return; el('eventForm').reset(); clearFormWarnings(el('eventForm')); populateStoreSelect(el('eventStore'), false); el('eventId').value = ''; const today = todayISO(); el('eventDate').value = today; el('eventEndDate').value = today; el('eventModalTitle').textContent = 'Tambah Event'; if (id) { const item = state.events.find(e => e.id === id); if (!item) return; el('eventId').value = item.id; el('eventName').value = item.name; el('eventStore').value = item.store || ''; el('eventDate').value = item.eventDate; el('eventEndDate').value = item.endDate; el('eventLocation').value = item.location; el('eventOrganizer').value = item.organizer; el('eventNote').value = item.note || ''; el('eventModalTitle').textContent = 'Edit Event'; } openModal('eventModal'); focusFieldIfDesktop(el('eventName')); }
-      async function saveEvent(event) { event.preventDefault(); if (!isAdmin()) return; const validation = validateFormFields(el('eventForm'), { message: 'Lengkapi seluruh data wajib event, termasuk toko/brand, sebelum menyimpan.' }); if (!validation.valid) return; const existing = state.events.find(e => e.id === el('eventId').value); const item = { id: el('eventId').value || uid(), name: el('eventName').value.trim(), store: el('eventStore').value, eventDate: el('eventDate').value, endDate: el('eventEndDate').value, location: el('eventLocation').value.trim(), organizer: el('eventOrganizer').value.trim(), note: el('eventNote').value.trim(), createdAt: existing?.createdAt || new Date().toISOString() }; if (existing && existing.store && existing.store !== item.store && state.inventory.some(material => material.eventId === existing.id)) { markFieldWarning(el('eventStore'), 'Toko event tidak dapat diganti selama daftar bahan event masih terisi.'); return toast('Hapus bahan event terlebih dahulu sebelum mengganti toko sumber.'); } if (item.endDate < item.eventDate) { markFieldWarning(el('eventEndDate'), 'Tanggal selesai tidak boleh lebih awal dari tanggal mulai.'); return toast('Periksa kembali rentang tanggal event.'); } const button = event.submitter; setButtonBusy(button, true, 'Menyimpan…'); try { const result = await durableWrite({ kind: 'upsert', table: 'events', rows: [eventToRow(item)], label: 'Event' }); closeModal('eventModal'); if (!result.queued) await settleAfterWrite(); toast(result.queued ? 'Event tersimpan aman di perangkat dan akan disinkronkan otomatis.' : (existing ? 'Event berhasil diperbarui.' : 'Event berhasil ditambahkan.')); } catch (error) { showSyncError(error); } finally { setButtonBusy(button, false); } }
+      function openEventModal() {}
+      async function saveEvent() {}
 
       function storeToRow(item) { return { id: item.id || uid(), name: item.name, created_at: item.createdAt || new Date().toISOString() }; }
       function rowToStore(row) { return { id: row.id, name: row.name, createdAt: row.created_at }; }
@@ -7614,18 +7356,32 @@ NOTIFY pgrst, 'reload schema';`;
             : Promise.resolve({ data: [], error: null });
 
           const [inventoryResult, dailyResult, profilesResult, deletedItemsResult, auditLogsResult, storesResult] = await Promise.all([inventoryPromise, dailyPromise, profilesPromise, deletedItemsPromise, auditLogsPromise, storesPromise]);
-          for (const result of [inventoryResult, dailyResult]) if (result.error) throw result.error;
-          if (profilesResult.error && isAdmin()) throw profilesResult.error;
           
-          const missingStoresTable = storesResult.error && (['42P01', 'PGRST205'].includes(storesResult.error.code) || /stores/i.test(`${storesResult.error.message || ''} ${storesResult.error.details || ''}`));
-          if (storesResult.error && !missingStoresTable) throw storesResult.error;
+          if (inventoryResult.error) {
+            console.warn('Inventory sync notice:', inventoryResult.error);
+            if (!hasLocalOperationalData() && !/row-level security|permission denied|policy/i.test(inventoryResult.error.message || '')) {
+              throw inventoryResult.error;
+            }
+          }
+          if (dailyResult.error) {
+            console.warn('Daily inventory sync notice:', dailyResult.error);
+            if (!hasLocalOperationalData() && !/row-level security|permission denied|policy/i.test(dailyResult.error.message || '')) {
+              throw dailyResult.error;
+            }
+          }
+          if (profilesResult.error) {
+            console.warn('Profiles sync notice:', profilesResult.error);
+          }
+          if (storesResult.error) {
+            console.warn('Stores sync notice:', storesResult.error);
+          }
 
-          state.inventory = (inventoryResult.data || []).map(rowToInventory);
-          state.inventoryDaily = (dailyResult.data || []).map(rowToDailyRecord);
-          state.profiles = profilesResult.data || [];
-          state.deletedItems = deletedItemsResult.data || [];
-          state.auditLogs = auditLogsResult.data || [];
-          if (!missingStoresTable && Array.isArray(storesResult.data)) {
+          if (Array.isArray(inventoryResult.data)) state.inventory = inventoryResult.data.map(rowToInventory);
+          if (Array.isArray(dailyResult.data)) state.inventoryDaily = dailyResult.data.map(rowToDailyRecord);
+          if (Array.isArray(profilesResult.data)) state.profiles = profilesResult.data;
+          if (Array.isArray(deletedItemsResult.data)) state.deletedItems = deletedItemsResult.data;
+          if (Array.isArray(auditLogsResult.data)) state.auditLogs = auditLogsResult.data;
+          if (Array.isArray(storesResult.data)) {
             state.stores = storesResult.data.map(rowToStore);
 
             // Rekonsiliasi otomatis: pulihkan toko kustom lokal yang belum ada di Supabase
@@ -8183,521 +7939,7 @@ NOTIFY pgrst, 'reload schema';`;
       function getStockStatus(item) { if (item.stock <= 0) return { key: 'empty', label: 'Habis', className: 'badge-empty' }; if (item.stock <= item.min) return { key: 'low', label: 'Perlu Restok', className: 'badge-low' }; return { key: 'ok', label: 'Aman', className: 'badge-ok' }; }
       function getDailyMaterialStatus(item) { const master = state.inventory.find(material => material.id === item.inventoryId); const stock = item.isClosed && item.closingStock != null ? Number(item.closingStock || 0) : Number(item.openingStock || 0); const min = Number(master?.min || 0); return { ...getStockStatus({ stock, min }), stock, min }; }
 
-      function getEventStatus(item) { if (item.archivedAt) return { key: 'archived', label: 'Diarsipkan', className: 'event-status-archived' }; const today = todayISO(); if (item.eventDate > today) return { key: 'upcoming', label: 'Akan Datang', className: 'event-status-upcoming' }; if (item.endDate < today) return { key: 'completed', label: 'Selesai', className: 'event-status-completed' }; return { key: 'ongoing', label: 'Berlangsung', className: 'event-status-ongoing' }; }
-      function renderEvents() {
-        if (!canViewEvents()) return;
-        if (isEventEmployee()) { renderEventWorkspace(); return; }
-        const selectedEventId = selectedEventWorkspaceId();
-        const showAllEvents = selectedEventId === 'all';
-        const recapEvent = showAllEvents ? null : eventById(selectedEventId);
-        const activeList = activeEvents();
-        const archivedList = archivedEvents();
-        const validEventIds = new Set(state.events.map(event => event.id));
-        const recapTx = showAllEvents
-          ? state.transactions.filter(transaction => transaction.eventId && validEventIds.has(transaction.eventId) && !isArchivedEvent(transaction.eventId))
-          : recapEvent ? state.transactions.filter(transaction => transaction.eventId === recapEvent.id) : [];
-        const eventIncome = sumByType(recapTx, 'income');
-        const eventExpense = sumByType(recapTx, 'expense');
-        const eventCash = cashSummary(recapTx);
-        el('statEventCount').textContent = number(state.events.length);
-        el('statEventActive').textContent = number(activeList.filter(e => getEventStatus(e).key !== 'completed').length);
-        el('statEventArchived').textContent = number(archivedList.length);
-        el('eventArchiveCount').textContent = number(archivedList.length);
-        el('statEventIncome').textContent = money(eventIncome);
-        el('statEventExpense').textContent = money(eventExpense);
-        el('statEventCashNet').textContent = money(eventCash.net);
-        el('statEventProfit').textContent = money(eventIncome - eventExpense);
-        el('eventRecapSubtitle').textContent = showAllEvents
-          ? `Ringkasan gabungan ${number(activeList.length)} event aktif. Event arsip tidak digabungkan ke ringkasan ini.`
-          : recapEvent ? `Ringkasan keuangan ${recapEvent.name}${recapEvent.store ? ` • ${recapEvent.store}` : ''} • ${formatDate(recapEvent.eventDate)}${recapEvent.endDate !== recapEvent.eventDate ? `–${formatDate(recapEvent.endDate)}` : ''}${recapEvent.archivedAt ? ' • DIARSIPKAN' : ''}.` : 'Pilih event untuk melihat ringkasan keuangannya.';
-
-        document.querySelectorAll('[data-event-list-mode]').forEach(button => {
-          const active = button.dataset.eventListMode === eventListMode;
-          button.classList.toggle('active', active);
-          button.setAttribute('aria-selected', String(active));
-        });
-        el('eventStatusFilter').hidden = eventListMode === 'archived';
-        el('eventSearch').placeholder = eventListMode === 'archived' ? 'Cari event yang diarsipkan...' : 'Cari nama, lokasi, atau penyelenggara...';
-
-        const query = el('eventSearch').value.toLowerCase().trim();
-        const statusFilter = el('eventStatusFilter').value;
-        const source = eventListMode === 'archived' ? archivedList : activeList;
-        const rows = source.filter(item => {
-          const status = getEventStatus(item);
-          const matchesQuery = !query || `${item.name} ${item.store || ''} ${item.location} ${item.organizer} ${item.note}`.toLowerCase().includes(query);
-          const matchesStatus = eventListMode === 'archived' || statusFilter === 'all' || status.key === statusFilter;
-          return matchesQuery && matchesStatus;
-        }).sort((a, b) => eventListMode === 'archived'
-          ? String(b.archivedAt || '').localeCompare(String(a.archivedAt || ''))
-          : b.eventDate.localeCompare(a.eventDate));
-
-        if (!rows.length) {
-          el('eventsTable').innerHTML = eventListMode === 'archived'
-            ? emptyState('Belum ada event diarsipkan', 'Event yang diarsipkan akan tetap tersimpan di sini dan dapat dipulihkan kapan saja.')
-            : emptyState('Belum ada event', isOwner() ? 'Admin belum menambahkan data event.' : 'Tambahkan event untuk membuat ruang transaksi dan bahan yang terpisah dari toko.');
-        } else {
-          el('eventsTable').innerHTML = `<table><thead><tr><th>Event</th><th>Toko/Brand</th><th>Tanggal</th><th>Status</th><th>Pemasukan</th><th>Pengeluaran</th><th>Cash Bersih</th><th>Saldo</th><th>Bahan</th><th>Aksi</th></tr></thead><tbody>${rows.map(item => {
-            const tx = state.transactions.filter(t => t.eventId === item.id);
-            const income = sumByType(tx, 'income');
-            const expense = sumByType(tx, 'expense');
-            const cash = cashSummary(tx);
-            const materials = state.inventory.filter(i => i.eventId === item.id);
-            const status = getEventStatus(item);
-            const archiveDetail = item.archivedAt ? `<br><small class="muted">Diarsipkan ${escapeHtml(formatSavedDateTime(item.archivedAt))}</small>` : '';
-            const activeActions = `<button class="icon-btn" data-event-transactions="${item.id}" title="Pemasukan & Pengeluaran Event">⇄</button><button class="icon-btn" data-event-inventory="${item.id}" title="Rekapan Bahan Event">▤</button><button class="icon-btn" data-event-materials="${item.id}" title="Daftar Bahan Event">＋</button>${isAdmin() ? `<button class="icon-btn" data-edit-event="${item.id}" title="Edit Event">✎</button><button class="icon-btn" data-archive-event="${item.id}" title="Arsipkan Event">▣</button><button class="icon-btn danger" data-delete-event="${item.id}" title="Pindahkan Event ke Sampah">🗑</button>` : ''}`;
-            const archivedActions = `<button class="icon-btn" data-event-transactions="${item.id}" title="Lihat transaksi event">⇄</button><button class="icon-btn" data-event-inventory="${item.id}" title="Lihat rekapan bahan event">▤</button><button class="icon-btn" data-event-materials="${item.id}" title="Lihat daftar bahan event">☰</button>${isAdmin() ? `<button class="btn btn-light btn-sm" data-restore-archived-event="${item.id}" title="Pulihkan event ke daftar aktif">Pulihkan</button>` : ''}`;
-            return `<tr><td><div class="event-title"><strong>${escapeHtml(item.name)}</strong><small>${escapeHtml(item.location)}${item.organizer ? ` • ${escapeHtml(item.organizer)}` : ''}</small>${archiveDetail}</div></td><td>${item.store ? `<strong>${escapeHtml(item.store)}</strong>` : '<span class="badge badge-low">Belum dipilih</span>'}</td><td>${formatDate(item.eventDate)}${item.endDate !== item.eventDate ? `<br><small class="muted">s.d. ${formatDate(item.endDate)}</small>` : ''}</td><td><span class="badge ${status.className}">${status.label}</span></td><td class="amount-income">${money(income)}</td><td class="amount-expense">${money(expense)}</td><td><strong>${money(cash.net)}</strong></td><td><strong>${money(income - expense)}</strong></td><td><div class="mini-summary"><strong>${materials.length} bahan</strong></div></td><td><div class="actions">${item.archivedAt ? archivedActions : activeActions}</div></td></tr>`;
-          }).join('')}</tbody></table>`;
-        }
-        renderEventWorkspace();
-      }
-
-      function renderEventWorkspace() {
-        if (!canViewEvents()) return;
-        const eventId = selectedEventWorkspaceId();
-        const showAllEvents = eventId === 'all';
-        const selected = showAllEvents ? null : eventById(eventId);
-        const archived = !!selected?.archivedAt;
-        const disabled = !selected || archived;
-        el('eventWorkspaceSubtitle').textContent = showAllEvents
-          ? `Semua Event Aktif sedang dipilih untuk Rekapan Event. Pilih satu event tertentu untuk ${isOwner() ? 'melihat' : 'membuka dan mengelola'} data operasionalnya.`
-          : selected ? `${selected.name}${selected.store ? ` • ${selected.store}` : ' • Toko/brand belum dipilih'} • ${formatDate(selected.eventDate)}${selected.endDate !== selected.eventDate ? `–${formatDate(selected.endDate)}` : ''} • ${archived ? 'EVENT DIARSIPKAN — mode hanya lihat. Data historis tetap tersimpan.' : 'data event tersimpan terpisah dari operasional outlet.'}` : isEventEmployee() ? 'Event belum ditetapkan oleh Admin. Hubungi Admin agar akun ini dihubungkan ke satu event.' : isOwner() ? 'Pilih event untuk melihat data operasional khusus event.' : 'Pilih atau tambahkan event untuk membuka data operasional khusus event.';
-        if (el('addEventTransactionBtn')) el('addEventTransactionBtn').disabled = disabled || !isAdmin();
-        if (el('addEventInventoryBtn')) el('addEventInventoryBtn').disabled = disabled || !isAdmin();
-        if (el('closeEventDailyRecapBtn')) el('closeEventDailyRecapBtn').disabled = disabled || !canEditEventInventory();
-        if (el('exportEventTransactionsBtn')) el('exportEventTransactionsBtn').disabled = disabled || !canViewAll();
-        if (el('exportEventInventoryBtn')) el('exportEventInventoryBtn').disabled = disabled || !canViewEvents();
-        switchEventTab(activeEventTab);
-      }
-
-      function renderEventTransactions() {
-        if (!canViewEvents() || isEventEmployee()) return;
-        const eventId = selectedEventWorkspaceId();
-        const date = el('eventTransactionDateFilter').value;
-        const periodLabel = date ? formatDate(date) : 'seluruh periode';
-        if (!eventId || eventId === 'all') {
-          ['eventTransactionIncome', 'eventTransactionExpense', 'eventTransactionCashNet', 'eventTransactionProfit'].forEach(id => el(id).textContent = money(0));
-          const selectMessage = eventId === 'all' ? 'Pilih satu event untuk data operasional' : 'Pilih event terlebih dahulu';
-          el('eventTransactionIncomeSub').textContent = selectMessage;
-          el('eventTransactionExpenseSub').textContent = selectMessage;
-          el('eventTransactionCashNetSub').textContent = selectMessage;
-          el('eventTransactionProfitSub').textContent = selectMessage;
-          el('eventTransactionsTable').innerHTML = emptyState(eventId === 'all' ? 'Semua Event dipilih untuk rekapan' : 'Belum ada event yang dipilih', eventId === 'all' ? `Pilih satu event tertentu pada slicer untuk ${isOwner() ? 'melihat' : 'melihat dan mengelola'} transaksinya.` : 'Pilih event pada slicer Rekapan Event.');
-          return;
-        }
-        const query = el('eventTransactionSearch').value.toLowerCase().trim();
-        const type = el('eventTransactionTypeFilter').value;
-        const payment = el('eventTransactionPaymentFilter').value;
-        const periodRows = state.transactions.filter(t => t.eventId === eventId && (!date || t.date === date));
-        const income = sumByType(periodRows, 'income');
-        const expense = sumByType(periodRows, 'expense');
-        const cash = cashSummary(periodRows);
-        el('eventTransactionIncome').textContent = money(income);
-        el('eventTransactionExpense').textContent = money(expense);
-        el('eventTransactionCashNet').textContent = money(cash.net);
-        el('eventTransactionProfit').textContent = money(income - expense);
-        el('eventTransactionIncomeSub').textContent = `Total pemasukan ${periodLabel}`;
-        el('eventTransactionExpenseSub').textContent = `Total pengeluaran ${periodLabel}`;
-        el('eventTransactionCashNetSub').textContent = `Dikurangi pengeluaran Cash ${money(cash.cashExpense)}`;
-        el('eventTransactionProfitSub').textContent = `Pemasukan dikurangi seluruh pengeluaran ${periodLabel}`;
-        const rows = periodRows.filter(t => {
-          const matchesQuery = !query || `${t.category} ${t.note || ''} ${paymentMethodLabel(t.paymentMethod)}`.toLowerCase().includes(query);
-          const matchesType = type === 'all' || t.type === type;
-          const matchesPayment = payment === 'all' || normalizePaymentMethod(t.paymentMethod) === payment;
-          return matchesQuery && matchesType && matchesPayment;
-        }).sort((a, b) => `${b.date}${b.createdAt || ''}`.localeCompare(`${a.date}${a.createdAt || ''}`));
-        const archived = isArchivedEvent(eventId);
-        el('eventTransactionsTable').innerHTML = rows.length ? transactionTableMarkup(rows, isAdmin() && !archived, 'event') : emptyState('Transaksi event tidak ditemukan', archived ? 'Tidak ada transaksi pada event arsip ini.' : 'Ubah filter atau tambahkan transaksi khusus untuk event ini.');
-      }
-
-      function renderEventInventory() {
-        if (!canViewEvents()) return;
-        const eventId = selectedEventWorkspaceId();
-        const date = selectedEventInventoryDate();
-        if (!eventId || eventId === 'all') {
-          el('eventDailyRecapSummary').innerHTML = '';
-          const title = eventId === 'all' ? 'Semua Event dipilih untuk rekapan' : isEventEmployee() ? 'Event belum ditetapkan' : 'Belum ada event yang dipilih';
-          const detail = eventId === 'all' ? (canEditEventInventory() ? 'Pilih satu event tertentu untuk melihat rekapan bahan dan melakukan closing.' : 'Pilih satu event tertentu untuk melihat rekapan bahan dan riwayat closing.') : isEventEmployee() ? 'Hubungi Admin agar akun Karyawan Event ini dihubungkan ke satu event.' : 'Pilih event untuk melihat rekapan bahan.';
-          el('eventInventoryTable').innerHTML = emptyState(title, detail);
-          el('eventInventoryClosingDetails').innerHTML = emptyState(title, eventId === 'all' ? 'Pilih satu event tertentu untuk melihat detail closing.' : 'Pilih event untuk melihat detail closing.');
-          el('closeEventDailyRecapBtn').disabled = true;
-          return;
-        }
-        const query = el('eventInventorySearch').value.toLowerCase().trim();
-        const statusFilter = el('eventInventoryStatusFilter').value;
-        const rows = dailyRowsForDisplay(date, EVENT_STORE, eventId).filter(item => {
-          const matchesQuery = !query || item.name.toLowerCase().includes(query);
-          const matchesStatus = statusFilter === 'all' || (statusFilter === 'open' && !item.isClosed) || (statusFilter === 'closed' && item.isClosed) || (statusFilter === 'used' && item.usedStock > 0);
-          return matchesQuery && matchesStatus;
-        }).sort((a, b) => a.name.localeCompare(b.name));
-        renderEventDailyRecapSummary(date, eventId, rows);
-        renderEventInventoryClosingDetails(date, eventId);
-        el('eventDailyTableTitle').textContent = `Daftar Bahan Event — ${formatDate(date)}`;
-        el('eventDailyTableSubtitle').textContent = eventName(eventId);
-        applyEventDailyActionState(date, eventId);
-        if (!rows.length) { el('eventInventoryTable').innerHTML = emptyState('Belum ada bahan event', isAdmin() ? 'Pilih bahan dari Master Bahan Event melalui tab Daftar Bahan.' : 'Admin belum memilih bahan dari Master Bahan Event untuk event ini.'); return; }
-        el('eventInventoryTable').innerHTML = `<table><thead><tr><th>Nama Bahan</th><th>Satuan</th><th>Stok Awal</th><th>Stok Masuk</th><th>Stok Akhir</th><th>Terpakai</th><th>Status Bahan</th><th>Status Closing</th></tr></thead><tbody>${rows.map(item => { const savedAt = item.closedAt || item.updatedAt; const closeBadge = item.isClosed ? `<span class="badge badge-closed">Sudah Closing</span><small class="status-detail">Disimpan ${escapeHtml(formatSavedDateTime(savedAt))}</small>` : '<span class="badge badge-open">Belum Closing</span><small class="status-detail">Belum pernah disimpan</small>'; const materialStatus = getDailyMaterialStatus(item); return `<tr class="material-status-row material-status-${materialStatus.key}"><td><strong>${escapeHtml(item.name)}</strong></td><td>${escapeHtml(item.unit || 'unit')}</td><td>${number(item.openingStock)}</td><td>${item.isClosed ? number(item.stockIn) : '<span class="muted">—</span>'}</td><td>${item.closingStock == null ? '<span class="muted">Belum diisi</span>' : number(item.closingStock)}</td><td><strong class="${item.usedStock > 0 ? 'used-value' : 'muted'}">${item.isClosed ? number(item.usedStock) : '—'}</strong></td><td><span class="badge ${materialStatus.className}">${materialStatus.label}</span><small class="status-detail">Stok acuan ${number(materialStatus.stock)} · Minimum ${number(materialStatus.min)} ${escapeHtml(item.unit || 'unit')}</small></td><td>${closeBadge}</td></tr>`; }).join('')}</tbody></table>`;
-      }
-
-      function renderEventMaterials() {
-        if (!canViewEvents() || isEventEmployee()) return;
-        renderEventMaterialCatalog();
-        const eventId = selectedEventWorkspaceId();
-        const sourceNotice = el('eventMaterialSourceNotice');
-        if (!eventId || eventId === 'all') {
-          sourceNotice.innerHTML = '<div><span>Master bahan untuk toko</span><strong>Pilih satu event terlebih dahulu</strong></div>';
-          el('eventMaterialsTable').innerHTML = emptyState(eventId === 'all' ? 'Semua Event dipilih untuk rekapan' : 'Belum ada event yang dipilih', eventId === 'all' ? 'Pilih satu event tertentu untuk membuka daftar bahan event.' : 'Pilih event untuk membuka daftar bahan event.');
-          el('addEventInventoryBtn').disabled = true;
-          return;
-        }
-        const selected = eventById(eventId);
-        const sourceStore = selected?.store || '';
-        const catalogCount = state.eventMaterialCatalog.filter(item => item.store === sourceStore).length;
-        sourceNotice.innerHTML = `<div><span>Master bahan untuk toko</span><strong>${sourceStore ? escapeHtml(sourceStore) : 'Belum ditentukan'}</strong></div><small class="muted">${!eventMaterialCatalogAvailable ? 'Database master bahan belum aktif' : sourceStore ? `${catalogCount} bahan terdaftar khusus pada halaman Event` : 'Edit event dan pilih Toko/Brand terlebih dahulu'}</small>`;
-        const query = el('eventMaterialsSearch').value.toLowerCase().trim();
-        const rows = state.inventory.filter(item => item.eventId === eventId && (!query || `${item.name} ${item.unit}`.toLowerCase().includes(query))).sort((a, b) => a.name.localeCompare(b.name));
-        const archived = isArchivedEvent(eventId);
-        el('addEventInventoryBtn').hidden = !isAdmin() || archived;
-        el('addEventInventoryBtn').disabled = !isAdmin() || archived || !sourceStore || !eventMaterialCatalogAvailable || !catalogCount;
-        el('addEventInventoryBtn').title = !eventMaterialCatalogAvailable ? 'Jalankan SQL master bahan event' : !sourceStore ? 'Tentukan toko pada data event' : !catalogCount ? `Daftarkan master bahan Event ${sourceStore} terlebih dahulu` : 'Pilih bahan untuk event ini';
-        if (!rows.length) {
-          const detail = !eventMaterialCatalogAvailable ? 'Jalankan SQL pembaruan master bahan event terlebih dahulu.' : sourceStore ? (catalogCount ? `Tekan Pilih dari Daftar Bahan Event untuk memilih kebutuhan ${sourceStore}.` : `Daftarkan dahulu bahan khusus Event untuk ${sourceStore} pada bagian Master Bahan Event di atas.`) : 'Tentukan Toko/Brand pada data event terlebih dahulu.';
-          el('eventMaterialsTable').innerHTML = emptyState('Belum ada bahan yang dipilih', isAdmin() ? detail : 'Admin belum memilih bahan untuk event ini.');
-          return;
-        }
-        el('eventMaterialsTable').innerHTML = `<table><thead><tr><th>Nama Bahan</th><th>Sumber</th><th>Stok Event</th><th>Stok Minimum</th><th>Status Bahan</th><th>Terakhir Diperbarui</th>${isAdmin() && !archived ? '<th>Aksi</th>' : ''}</tr></thead><tbody>${rows.map(item => { const status = getStockStatus(item); return `<tr class="material-status-row material-status-${status.key}"><td><strong>${escapeHtml(item.name)}</strong><br><small class="muted">${escapeHtml(item.unit || 'unit')}</small></td><td><strong>${escapeHtml(sourceStore || '-')}</strong><br><small class="muted">Master bahan halaman Event</small></td><td><div class="material-stock-value"><strong>${number(item.stock)}</strong><small>${escapeHtml(item.unit || 'unit')}</small></div></td><td><div class="material-stock-value"><strong>${number(item.min)}</strong><small>${escapeHtml(item.unit || 'unit')}</small></div></td><td><span class="badge ${status.className}">${status.label}</span>${status.key === 'low' ? `<small class="status-detail">Kurang ${number(Math.max(0, item.min - item.stock))} ${escapeHtml(item.unit || 'unit')} menuju batas minimum</small>` : status.key === 'empty' ? '<small class="status-detail">Stok event belum tersedia atau sudah habis</small>' : '<small class="status-detail">Stok event masih di atas batas minimum</small>'}</td><td>${item.updatedAt ? new Intl.DateTimeFormat('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date(item.updatedAt)) : '-'}</td>${isAdmin() && !archived ? `<td><div class="actions"><button class="icon-btn" data-edit-inventory="${item.id}" title="Ubah stok minimum bahan event">✎</button><button class="icon-btn danger" data-delete-inventory="${item.id}" title="Hapus bahan dari event">🗑</button></div></td>` : ''}</tr>`; }).join('')}</tbody></table>`;
-      }
-
-      function renderEventDailyRecapSummary(date, eventId, rows) {
-        const closed = rows.filter(row => row.isClosed); const used = closed.filter(row => row.usedStock > 0); const allClosed = rows.length > 0 && closed.length === rows.length; const latestClose = closed.map(row => row.closedAt).filter(Boolean).sort().at(-1);
-        const statusClass = !rows.length ? 'status-empty' : allClosed ? 'status-closed' : 'status-open'; const statusText = !rows.length ? 'Belum Ada Bahan' : allClosed ? 'Sudah Closing' : closed.length ? 'Closing Sebagian' : 'Menunggu Closing';
-        const totalUsed = used.reduce((sum, row) => sum + Number(row.usedStock || 0), 0);
-        el('eventDailyRecapSummary').innerHTML = `<div class="daily-summary-item"><span>Tanggal</span><strong>${formatDate(date)}</strong><small>${date === todayISO() ? 'Rekapan hari ini' : 'Riwayat closing'}</small></div><div class="daily-summary-item"><span>Event</span><strong>${escapeHtml(eventName(eventId))}</strong><small>${rows.length} nama bahan</small></div><div class="daily-summary-item ${statusClass}"><span>Status</span><strong>${statusText}</strong><small>${latestClose ? `Disimpan ${formatSavedDateTime(latestClose)}` : 'Belum ada closing'}</small></div><div class="daily-summary-item"><span>Pemakaian</span><strong>${used.length} jenis bahan</strong><small>Total angka terpakai ${number(totalUsed)}</small></div>`;
-      }
-
-      function renderEventInventoryClosingDetails(date, eventId) {
-        const rows = state.inventoryDaily.filter(row => row.eventId === eventId && row.date === date && row.isClosed && row.usedStock > 0).map(dailyRecordWithCurrentMaster).sort((a, b) => a.name.localeCompare(b.name));
-        const closedAny = state.inventoryDaily.some(row => row.eventId === eventId && row.date === date && row.isClosed);
-        if (!rows.length) { el('eventInventoryClosingDetails').innerHTML = emptyState(closedAny ? 'Tidak ada bahan yang terpakai' : 'Closing belum dilakukan', closedAny ? 'Semua bahan event tercatat tanpa pemakaian pada tanggal ini.' : 'Lakukan closing bahan event untuk menghasilkan detail pemakaian.'); return; }
-        el('eventInventoryClosingDetails').innerHTML = `<table><thead><tr><th>Nama Bahan</th><th>Satuan</th><th>Stok Awal</th><th>Stok Masuk</th><th>Stok Akhir</th><th>Jumlah Terpakai</th><th>Keterangan</th></tr></thead><tbody>${rows.map(row => `<tr><td><strong>${escapeHtml(row.name)}</strong></td><td>${escapeHtml(row.unit || 'unit')}</td><td>${number(row.openingStock)}</td><td>${number(row.stockIn)}</td><td>${number(row.closingStock)}</td><td><strong class="used-value">${number(row.usedStock)} ${escapeHtml(row.unit || 'unit')}</strong></td><td class="muted">${escapeHtml(row.note || '-')}</td></tr>`).join('')}</tbody></table>`;
-      }
-
-      function applyEventDailyActionState(date, eventId) {
-        const masterCount = eventId ? state.inventory.filter(item => item.eventId === eventId).length : 0;
-        const allowedDate = date <= todayISO();
-        const archived = isArchivedEvent(eventId);
-        el('closeEventDailyRecapBtn').hidden = !canEditEventInventory() || archived;
-        el('closeEventDailyRecapBtn').disabled = !canEditEventInventory() || archived || !eventId || !allowedDate || !masterCount;
-        el('closeEventDailyRecapBtn').textContent = date === todayISO() ? '✓ Closing Hari Ini' : '✓ Closing Tanggal Ini';
-        el('closeEventDailyRecapBtn').title = !eventId ? 'Event belum ditetapkan oleh Admin' : !allowedDate ? 'Closing belum tersedia untuk tanggal mendatang' : !masterCount ? (isAdmin() ? 'Tambahkan bahan melalui tab Daftar Bahan Event terlebih dahulu' : 'Admin belum menambahkan bahan pada event ini') : 'Isi atau perbarui closing bahan event';
-      }
-
-
-      function formatTimeValue(value = '') {
-        const match = String(value || '').match(/^(\d{2}:\d{2})/);
-        return match ? match[1] : '';
-      }
-      function timeToMinutes(value = '') {
-        const match = formatTimeValue(value).match(/^(\d{2}):(\d{2})$/);
-        return match ? Number(match[1]) * 60 + Number(match[2]) : null;
-      }
-      function attendanceStatus(attendanceTime, scheduledTime) {
-        const attendance = timeToMinutes(attendanceTime), scheduled = timeToMinutes(scheduledTime);
-        return attendance != null && scheduled != null && attendance > scheduled ? 'late' : 'ontime';
-      }
-      function attendanceStatusLabel(value) { return value === 'late' ? 'Terlambat' : 'Tepat Waktu'; }
-      function attendanceStatusBadge(value) { return `<span class="badge attendance-status-${value === 'late' ? 'late' : 'ontime'}">${attendanceStatusLabel(value)}</span>`; }
-      function attributeStatusLabel(value) { return value === 'incomplete' ? 'Tidak Lengkap' : 'Lengkap'; }
-      function attributeStatusBadge(value) { const status = value === 'incomplete' ? 'incomplete' : 'complete'; return `<span class="badge attribute-status-${status}">${attributeStatusLabel(status)}</span>`; }
-      function calculateDailyPayroll(dailyWage, lateStatus, attributeStatus, extraWage = 0) { const wage = Math.max(0, Number(dailyWage || 0)), extra = Math.max(0, Number(extraWage || 0)), late = lateStatus === 'late' ? 'late' : 'ontime', attribute = attributeStatus === 'incomplete' ? 'incomplete' : 'complete', lateDeduction = late === 'late' ? 20000 : 0, attributeDeduction = attribute === 'incomplete' ? 10000 : 0, totalDeduction = lateDeduction + attributeDeduction; return { dailyWage: wage, extraWage: extra, lateStatus: late, attributeStatus: attribute, lateDeduction, attributeDeduction, totalDeduction, netWage: Math.max(0, wage + extra - totalDeduction) }; }
-      function employeeStatusBadge(item) { return `<span class="badge employee-status-${item.isActive ? 'active' : 'inactive'}">${item.isActive ? 'Aktif' : 'Tidak Aktif'}</span>`; }
-      function employeeById(id) { return state.employees.find(item => item.id === id); }
-      function switchPayrollTab(tab = 'employees') {
-        activePayrollTab = ['employees', 'daily', 'advances', 'monthly'].includes(tab) ? tab : 'employees';
-        document.querySelectorAll('[data-payroll-tab]').forEach(button => {
-          const active = button.dataset.payrollTab === activePayrollTab;
-          button.classList.toggle('active', active);
-          button.setAttribute('aria-selected', String(active));
-        });
-        document.querySelectorAll('[data-payroll-panel]').forEach(panel => panel.hidden = panel.dataset.payrollPanel !== activePayrollTab);
-        renderPayroll();
-      }
-      function filteredEmployees() {
-        const search = el('employeeSearch')?.value.trim().toLowerCase() || '';
-        const store = el('employeeStoreFilter')?.value || 'all';
-        const status = el('employeeStatusFilter')?.value || 'all';
-        return state.employees.filter(item => canAccessStore(item.store) && (store === 'all' || item.store === store) && (status === 'all' || (status === 'active' && item.isActive) || (status === 'inactive' && !item.isActive)) && (!search || `${item.name} ${item.position} ${item.store}`.toLowerCase().includes(search))).sort((a, b) => a.store.localeCompare(b.store) || a.name.localeCompare(b.name));
-      }
-      function selectedPayrollDate() { return el('payrollDateFilter')?.value || todayISO(); }
-      function filteredPayrollDaily() {
-        const date = selectedPayrollDate();
-        const search = el('payrollDailySearch')?.value.trim().toLowerCase() || '';
-        const store = el('payrollDailyStoreFilter')?.value || 'all';
-        const late = el('payrollLateFilter')?.value || 'all';
-        return state.payrollDaily.filter(item => canAccessStore(item.store) && item.workDate === date && (store === 'all' || item.store === store) && (late === 'all' || item.lateStatus === late) && (!search || `${item.employeeName} ${item.position} ${item.store}`.toLowerCase().includes(search))).sort((a, b) => a.store.localeCompare(b.store) || a.attendanceTime.localeCompare(b.attendanceTime) || a.employeeName.localeCompare(b.employeeName));
-      }
-      function selectedPayrollMonth() { return el('payrollMonthFilter')?.value || currentMonth(); }
-      function selectedPayrollAdvanceMonth() { return el('payrollAdvanceMonthFilter')?.value || currentMonth(); }
-      function monthDate(value) { const month = String(value || currentMonth()).slice(0, 7); return `${month}-01`; }
-      function latestNetSalaryInfo(employeeId, targetMonth = currentMonth()) {
-        const month = String(targetMonth || currentMonth()).slice(0, 7), totals = new Map();
-        state.payrollDaily.filter(item => item.employeeId === employeeId && String(item.workDate || '').slice(0, 7) <= month).forEach(item => { const key = String(item.workDate).slice(0, 7); totals.set(key, (totals.get(key) || 0) + Number(item.netWage ?? calculateDailyPayroll(item.dailyWage, item.lateStatus, item.attributeStatus, item.extraWage).netWage)); });
-        const months = [...totals.keys()].sort();
-        const previous = months.filter(item => item < month).pop();
-        const selected = previous || months.filter(item => item <= month).pop() || '';
-        return { period: selected ? `${selected}-01` : '', amount: selected ? Number(totals.get(selected) || 0) : 0 };
-      }
-      function advanceLimitInfo(employeeId, advanceDate, excludeId = '') {
-        const month = String(advanceDate || todayISO()).slice(0, 7), payrollMonth = monthDate(month), salary = latestNetSalaryInfo(employeeId, month);
-        const used = state.payrollAdvances.filter(item => item.id !== excludeId && item.employeeId === employeeId && item.payrollMonth === payrollMonth).reduce((sum, item) => sum + Number(item.amount || 0), 0);
-        return { payrollMonth, salaryPeriod: salary.period, salaryLimit: salary.amount, used, available: Math.max(0, salary.amount - used) };
-      }
-      function filteredPayrollAdvances() {
-        const monthDateValue = monthDate(selectedPayrollAdvanceMonth()), search = el('payrollAdvanceSearch')?.value.trim().toLowerCase() || '', store = el('payrollAdvanceStoreFilter')?.value || 'all';
-        return state.payrollAdvances.filter(item => canAccessStore(item.store) && item.payrollMonth === monthDateValue && (store === 'all' || item.store === store) && (!search || `${item.employeeName} ${item.store}`.toLowerCase().includes(search))).sort((a, b) => String(b.advanceDate).localeCompare(String(a.advanceDate)) || a.employeeName.localeCompare(b.employeeName));
-      }
-      function paymentStatusLabel(value) { return value === 'paid' ? 'Sudah Dibayar' : 'Belum Dibayar'; }
-      function paymentStatusBadge(value) { return `<span class="badge ${value === 'paid' ? 'payroll-status-paid' : 'payroll-status-pending'}">${paymentStatusLabel(value)}</span>`; }
-      function payrollMonthlyRows() {
-        const month = selectedPayrollMonth(), monthDate = `${month}-01`, groups = new Map();
-        state.payrollDaily.filter(item => canAccessStore(item.store) && String(item.workDate || '').startsWith(month)).forEach(item => {
-          const key = item.employeeId || `${item.store}::${item.employeeName}`;
-          if (!groups.has(key)) groups.set(key, { employeeId: item.employeeId, employeeName: item.employeeName, position: item.position || '', store: item.store, days: 0, onTime: 0, late: 0, incompleteAttributes: 0, grossWage: 0, extraWage: 0, totalDeduction: 0, totalWage: 0, payrollMonth: monthDate });
-          const row = groups.get(key), calculation = calculateDailyPayroll(item.dailyWage, item.lateStatus, item.attributeStatus, item.extraWage); row.days += 1; row.grossWage += calculation.dailyWage; row.extraWage += calculation.extraWage; row.totalDeduction += Number(item.lateDeduction ?? calculation.lateDeduction) + Number(item.attributeDeduction ?? calculation.attributeDeduction); row.totalWage += Number(item.netWage ?? calculation.netWage); if (item.lateStatus === 'late') row.late += 1; else row.onTime += 1; if (item.attributeStatus === 'incomplete') row.incompleteAttributes += 1;
-        });
-        const paymentMap = new Map(state.payrollMonthlyPayments.filter(item => item.payrollMonth === monthDate).map(item => [item.employeeId, item]));
-        const advanceMap = new Map(); state.payrollAdvances.filter(item => item.payrollMonth === monthDate).forEach(item => advanceMap.set(item.employeeId, (advanceMap.get(item.employeeId) || 0) + Number(item.amount || 0)));
-        return [...groups.values()].map(row => { const payment = paymentMap.get(row.employeeId), advanceTotal = Number(advanceMap.get(row.employeeId) || 0), payableWage = Math.max(0, row.totalWage - advanceTotal); return { ...row, advanceTotal, payableWage, paymentId: payment?.id || '', paymentStatus: payment?.paymentStatus || 'unpaid', paidAt: payment?.paidAt || null, paymentNote: payment?.note || '' }; });
-      }
-      function filteredPayrollMonthly() {
-        const search = el('payrollMonthlySearch')?.value.trim().toLowerCase() || '', store = el('payrollMonthlyStoreFilter')?.value || 'all', status = el('payrollPaymentStatusFilter')?.value || 'all';
-        return payrollMonthlyRows().filter(item => (store === 'all' || item.store === store) && (status === 'all' || item.paymentStatus === status) && (!search || `${item.employeeName} ${item.position} ${item.store}`.toLowerCase().includes(search))).sort((a, b) => a.store.localeCompare(b.store) || a.employeeName.localeCompare(b.employeeName));
-      }
-      function renderEmployees() {
-        if (!el('employeeTable')) return;
-        const rows = filteredEmployees();
-        const activeRows = rows.filter(item => item.isActive);
-        el('employeeTotalCount').textContent = number(rows.length);
-        el('employeeActiveCount').textContent = number(activeRows.length);
-        el('employeeDailyWageTotal').textContent = money(activeRows.reduce((sum, item) => sum + item.dailyWage, 0));
-        el('employeeTable').innerHTML = rows.length ? `<table><thead><tr><th>Karyawan</th><th>Toko</th><th>Gaji per Hari</th><th>Jam Masuk Standar</th><th>Status</th><th>Aksi</th></tr></thead><tbody>${rows.map(item => `<tr><td><div class="employee-name-cell"><strong>${escapeHtml(item.name)}</strong><small>${escapeHtml(item.position || 'Jabatan belum diisi')}</small></div></td><td>${escapeHtml(item.store)}</td><td class="daily-wage-value">${money(item.dailyWage)}</td><td>${escapeHtml(formatTimeValue(item.shiftStart) || '-')} WIB</td><td>${employeeStatusBadge(item)}</td><td><div class="table-actions">${isAdmin() ? `<button class="icon-btn" data-employee-edit="${item.id}" title="Edit karyawan">✎</button><button class="icon-btn danger" data-employee-delete="${item.id}" title="Hapus karyawan">⌫</button>` : '-'}</div></td></tr>`).join('')}</tbody></table>` : emptyState('Belum ada daftar karyawan', 'Tambahkan nama karyawan dan gaji per harinya terlebih dahulu.');
-      }
-      function renderPayrollDaily() {
-        if (!el('payrollDailyTable')) return;
-        const date = selectedPayrollDate();
-        const rows = filteredPayrollDaily();
-        const lateCount = rows.filter(item => item.lateStatus === 'late').length;
-        el('payrollDailyCount').textContent = number(rows.length);
-        el('payrollOnTimeCount').textContent = number(rows.length - lateCount);
-        el('payrollLateCount').textContent = number(lateCount);
-        el('payrollDailyWageTotal').textContent = money(rows.reduce((sum, item) => sum + Number(item.netWage ?? calculateDailyPayroll(item.dailyWage, item.lateStatus, item.attributeStatus, item.extraWage).netWage), 0));
-        el('payrollDailyTableTitle').textContent = `Rekapan Gaji · ${formatLongDate(date)}`;
-        el('payrollDailyTable').innerHTML = rows.length ? `<table><thead><tr><th>Karyawan</th><th>Toko</th><th>Tanggal</th><th>Jam Absensi</th><th>Status Kehadiran</th><th>Atribut</th><th>Potongan</th><th>Tambahan Gaji</th><th>Gaji Bersih</th><th>Keterangan</th><th>Aksi</th></tr></thead><tbody>${rows.map(item => { const calculation = calculateDailyPayroll(item.dailyWage, item.lateStatus, item.attributeStatus, item.extraWage), lateDeduction = Number(item.lateDeduction ?? calculation.lateDeduction), attributeDeduction = Number(item.attributeDeduction ?? calculation.attributeDeduction), extraWage = Number(item.extraWage ?? calculation.extraWage), totalDeduction = lateDeduction + attributeDeduction, netWage = Number(item.netWage ?? calculation.netWage); return `<tr><td><div class="employee-name-cell"><strong>${escapeHtml(item.employeeName)}</strong><small>${escapeHtml(item.position || 'Jabatan belum diisi')}</small></div></td><td>${escapeHtml(item.store)}</td><td>${formatDate(item.workDate)}</td><td><div class="attendance-time">${escapeHtml(item.attendanceTime || '-')} WIB<small>Standar ${escapeHtml(item.scheduledTime || '-')} WIB</small></div></td><td>${attendanceStatusBadge(item.lateStatus)}</td><td>${attributeStatusBadge(item.attributeStatus)}</td><td><div class="wage-breakdown"><strong class="deduction-value">${totalDeduction ? `-${money(totalDeduction)}` : money(0)}</strong><small>${lateDeduction ? `Terlambat ${money(lateDeduction)}` : 'Tanpa potongan terlambat'}<br>${attributeDeduction ? `Atribut ${money(attributeDeduction)}` : 'Atribut lengkap'}</small></div></td><td><div class="wage-breakdown"><strong>${extraWage ? `+${money(extraWage)}` : money(0)}</strong><small>${escapeHtml(item.extraWageNote || 'Tidak ada tambahan')}</small></div></td><td><div class="wage-breakdown"><strong>${money(netWage)}</strong><small>Pokok ${money(item.dailyWage)} · Tambahan ${money(extraWage)}</small></div></td><td>${escapeHtml(item.note || '-')}</td><td><div class="table-actions">${isAdmin() ? `<button class="icon-btn" data-payroll-daily-edit="${item.id}" title="Edit rekapan">✎</button><button class="icon-btn danger" data-payroll-daily-delete="${item.id}" title="Hapus rekapan">⌫</button>` : '-'}</div></td></tr>`; }).join('')}</tbody></table>` : emptyState('Belum ada rekapan pada tanggal ini', 'Isi jam absensi dan kelengkapan atribut karyawan untuk membuat rekapan gaji harian.');
-      }
-      function renderPayrollAdvances() {
-        if (!el('payrollAdvanceTable')) return;
-        const month = selectedPayrollAdvanceMonth(), rows = filteredPayrollAdvances(), employeeGroups = new Map();
-        rows.forEach(item => { if (!employeeGroups.has(item.employeeId)) employeeGroups.set(item.employeeId, { limit: Number(item.salaryLimit || 0), used: 0 }); employeeGroups.get(item.employeeId).used += Number(item.amount || 0); });
-        el('payrollAdvanceEmployeeCount').textContent = number(employeeGroups.size);
-        el('payrollAdvanceTableTitle').textContent = `Kasbon Karyawan · ${formatMonthYear(month)}`;
-        el('payrollAdvanceTable').innerHTML = rows.length ? `<table><thead><tr><th>Tanggal</th><th>Karyawan</th><th>Toko</th><th>Gaji Bersih Terakhir</th><th>Nominal Kasbon</th><th>Total Kasbon Bulan Ini</th><th>Sisa Batas</th><th>Keterangan</th><th>Aksi</th></tr></thead><tbody>${rows.map(item => { const totalEmployee = state.payrollAdvances.filter(row => row.employeeId === item.employeeId && row.payrollMonth === item.payrollMonth).reduce((sum, row) => sum + Number(row.amount || 0), 0), remainingLimit = Math.max(0, Number(item.salaryLimit || 0) - totalEmployee); return `<tr><td>${formatDate(item.advanceDate)}</td><td><div class="employee-name-cell"><strong>${escapeHtml(item.employeeName)}</strong><small>${item.salaryPeriod ? `Dasar ${escapeHtml(formatMonthYear(String(item.salaryPeriod).slice(0, 7)))}` : 'Gaji terakhir belum tersedia'}</small></div></td><td>${escapeHtml(item.store)}</td><td><div class="advance-limit-summary"><strong>${money(item.salaryLimit)}</strong><small>Batas maksimal satu bulan</small></div></td><td class="advance-amount">${money(item.amount)}</td><td>${money(totalEmployee)}</td><td class="advance-remaining">${money(remainingLimit)}</td><td>${escapeHtml(item.note || '-')}</td><td><div class="table-actions">${isAdmin() ? `<button class="icon-btn" data-payroll-advance-edit="${item.id}" title="Edit kasbon">✎</button><button class="icon-btn danger" data-payroll-advance-delete="${item.id}" title="Hapus kasbon">⌫</button>` : '-'}</div></td></tr>`; }).join('')}</tbody></table>` : emptyState('Belum ada kasbon pada bulan ini', 'Tambahkan kasbon karyawan. Batas maksimal mengikuti gaji bersih terakhir yang tersedia.');
-      }
-      function renderPayrollMonthly() {
-        if (!el('payrollMonthlyTable')) return;
-        const month = selectedPayrollMonth(), rows = filteredPayrollMonthly();
-        const paidTotal = rows.filter(item => item.paymentStatus === 'paid').reduce((sum, item) => sum + item.payableWage, 0);
-        const payableTotal = rows.reduce((sum, item) => sum + item.payableWage, 0);
-        el('payrollMonthlyEmployeeCount').textContent = number(rows.length);
-        el('payrollMonthlyPaidTotal').textContent = money(paidTotal);
-        el('payrollMonthlyUnpaidTotal').textContent = money(payableTotal - paidTotal);
-        el('payrollMonthlyTableTitle').textContent = `Rekapan Gaji · ${formatMonthYear(month)}`;
-        el('payrollMonthlyTable').innerHTML = rows.length ? `<table><thead><tr><th>Karyawan</th><th>Toko</th><th>Periode</th><th>Hari Direkap</th><th>Kehadiran</th><th>Gaji Bersih</th><th>Kasbon</th><th>Dibayarkan</th><th>Status Pembayaran</th><th>Tanggal Bayar</th><th>Aksi</th></tr></thead><tbody>${rows.map(item => `<tr><td><div class="employee-name-cell"><strong>${escapeHtml(item.employeeName)}</strong><small>${escapeHtml(item.position || 'Jabatan belum diisi')}</small></div></td><td>${escapeHtml(item.store)}</td><td>${escapeHtml(formatMonthYear(month))}</td><td><div class="monthly-payroll-summary"><strong>${number(item.days)} hari</strong><small>Berdasarkan rekapan harian</small></div></td><td><div class="monthly-payroll-summary"><strong>${number(item.onTime)} tepat waktu</strong><small>${number(item.late)} terlambat · ${number(item.incompleteAttributes)} atribut tidak lengkap</small></div></td><td><div class="wage-breakdown"><strong>${money(item.totalWage)}</strong><small>Pokok ${money(item.grossWage)} · Tambahan ${money(item.extraWage)} · Potongan ${money(item.totalDeduction)}</small></div></td><td class="advance-amount">${item.advanceTotal ? `-${money(item.advanceTotal)}` : money(0)}</td><td><div class="wage-breakdown"><strong>${money(item.payableWage)}</strong><small>Setelah dikurangi kasbon</small></div></td><td>${paymentStatusBadge(item.paymentStatus)}</td><td><span class="monthly-payment-date">${item.paidAt ? new Intl.DateTimeFormat('id-ID', { timeZone: 'Asia/Jakarta', day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(item.paidAt)) : '-'}</span></td><td>${isAdmin() ? `<button class="btn ${item.paymentStatus === 'paid' ? 'btn-light' : 'btn-primary'} monthly-payment-btn" type="button" data-monthly-payment-toggle="${escapeHtml(item.employeeId)}">${item.paymentStatus === 'paid' ? 'Batalkan Pembayaran' : 'Tandai Dibayar'}</button>` : '-'}</td></tr>`).join('')}</tbody></table>` : emptyState('Belum ada rekapan gaji bulanan', 'Isi Rekapan Gaji Harian terlebih dahulu. Total bulanan akan dihitung otomatis dari data tersebut.');
-      }
-      function renderPayroll() {
-        if (!el('payrollTabs')) return;
-        document.querySelectorAll('[data-payroll-panel]').forEach(panel => panel.hidden = panel.dataset.payrollPanel !== activePayrollTab);
-        document.querySelectorAll('[data-payroll-tab]').forEach(button => { const active = button.dataset.payrollTab === activePayrollTab; button.classList.toggle('active', active); button.setAttribute('aria-selected', String(active)); });
-        el('exportPayrollBtn').textContent = activePayrollTab === 'employees' ? '⇩ Ekspor Daftar' : activePayrollTab === 'daily' ? '⇩ Ekspor Harian' : activePayrollTab === 'advances' ? '⇩ Ekspor Kasbon' : '⇩ Ekspor Bulanan';
-        renderEmployees();
-        renderPayrollDaily();
-        renderPayrollAdvances();
-        renderPayrollMonthly();
-      }
-      function changePayrollDate(date) {
-        const input = el('payrollDateFilter');
-        if (!input) return;
-        input.value = date > todayISO() ? todayISO() : date;
-        renderPayrollDaily();
-      }
-      function shiftPayrollDate(days) {
-        const current = new Date(`${selectedPayrollDate()}T12:00:00+07:00`);
-        current.setDate(current.getDate() + days);
-        changePayrollDate(jakartaDate(current));
-      }
-      function setEmployeeFormAlert(message = '') {
-        const alert = el('employeeFormAlert'); if (!alert) return; alert.hidden = !message; alert.textContent = message || '';
-      }
-      function setPayrollDailyFormAlert(message = '') {
-        const alert = el('payrollDailyFormAlert'); if (!alert) return; alert.hidden = !message; alert.textContent = message || '';
-      }
-      function setPayrollAdvanceFormAlert(message = '') {
-        const alert = el('payrollAdvanceFormAlert'); if (!alert) return; alert.hidden = !message; alert.textContent = message || '';
-      }
-      function refreshPayrollAdvanceEmployeeOptions(selectedId = '') {
-        const select = el('payrollAdvanceEmployeeSelect'), current = selectedId || select.value;
-        const rows = state.employees.filter(item => canAccessStore(item.store) && (item.isActive || item.id === current)).sort((a, b) => a.store.localeCompare(b.store) || a.name.localeCompare(b.name));
-        select.innerHTML = '<option value="" disabled>Pilih karyawan</option>' + rows.map(item => `<option value="${escapeHtml(item.id)}">${escapeHtml(item.name)} · ${escapeHtml(item.store)}</option>`).join(''); select.value = rows.some(item => item.id === current) ? current : '';
-      }
-      function syncPayrollAdvanceEmployeeSelection() {
-        const employee = employeeById(el('payrollAdvanceEmployeeSelect').value); el('payrollAdvanceStorePreview').value = employee?.store || ''; updatePayrollAdvancePreview();
-      }
-      function updatePayrollAdvancePreview() {
-        const employeeId = el('payrollAdvanceEmployeeSelect')?.value || '', date = el('payrollAdvanceDate')?.value || todayISO(), id = el('payrollAdvanceId')?.value || '', info = employeeId ? advanceLimitInfo(employeeId, date, id) : { salaryPeriod: '', salaryLimit: 0, used: 0, available: 0 };
-        el('payrollAdvanceSalaryPeriod').textContent = info.salaryPeriod ? formatMonthYear(String(info.salaryPeriod).slice(0, 7)) : 'Belum tersedia';
-        el('payrollAdvanceSalaryLimit').textContent = rawMoney(info.salaryLimit); el('payrollAdvanceUsed').textContent = rawMoney(info.used); el('payrollAdvanceAvailable').textContent = rawMoney(info.available);
-        const amountInput = el('payrollAdvanceAmount'); amountInput.max = String(Math.floor(info.available));
-        el('payrollAdvancePreviewNote').textContent = !employeeId ? 'Pilih karyawan dan tanggal kasbon untuk melihat batas maksimal.' : info.salaryLimit <= 0 ? 'Karyawan ini belum memiliki rekapan gaji bersih yang dapat digunakan sebagai batas kasbon.' : `Maksimal kasbon tambahan ${rawMoney(info.available)}. Total yang sudah tercatat pada bulan ini ${rawMoney(info.used)}.`;
-      }
-      function openPayrollAdvanceModal(item = null) {
-        if (!isAdmin()) return; if (!state.employees.some(employee => employee.isActive)) { switchPayrollTab('employees'); return toast('Tambahkan minimal satu karyawan aktif terlebih dahulu.'); }
-        clearFormWarnings(el('payrollAdvanceForm')); setPayrollAdvanceFormAlert(''); el('payrollAdvanceForm').reset(); el('payrollAdvanceId').value = item?.id || ''; el('payrollAdvanceModalTitle').textContent = item ? 'Ubah Kasbon Karyawan' : 'Tambah Kasbon Karyawan'; el('payrollAdvanceDate').value = item?.advanceDate || todayISO(); el('payrollAdvanceDate').max = todayISO(); refreshPayrollAdvanceEmployeeOptions(item?.employeeId || ''); el('payrollAdvanceEmployeeSelect').value = item?.employeeId || ''; el('payrollAdvanceAmount').value = item?.amount || ''; el('payrollAdvanceNote').value = item?.note || ''; syncPayrollAdvanceEmployeeSelection(); openModal('payrollAdvanceModal'); focusFieldIfDesktop(el('payrollAdvanceEmployeeSelect'));
-      }
-      async function savePayrollAdvance(event) {
-        event.preventDefault(); if (!isAdmin()) return; setPayrollAdvanceFormAlert(''); const validation = validateFormFields(el('payrollAdvanceForm'), { message: 'Lengkapi tanggal, nama karyawan, dan nominal kasbon.' }); if (!validation.valid) { setPayrollAdvanceFormAlert(`Kasbon belum dapat disimpan. Lengkapi: ${validation.labels.join(', ')}.`); return; }
-        const employee = employeeById(el('payrollAdvanceEmployeeSelect').value), advanceDate = el('payrollAdvanceDate').value, id = el('payrollAdvanceId').value || uid(), amount = Number(el('payrollAdvanceAmount').value); if (!employee) { markFieldWarning(el('payrollAdvanceEmployeeSelect'), 'Karyawan tidak ditemukan.'); setPayrollAdvanceFormAlert('Pilih kembali nama karyawan.'); return; } if (advanceDate > todayISO()) { markFieldWarning(el('payrollAdvanceDate'), 'Tanggal kasbon tidak boleh di masa mendatang.'); setPayrollAdvanceFormAlert('Pilih hari ini atau tanggal sebelumnya.'); return; }
-        const info = advanceLimitInfo(employee.id, advanceDate, el('payrollAdvanceId').value || ''); if (info.salaryLimit <= 0) { markFieldWarning(el('payrollAdvanceEmployeeSelect'), 'Gaji bersih terakhir belum tersedia.'); setPayrollAdvanceFormAlert('Isi rekapan gaji harian terlebih dahulu sampai tersedia total gaji bersih terakhir.'); return; } if (!Number.isFinite(amount) || amount <= 0) { markFieldWarning(el('payrollAdvanceAmount'), 'Nominal harus lebih dari Rp0.'); setPayrollAdvanceFormAlert('Masukkan nominal kasbon yang valid.'); return; } if (amount > info.available) { markFieldWarning(el('payrollAdvanceAmount'), `Maksimal ${rawMoney(info.available)}.`); setPayrollAdvanceFormAlert(`Kasbon melebihi batas. Maksimal yang masih dapat diinput ${rawMoney(info.available)}.`); return; }
-        const item = { id, employeeId: employee.id, advanceDate, payrollMonth: info.payrollMonth, store: employee.store, employeeName: employee.name, amount, salaryLimit: info.salaryLimit, salaryPeriod: info.salaryPeriod, note: el('payrollAdvanceNote').value.trim() }, button = event.submitter || el('savePayrollAdvanceBtn'); setButtonBusy(button, true, 'Menyimpan…');
-        try { const result = await durableWrite({ kind: 'upsert', table: 'payroll_advances', rows: [payrollAdvanceToRow(item)], options: { onConflict: 'id' }, label: 'Kasbon' }); closeModal('payrollAdvanceModal'); el('payrollAdvanceMonthFilter').value = advanceDate.slice(0, 7); switchPayrollTab('advances'); if (!result.queued) await settleAfterWrite(); toast(result.queued ? `Kasbon ${employee.name} tersimpan aman di perangkat dan akan disinkronkan otomatis.` : `Kasbon ${employee.name} sebesar ${money(amount)} berhasil disimpan.`); } catch (error) { showSyncError(error); } finally { setButtonBusy(button, false); }
-      }
-      function openEmployeeModal(item = null) {
-        if (!isAdmin()) return;
-        clearFormWarnings(el('employeeForm')); setEmployeeFormAlert(''); el('employeeForm').reset();
-        el('employeeId').value = item?.id || '';
-        el('employeeModalTitle').textContent = item ? 'Ubah Data Karyawan' : 'Tambah Karyawan';
-        el('employeeStore').value = item?.store || '';
-        el('employeeName').value = item?.name || '';
-        el('employeePosition').value = item?.position || '';
-        el('employeeDailyWage').value = item?.dailyWage ?? '';
-        el('employeeShiftStart').value = item?.shiftStart || '09:00';
-        el('employeeStatus').value = item?.isActive === false ? 'inactive' : 'active';
-        el('employeeNote').value = item?.note || '';
-        openModal('employeeModal'); focusFieldIfDesktop(el('employeeName'));
-      }
-      async function saveEmployee(event) {
-        event.preventDefault(); if (!isAdmin()) return; setEmployeeFormAlert('');
-        const validation = validateFormFields(el('employeeForm'), { message: 'Lengkapi seluruh field wajib data karyawan sebelum menyimpan.' });
-        if (!validation.valid) { setEmployeeFormAlert(`Data belum dapat disimpan. Lengkapi: ${validation.labels.join(', ')}.`); return; }
-        const item = { id: el('employeeId').value || uid(), store: el('employeeStore').value, name: el('employeeName').value.trim(), position: el('employeePosition').value.trim(), dailyWage: Number(el('employeeDailyWage').value), shiftStart: el('employeeShiftStart').value, isActive: el('employeeStatus').value === 'active', note: el('employeeNote').value.trim() };
-        if (!Number.isFinite(item.dailyWage) || item.dailyWage <= 0) { markFieldWarning(el('employeeDailyWage'), 'Gaji per hari harus lebih dari Rp0.'); setEmployeeFormAlert('Gaji per hari harus diisi dengan nominal lebih dari Rp0.'); return; }
-        const duplicate = state.employees.some(employee => employee.id !== item.id && employee.store === item.store && employee.name.trim().toLowerCase() === item.name.toLowerCase());
-        if (duplicate) { markFieldWarning(el('employeeName'), 'Nama karyawan tersebut sudah terdaftar pada toko ini.'); setEmployeeFormAlert('Nama karyawan yang sama sudah tersedia pada toko yang dipilih.'); return; }
-        const button = event.submitter || el('saveEmployeeBtn'); setButtonBusy(button, true, 'Menyimpan...');
-        try { const result = await durableWrite({ kind: 'upsert', table: 'employees', rows: [employeeToRow(item)], options: { onConflict: 'id' }, label: 'Karyawan' }); closeModal('employeeModal'); if (!result.queued) await settleAfterWrite(); toast(result.queued ? 'Data karyawan tersimpan aman di perangkat dan akan disinkronkan otomatis.' : 'Data karyawan berhasil disimpan.'); } catch (error) { showSyncError(error); } finally { setButtonBusy(button, false); }
-      }
-      function refreshPayrollEmployeeOptions(selectedId = '') {
-        const select = el('payrollEmployeeSelect'); if (!select) return;
-        const current = selectedId || select.value;
-        const options = state.employees.filter(item => canAccessStore(item.store) && (item.isActive || item.id === current)).sort((a, b) => a.store.localeCompare(b.store) || a.name.localeCompare(b.name));
-        select.innerHTML = '<option value="" disabled>Pilih karyawan</option>' + options.map(item => `<option value="${escapeHtml(item.id)}">${escapeHtml(item.name)} · ${escapeHtml(item.store)}</option>`).join('');
-        select.value = options.some(item => item.id === current) ? current : '';
-      }
-      function syncPayrollEmployeeSelection() {
-        const employee = employeeById(el('payrollEmployeeSelect')?.value);
-        el('payrollStorePreview').value = employee?.store || '';
-        el('payrollDailyWagePreviewInput').value = employee ? rawMoney(employee.dailyWage) : '';
-        if (employee) el('payrollScheduledTime').value = employee.shiftStart || '09:00';
-        updatePayrollDailyPreview();
-      }
-      function updatePayrollDailyPreview() {
-        const scheduled = formatTimeValue(el('payrollScheduledTime')?.value), attendance = formatTimeValue(el('payrollAttendanceTime')?.value), attributeStatus = el('payrollAttributeStatus')?.value || '', employee = employeeById(el('payrollEmployeeSelect')?.value), dailyWage = Number(employee?.dailyWage || 0), extraWage = Math.max(0, Number(el('payrollExtraWage')?.value || 0));
-        el('payrollScheduledPreview').textContent = scheduled || '--:--';
-        el('payrollAttendancePreview').textContent = attendance || '--:--';
-        el('payrollAttributePreview').textContent = attributeStatus ? attributeStatusLabel(attributeStatus) : 'Belum dipilih';
-        const box = el('payrollLatePreviewBox'), label = el('payrollLatePreview');
-        box.classList.remove('late-preview', 'ontime-preview');
-        const lateStatus = scheduled && attendance ? attendanceStatus(attendance, scheduled) : 'ontime';
-        if (!scheduled || !attendance) label.textContent = 'Belum dihitung'; else { label.textContent = attendanceStatusLabel(lateStatus); box.classList.add(lateStatus === 'late' ? 'late-preview' : 'ontime-preview'); }
-        const calculation = calculateDailyPayroll(dailyWage, lateStatus, attributeStatus, extraWage);
-        el('payrollDeductionPreview').textContent = money(calculation.totalDeduction);
-        el('payrollExtraWagePreview').textContent = money(calculation.extraWage);
-        el('payrollNetWagePreview').textContent = money(calculation.netWage);
-      }
-      function openPayrollDailyModal(item = null) {
-        if (!isAdmin()) return;
-        if (!state.employees.some(employee => employee.isActive)) { switchPayrollTab('employees'); return toast('Tambahkan minimal satu karyawan aktif terlebih dahulu.'); }
-        clearFormWarnings(el('payrollDailyForm')); setPayrollDailyFormAlert(''); el('payrollDailyForm').reset();
-        el('payrollDailyId').value = item?.id || '';
-        el('payrollDailyModalTitle').textContent = item ? 'Ubah Rekapan Gaji Harian' : 'Tambah Rekapan Gaji Harian';
-        el('payrollWorkDate').value = item?.workDate || selectedPayrollDate() || todayISO();
-        el('payrollWorkDate').max = todayISO();
-        refreshPayrollEmployeeOptions(item?.employeeId || '');
-        el('payrollEmployeeSelect').value = item?.employeeId || '';
-        el('payrollScheduledTime').value = item?.scheduledTime || '';
-        el('payrollAttendanceTime').value = item?.attendanceTime || '';
-        el('payrollAttributeStatus').value = item?.attributeStatus || '';
-        el('payrollDailyNote').value = item?.note || '';
-        el('payrollExtraWage').value = item?.extraWage || '';
-        el('payrollExtraWageNote').value = item?.extraWageNote || '';
-        syncPayrollEmployeeSelection();
-        if (item) { el('payrollScheduledTime').value = item.scheduledTime || ''; el('payrollAttendanceTime').value = item.attendanceTime || ''; el('payrollAttributeStatus').value = item.attributeStatus || 'complete'; el('payrollStorePreview').value = item.store || ''; el('payrollDailyWagePreviewInput').value = rawMoney(item.dailyWage); updatePayrollDailyPreview(); }
-        openModal('payrollDailyModal'); focusFieldIfDesktop(el('payrollEmployeeSelect'));
-      }
-      async function savePayrollDaily(event) {
-        event.preventDefault(); if (!isAdmin()) return; setPayrollDailyFormAlert('');
-        const validation = validateFormFields(el('payrollDailyForm'), { message: 'Lengkapi karyawan, tanggal kerja, jam masuk standar, jam absensi, dan kelengkapan atribut.' });
-        if (!validation.valid) { setPayrollDailyFormAlert(`Rekapan belum dapat disimpan. Lengkapi: ${validation.labels.join(', ')}.`); return; }
-        const employee = employeeById(el('payrollEmployeeSelect').value);
-        if (!employee) { markFieldWarning(el('payrollEmployeeSelect'), 'Karyawan tidak ditemukan atau sudah tidak tersedia.'); setPayrollDailyFormAlert('Pilih kembali nama karyawan.'); return; }
-        const extraWage = Math.max(0, Number(el('payrollExtraWage').value || 0)), lateStatus = attendanceStatus(el('payrollAttendanceTime').value, el('payrollScheduledTime').value), attributeStatus = el('payrollAttributeStatus').value, calculation = calculateDailyPayroll(employee.dailyWage, lateStatus, attributeStatus, extraWage);
-        const item = { id: el('payrollDailyId').value || uid(), employeeId: employee.id, workDate: el('payrollWorkDate').value, store: employee.store, employeeName: employee.name, position: employee.position, dailyWage: employee.dailyWage, scheduledTime: el('payrollScheduledTime').value, attendanceTime: el('payrollAttendanceTime').value, lateStatus, attributeStatus, lateDeduction: calculation.lateDeduction, attributeDeduction: calculation.attributeDeduction, extraWage: calculation.extraWage, extraWageNote: el('payrollExtraWageNote').value.trim(), netWage: calculation.netWage, note: el('payrollDailyNote').value.trim() };
-        if (item.workDate > todayISO()) { markFieldWarning(el('payrollWorkDate'), 'Rekapan tidak dapat dibuat untuk tanggal mendatang.'); setPayrollDailyFormAlert('Pilih hari ini atau tanggal sebelumnya.'); return; }
-        const duplicate = state.payrollDaily.some(record => record.id !== item.id && record.employeeId === item.employeeId && record.workDate === item.workDate);
-        if (duplicate) { markFieldWarning(el('payrollEmployeeSelect'), 'Karyawan ini sudah memiliki rekapan pada tanggal tersebut.'); setPayrollDailyFormAlert('Satu karyawan hanya dapat memiliki satu rekapan gaji dalam satu tanggal.'); return; }
-        const button = event.submitter || el('savePayrollDailyBtn'); setButtonBusy(button, true, 'Menyimpan...');
-        try { const result = await durableWrite({ kind: 'upsert', table: 'payroll_daily', rows: [payrollDailyToRow(item)], options: { onConflict: 'id' }, label: 'Gaji harian' }); closeModal('payrollDailyModal'); changePayrollDate(item.workDate); switchPayrollTab('daily'); if (!result.queued) await settleAfterWrite(); toast(result.queued ? 'Rekapan gaji tersimpan aman di perangkat dan akan disinkronkan otomatis.' : `Rekapan tersimpan. Gaji bersih ${money(item.netWage)}.`); } catch (error) { showSyncError(error); } finally { setButtonBusy(button, false); }
-      }
-      async function handleEmployeeTableClick(event) {
-        const edit = event.target.closest('[data-employee-edit]'); if (edit) { openEmployeeModal(employeeById(edit.dataset.employeeEdit)); return; }
-        const del = event.target.closest('[data-employee-delete]'); if (del) { const employee = employeeById(del.dataset.employeeDelete); if (!employee || !confirm(`Pindahkan ${employee.name} ke Sampah? Riwayat gaji dan absensi tetap tersimpan.`)) return; try { await softDeleteRow('employees', employee.id); await settleAfterWrite(); toast('Data karyawan dipindahkan ke Sampah.'); } catch (error) { showSyncError(error); } }
-      }
-      async function handlePayrollDailyTableClick(event) {
-        const edit = event.target.closest('[data-payroll-daily-edit]'); if (edit) { openPayrollDailyModal(state.payrollDaily.find(item => item.id === edit.dataset.payrollDailyEdit)); return; }
-        const del = event.target.closest('[data-payroll-daily-delete]'); if (del && confirm('Pindahkan rekapan gaji harian ini ke Sampah?')) { try { await softDeleteRow('payroll_daily', del.dataset.payrollDailyDelete); await settleAfterWrite(); toast('Rekapan gaji harian dipindahkan ke Sampah.'); } catch (error) { showSyncError(error); } }
-      }
-      async function handlePayrollAdvanceTableClick(event) {
-        const edit = event.target.closest('[data-payroll-advance-edit]'); if (edit) { openPayrollAdvanceModal(state.payrollAdvances.find(item => item.id === edit.dataset.payrollAdvanceEdit)); return; }
-        const del = event.target.closest('[data-payroll-advance-delete]'); if (del && confirm('Pindahkan data kasbon ini ke Sampah?')) { try { await softDeleteRow('payroll_advances', del.dataset.payrollAdvanceDelete); await settleAfterWrite(); switchPayrollTab('advances'); toast('Data kasbon dipindahkan ke Sampah.'); } catch (error) { showSyncError(error); } }
-      }
-      async function handlePayrollMonthlyTableClick(event) {
-        const button = event.target.closest('[data-monthly-payment-toggle]'); if (!button || !isAdmin()) return;
-        const month = selectedPayrollMonth(), monthDate = `${month}-01`, row = payrollMonthlyRows().find(item => item.employeeId === button.dataset.monthlyPaymentToggle);
-        if (!row) return toast('Rekapan bulanan karyawan tidak ditemukan.');
-        const existing = state.payrollMonthlyPayments.find(item => item.employeeId === row.employeeId && item.payrollMonth === monthDate);
-        const nextStatus = row.paymentStatus === 'paid' ? 'unpaid' : 'paid';
-        const item = { id: existing?.id || uid(), employeeId: row.employeeId, payrollMonth: monthDate, store: row.store, employeeName: row.employeeName, paymentStatus: nextStatus, paidAt: nextStatus === 'paid' ? new Date().toISOString() : null, note: existing?.note || '' };
-        setButtonBusy(button, true, nextStatus === 'paid' ? 'Menyimpan…' : 'Membatalkan…');
-        try { const result = await durableWrite({ kind: 'upsert', table: 'payroll_monthly_payments', rows: [payrollMonthlyPaymentToRow(item)], options: { onConflict: 'id' }, label: 'Status gaji bulanan' }); if (!result.queued) await settleAfterWrite(); switchPayrollTab('monthly'); toast(result.queued ? 'Status pembayaran tersimpan aman di perangkat dan akan disinkronkan otomatis.' : `Status pembayaran ${row.employeeName}: ${paymentStatusLabel(nextStatus)}.`); } catch (error) { showSyncError(error); } finally { setButtonBusy(button, false); }
-      }
-      function exportPayrollCSV() {
-        if (activePayrollTab === 'employees') {
-          const rows = filteredEmployees(); if (!rows.length) { toast('Tidak ada daftar karyawan untuk diekspor.'); return; }
-          const csvRows = [['Toko', 'Nama Karyawan', 'Jabatan', 'Gaji per Hari', 'Jam Masuk Standar', 'Status', 'Keterangan'], ...rows.map(item => [item.store, item.name, item.position, item.dailyWage, item.shiftStart, item.isActive ? 'Aktif' : 'Tidak Aktif', item.note || ''])];
-          downloadFile(`daftar-karyawan-gaji-harian-${todayISO()}.csv`, '\ufeff' + toCSV(csvRows), 'text/csv;charset=utf-8'); toast('Daftar karyawan berhasil diekspor.'); return;
-        }
-        if (activePayrollTab === 'daily') {
-          const rows = filteredPayrollDaily(); if (!rows.length) { toast('Tidak ada rekapan gaji harian untuk diekspor.'); return; }
-          const csvRows = [['Tanggal', 'Toko', 'Nama Karyawan', 'Jabatan', 'Jam Masuk Standar', 'Jam Absensi', 'Status Kehadiran', 'Kelengkapan Atribut', 'Gaji Pokok', 'Potongan Terlambat', 'Potongan Atribut', 'Total Potongan', 'Tambahan Gaji', 'Keterangan Tambahan Gaji', 'Gaji Bersih', 'Keterangan Absensi/Pekerjaan'], ...rows.map(item => { const calculation = calculateDailyPayroll(item.dailyWage, item.lateStatus, item.attributeStatus, item.extraWage), lateDeduction = Number(item.lateDeduction ?? calculation.lateDeduction), attributeDeduction = Number(item.attributeDeduction ?? calculation.attributeDeduction), extraWage = Number(item.extraWage ?? calculation.extraWage); return [item.workDate, item.store, item.employeeName, item.position, item.scheduledTime, item.attendanceTime, attendanceStatusLabel(item.lateStatus), attributeStatusLabel(item.attributeStatus), item.dailyWage, lateDeduction, attributeDeduction, lateDeduction + attributeDeduction, extraWage, item.extraWageNote || '', Number(item.netWage ?? calculation.netWage), item.note || '']; })];
-          downloadFile(`rekapan-gaji-harian-${selectedPayrollDate()}.csv`, '\ufeff' + toCSV(csvRows), 'text/csv;charset=utf-8'); toast('Rekapan gaji harian berhasil diekspor.'); return;
-        }
-        if (activePayrollTab === 'advances') {
-          const rows = filteredPayrollAdvances(); if (!rows.length) { toast('Tidak ada data kasbon untuk diekspor.'); return; }
-          const csvRows = [['Tanggal Kasbon', 'Periode Potong', 'Toko', 'Nama Karyawan', 'Gaji Bersih Terakhir', 'Periode Gaji Terakhir', 'Nominal Kasbon', 'Keterangan'], ...rows.map(item => [item.advanceDate, item.payrollMonth, item.store, item.employeeName, item.salaryLimit, item.salaryPeriod || '', item.amount, item.note || ''])];
-          downloadFile(`kasbon-karyawan-${selectedPayrollAdvanceMonth()}.csv`, '\ufeff' + toCSV(csvRows), 'text/csv;charset=utf-8'); toast('Data kasbon berhasil diekspor.'); return;
-        }
-        const rows = filteredPayrollMonthly(); if (!rows.length) { toast('Tidak ada rekapan gaji bulanan untuk diekspor.'); return; }
-        const csvRows = [['Periode', 'Toko', 'Nama Karyawan', 'Jabatan', 'Jumlah Hari', 'Tepat Waktu', 'Terlambat', 'Atribut Tidak Lengkap', 'Gaji Pokok', 'Tambahan Gaji', 'Potongan Absensi', 'Gaji Bersih', 'Kasbon', 'Gaji Dibayarkan', 'Status Pembayaran', 'Tanggal Pembayaran'], ...rows.map(item => [selectedPayrollMonth(), item.store, item.employeeName, item.position, item.days, item.onTime, item.late, item.incompleteAttributes, item.grossWage, item.extraWage, item.totalDeduction, item.totalWage, item.advanceTotal, item.payableWage, paymentStatusLabel(item.paymentStatus), item.paidAt || ''])];
-        downloadFile(`rekapan-gaji-bulanan-${selectedPayrollMonth()}.csv`, '\ufeff' + toCSV(csvRows), 'text/csv;charset=utf-8'); toast('Rekapan gaji bulanan berhasil diekspor.');
-      }
+      function getEventStatus() { return { key: 'archived', label: 'Diarsipkan', className: 'event-status-archived' }; }
 
       async function addStore(storeName) {
         if (!isAdmin() && !isOwner()) {
@@ -8971,13 +8213,7 @@ NOTIFY pgrst, 'reload schema';`;
         try { setButtonBusy(button, true, 'Memulihkan...'); await restoreSoftDeleted(table, id); await settleAfterWrite(); toast('Data berhasil dipulihkan dari Sampah.'); } catch (error) { showSyncError(error); } finally { setButtonBusy(button, false); }
       }
 
-      async function handleTransactionTableClick(event) {
-        if (!isAdmin()) return;
-        const edit = event.target.closest('[data-edit-transaction]');
-        const remove = event.target.closest('[data-delete-transaction]');
-        if (edit) { const item = state.transactions.find(row => row.id === edit.dataset.editTransaction); openTransactionModal(edit.dataset.editTransaction, item?.eventId ? 'event' : 'store', item?.eventId || null); }
-        if (remove && confirm('Pindahkan transaksi ini ke Sampah? Data dapat dipulihkan oleh Admin.')) { try { await softDeleteRow('transactions', remove.dataset.deleteTransaction); await settleAfterWrite(); toast('Transaksi dipindahkan ke Sampah.'); } catch (error) { showSyncError(error); } }
-      }
+      async function handleTransactionTableClick() {}
       async function handleInventoryTableClick(event) {
         if (!canManageMaterials()) return;
         const edit = event.target.closest('[data-edit-inventory]');
@@ -8990,35 +8226,7 @@ NOTIFY pgrst, 'reload schema';`;
           try { await softDeleteRow('inventory', remove.dataset.deleteInventory); await settleAfterWrite(); toast('Bahan dipindahkan ke Sampah. Riwayat closing tetap tersimpan.'); } catch (error) { showSyncError(error); }
         }
       }
-      async function handleEventsTableClick(event) {
-        if (!canViewEvents() || isEventEmployee()) return;
-        const edit = event.target.closest('[data-edit-event]');
-        const remove = event.target.closest('[data-delete-event]');
-        const archive = event.target.closest('[data-archive-event]');
-        const restoreArchive = event.target.closest('[data-restore-archived-event]');
-        const tx = event.target.closest('[data-event-transactions]');
-        const inventory = event.target.closest('[data-event-inventory]');
-        const materials = event.target.closest('[data-event-materials]');
-        if (edit && isAdmin()) openEventModal(edit.dataset.editEvent);
-        if (tx) selectEventWorkspace(tx.dataset.eventTransactions, 'transactions');
-        if (inventory) selectEventWorkspace(inventory.dataset.eventInventory, 'inventory');
-        if (materials) selectEventWorkspace(materials.dataset.eventMaterials, 'materials');
-        if (archive && isAdmin()) {
-          const item = eventById(archive.dataset.archiveEvent);
-          if (item && !item.archivedAt && confirm(`Arsipkan event ${item.name}? Data transaksi, bahan, dan closing tetap tersimpan dan event dapat dipulihkan kapan saja.`)) {
-            try { const result = await durableWrite({ kind: 'update', table: 'events', payload: { archived_at: new Date().toISOString(), archived_by: currentSession?.user?.id || null }, filters: [{ type: 'eq', column: 'id', value: item.id }], label: 'Arsip event' }); eventListMode = 'archived'; if (!result.queued) await settleAfterWrite(); toast(result.queued ? 'Perubahan arsip event tersimpan aman di perangkat dan akan disinkronkan otomatis.' : 'Event berhasil diarsipkan tanpa menghapus data.'); } catch (error) { showSyncError(error); }
-          }
-        }
-        if (restoreArchive && isAdmin()) {
-          const item = eventById(restoreArchive.dataset.restoreArchivedEvent);
-          if (item?.archivedAt) {
-            try { const result = await durableWrite({ kind: 'update', table: 'events', payload: { archived_at: null, archived_by: null }, filters: [{ type: 'eq', column: 'id', value: item.id }], label: 'Pulihkan event' }); eventListMode = 'active'; if (!result.queued) await settleAfterWrite(); toast(result.queued ? 'Pemulihan event tersimpan aman di perangkat dan akan disinkronkan otomatis.' : 'Event berhasil dipulihkan ke daftar aktif.'); } catch (error) { showSyncError(error); }
-          }
-        }
-        if (remove && isAdmin() && confirm('Pindahkan event ini beserta transaksi, daftar bahan, dan rekapan bahan khusus event ke Sampah? Semua data dapat dipulihkan.')) {
-          try { const { error } = await db.rpc('soft_delete_event_bundle', { target_event_id: remove.dataset.deleteEvent }); if (error) throw error; await settleAfterWrite(); toast('Event beserta data khususnya dipindahkan ke Sampah.'); } catch (error) { showSyncError(error); }
-        }
-      }
+      async function handleEventsTableClick() {}
       function handleProfileAccessDraftChange(event) {
         if (!isAdmin()) return;
         const changed = event.target.closest('[data-role-user],[data-branch-user],[data-owner-branch-user],[data-event-access-user]');
@@ -9124,14 +8332,7 @@ NOTIFY pgrst, 'reload schema';`;
 
       function downloadFile(name, content, type) { const blob = new Blob([content], { type }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url); }
       function toCSV(rows) { return rows.map(row => row.map(value => `"${String(value ?? '').replace(/"/g, '""')}"`).join(',')).join('\n'); }
-      function exportTransactionsCSV() {
-        if (!canViewAll()) return;
-        const store = selectedGlobalStore;
-        const date = el('transactionDateFilter').value;
-        const rows = [['Tanggal', 'Toko', 'Jenis', 'Metode Pembayaran', 'Kategori', 'Keterangan', 'Nominal']];
-        state.transactions.filter(t => !t.eventId && (store === 'all' || t.store === store) && (!date || t.date === date)).slice().sort((a, b) => b.date.localeCompare(a.date)).forEach(t => rows.push([t.date, t.store, t.type === 'income' ? 'Pemasukan' : 'Pengeluaran', paymentMethodLabel(t.paymentMethod), t.category, t.note || '', t.amount]));
-        downloadFile(`rekap-transaksi-toko-${date || todayISO()}.csv`, '\ufeff' + toCSV(rows), 'text/csv;charset=utf-8'); toast('File transaksi toko berhasil diekspor.');
-      }
+      function exportTransactionsCSV() {}
       function exportInventoryCSV() {
         if (!canViewAll() && !employeeBranch()) return toast('Cabang akun belum ditetapkan.');
         const date = selectedInventoryDate(); const store = canViewAll() ? el('globalStore').value : employeeBranch();
@@ -9247,7 +8448,7 @@ NOTIFY pgrst, 'reload schema';`;
   <script>
     if ('serviceWorker' in navigator && location.protocol !== 'file:') {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js?v=rekapan-bahan-v5').then((registration) => {
+        navigator.serviceWorker.register('./sw.js?v=rekapan-bahan-v7').then((registration) => {
           registration.update().catch(() => { });
         }).catch((error) => {
           console.warn('Service worker tidak dapat didaftarkan:', error);
