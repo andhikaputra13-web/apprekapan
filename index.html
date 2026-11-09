@@ -5443,7 +5443,7 @@
           <span class="user-chip" id="userEmail"></span>
           <select class="store-select" id="globalStore" aria-label="Pilih toko"></select>
           <button class="btn btn-light btn-sm add-store-header-btn" id="headerAddStoreBtn" type="button"
-            title="Tambah Toko Baru" aria-label="Tambah Toko Baru" data-admin-write
+            title="Tambah Toko Baru" aria-label="Tambah Toko Baru" data-full-view
             style="padding: 0 10px; height: 38px; font-weight: 600; font-size: 13px; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap;">
             + Toko
           </button>
@@ -5729,13 +5729,13 @@
               </div>
             </article>
           </div>
-          <article class="card table-card" id="storesManagementPanel" style="margin-top:18px" data-admin-write>
+          <article class="card table-card" id="storesManagementPanel" style="margin-top:18px" data-full-view>
             <div class="card-head">
               <div>
                 <h3>Kelola Toko & Cabang</h3>
                 <p>Daftar toko dan brand operasional. Tambahkan toko baru untuk pencatatan transaksi, bahan, closing harian, event, gaji, dan hak akses.</p>
               </div>
-              <button class="btn btn-primary btn-sm" id="settingsAddStoreBtn" type="button" data-admin-write>+ Tambah Toko</button>
+              <button class="btn btn-primary btn-sm" id="settingsAddStoreBtn" type="button" data-full-view>+ Tambah Toko</button>
             </div>
             <div class="card-body">
               <div class="table-wrap" id="storesTable"></div>
@@ -5927,9 +5927,10 @@
       const DASHBOARD_RECAP_VISIBILITY_KEY = 'rekapTokoDashboardRecapVisibility_v1';
       const THEME_KEY = 'rekapTokoTheme_v1';
       const ALLOW_PUBLIC_SIGNUP = false;
-      const state = { stores: [], transactions: [], inventory: [], eventMaterialCatalog: [], inventoryDaily: [], events: [], employees: [], payrollDaily: [], payrollAdvances: [], payrollMonthlyPayments: [], profiles: [], deletedItems: [], auditLogs: [], profile: null, updatedAt: null };
+      const state = { stores: [], deletedStores: [], transactions: [], inventory: [], eventMaterialCatalog: [], inventoryDaily: [], events: [], employees: [], payrollDaily: [], payrollAdvances: [], payrollMonthlyPayments: [], profiles: [], deletedItems: [], auditLogs: [], profile: null, updatedAt: null };
       const DEFAULT_STORES = ['Chickumbar Blok M', 'Susu Sore', 'Hi Fruit', 'Ngayamin', 'Chickumbar Barito'];
       const CUSTOM_STORES_KEY = 'rekapTokoCustomStores_v1';
+      const DELETED_STORES_KEY = 'rekapTokoDeletedStores_v1';
       let STORES = [...DEFAULT_STORES];
 
       function getCustomStores() {
@@ -5947,12 +5948,46 @@
           localStorage.setItem(CUSTOM_STORES_KEY, JSON.stringify(list));
         } catch (_) {}
       }
+      function getDeletedStores() {
+        let local = [];
+        try {
+          const raw = localStorage.getItem(DELETED_STORES_KEY);
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed)) local = parsed.filter(s => typeof s === 'string' && s.trim().length > 0);
+          }
+        } catch (_) {}
+        const stateDeleted = Array.isArray(state?.deletedStores) ? state.deletedStores : [];
+        return [...new Set([...local, ...stateDeleted])];
+      }
+      function saveDeletedStores(list) {
+        const clean = [...new Set((list || []).filter(s => typeof s === 'string' && s.trim().length > 0))];
+        state.deletedStores = clean;
+        try {
+          localStorage.setItem(DELETED_STORES_KEY, JSON.stringify(clean));
+        } catch (_) {}
+      }
+      function markStoreAsDeleted(name) {
+        if (!name) return;
+        const list = getDeletedStores();
+        if (!list.includes(name)) {
+          list.push(name);
+          saveDeletedStores(list);
+        }
+      }
+      function unmarkStoreAsDeleted(name) {
+        if (!name) return;
+        const list = getDeletedStores().filter(s => s !== name);
+        saveDeletedStores(list);
+      }
       function refreshStoresList() {
         const localList = getCustomStores();
         const stateList = (Array.isArray(state?.stores))
           ? state.stores.map(s => typeof s === 'string' ? s : s.name).filter(Boolean)
           : [];
-        const combined = [...new Set([...DEFAULT_STORES, ...stateList, ...localList])];
+        const deleted = getDeletedStores();
+        const combined = [...new Set([...DEFAULT_STORES, ...stateList, ...localList])]
+          .filter(name => !deleted.includes(name));
         STORES = combined;
         return STORES;
       }
@@ -6192,6 +6227,7 @@ UNION ALL SELECT 'inventory_daily', id, deleted_at, deleted_by, coalesce(store,'
 -- 9. Row Level Security & Policies Terbuka (authenticated & anon)
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.stores ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.stores REPLICA IDENTITY FULL;
 ALTER TABLE public.inventory ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.inventory_daily ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.audit_logs ENABLE ROW LEVEL SECURITY;
@@ -6443,9 +6479,10 @@ NOTIFY pgrst, 'reload schema';`;
           if (op.table === 'stores') {
             (op.rows || []).forEach(row => {
               const item = rowToStore(row);
+              unmarkStoreAsDeleted(item.name);
               upsertLocalState('stores', item);
               const custom = getCustomStores();
-              if (!custom.includes(item.name) && !DEFAULT_STORES.includes(item.name)) {
+              if (!custom.includes(item.name)) {
                 custom.push(item.name);
                 saveCustomStores(custom);
               }
@@ -6460,13 +6497,20 @@ NOTIFY pgrst, 'reload schema';`;
         }
         if (op.kind === 'delete' && op.table === 'stores') {
           const nameFilter = (op.filters || []).find(f => f.column === 'name')?.value;
-          if (nameFilter) {
-            removeLocalState('stores', nameFilter, 'name');
-            const custom = getCustomStores().filter(s => s !== nameFilter);
+          const idFilter = (op.filters || []).find(f => f.column === 'id')?.value;
+          const existing = (state.stores || []).find(s => (idFilter && s.id === idFilter) || (nameFilter && (typeof s === 'string' ? s : s.name) === nameFilter));
+          const targetName = nameFilter || (typeof existing === 'string' ? existing : existing?.name);
+          if (targetName) {
+            markStoreAsDeleted(targetName);
+            removeLocalState('stores', targetName, 'name');
+            const custom = getCustomStores().filter(s => s !== targetName);
             saveCustomStores(custom);
-            refreshStoresList();
-            applyRoleUI();
           }
+          if (idFilter || existing?.id) {
+            removeLocalState('stores', idFilter || existing?.id, 'id');
+          }
+          refreshStoresList();
+          applyRoleUI();
           return;
         }
         if (op.kind === 'rpc' && op.fn === 'update_inventory_stock_after_closing') {
@@ -6525,7 +6569,7 @@ NOTIFY pgrst, 'reload schema';`;
           return { synced, pending, blocked };
         } finally { pendingSyncFlushRunning = false; }
       }
-      const LOCAL_SNAPSHOT_FIELDS = ['stores', 'transactions', 'inventory', 'eventMaterialCatalog', 'inventoryDaily', 'events', 'employees', 'payrollDaily', 'payrollAdvances', 'payrollMonthlyPayments', 'profiles', 'deletedItems', 'auditLogs', 'profile', 'updatedAt'];
+      const LOCAL_SNAPSHOT_FIELDS = ['stores', 'deletedStores', 'transactions', 'inventory', 'eventMaterialCatalog', 'inventoryDaily', 'events', 'employees', 'payrollDaily', 'payrollAdvances', 'payrollMonthlyPayments', 'profiles', 'deletedItems', 'auditLogs', 'profile', 'updatedAt'];
       async function saveLocalSnapshot() {
         if (!currentSession?.user) return false;
         try {
@@ -7133,7 +7177,7 @@ NOTIFY pgrst, 'reload schema';`;
         const headings = { dashboard: 'Dashboard', inventory: 'Rekapan Bahan Toko', materials: 'Daftar Bahan Toko', settings: 'Cloud & Pengaturan' };
         if (el('pageHeading')) el('pageHeading').textContent = headings[view] || 'Dashboard';
         if (el('globalStore')) el('globalStore').hidden = !canViewAll() || view === 'settings';
-        if (el('headerAddStoreBtn')) el('headerAddStoreBtn').hidden = !isAdmin() || view === 'settings';
+        if (el('headerAddStoreBtn')) el('headerAddStoreBtn').hidden = !canViewAll() || view === 'settings';
         if (window.innerWidth <= 780) closeSidebar();
         if (view === 'dashboard') renderDashboard();
         if (view === 'inventory') renderInventory();
@@ -7682,12 +7726,13 @@ NOTIFY pgrst, 'reload schema';`;
           if (Array.isArray(deletedItemsResult.data)) state.deletedItems = deletedItemsResult.data;
           if (Array.isArray(auditLogsResult.data)) state.auditLogs = auditLogsResult.data;
           if (Array.isArray(storesResult.data)) {
-            state.stores = storesResult.data.map(rowToStore);
+            const deleted = getDeletedStores();
+            state.stores = storesResult.data.map(rowToStore).filter(s => !deleted.includes(s.name));
 
-            // Rekonsiliasi otomatis: pulihkan toko kustom lokal yang belum ada di Supabase
+            // Rekonsiliasi otomatis: pulihkan toko kustom lokal yang belum ada di Supabase HANYA jika bukan toko yang dihapus
             const cloudNames = new Set(state.stores.map(s => s.name));
             const localCustom = getCustomStores();
-            const missingInCloud = localCustom.filter(name => !cloudNames.has(name) && !DEFAULT_STORES.includes(name));
+            const missingInCloud = localCustom.filter(name => !cloudNames.has(name) && !DEFAULT_STORES.includes(name) && !deleted.includes(name));
             if (missingInCloud.length > 0 && db && navigator.onLine) {
               const newRows = missingInCloud.map(name => storeToRow({ id: uid(), name, createdAt: new Date().toISOString() }));
               db.from('stores').upsert(newRows).then(({ error }) => {
@@ -7698,8 +7743,19 @@ NOTIFY pgrst, 'reload schema';`;
               }).catch(() => {});
             }
 
-            // Gabungkan toko dari Supabase ke localStorage agar sinkron antar browser
-            const updatedLocal = [...new Set([...localCustom, ...state.stores.map(s => s.name).filter(n => !DEFAULT_STORES.includes(n))])];
+            // Jika ada toko di Supabase yang sudah pernah dihapus lokal, hapus juga dari Supabase agar sinkron
+            const staleInCloud = storesResult.data.filter(s => deleted.includes(s.name));
+            if (staleInCloud.length > 0 && db && navigator.onLine) {
+              for (const stale of staleInCloud) {
+                db.from('stores').delete().eq('name', stale.name).then(() => {}).catch(() => {});
+              }
+            }
+
+            // Gabungkan toko aktif dari Supabase ke localStorage agar sinkron antar browser
+            const updatedLocal = [...new Set([
+              ...localCustom.filter(name => !deleted.includes(name)),
+              ...state.stores.map(s => s.name).filter(n => !deleted.includes(n))
+            ])];
             saveCustomStores(updatedLocal);
           }
           refreshStoresList();
@@ -7836,14 +7892,21 @@ NOTIFY pgrst, 'reload schema';`;
           if (table === 'stores') {
             const config = realtimeConfigFor(table);
             if (eventType === 'DELETE') {
-              removeLocalState('stores', row.id || row.name, row.id ? 'id' : 'name');
-              const custom = getCustomStores().filter(s => s !== row.name);
-              saveCustomStores(custom);
+              const existing = (state.stores || []).find(s => (row.id && s.id === row.id) || (row.name && (typeof s === 'string' ? s : s.name) === row.name));
+              const targetName = row.name || (typeof existing === 'string' ? existing : existing?.name);
+              if (row.id) removeLocalState('stores', row.id, 'id');
+              if (targetName) {
+                removeLocalState('stores', targetName, 'name');
+                markStoreAsDeleted(targetName);
+                const custom = getCustomStores().filter(s => s !== targetName);
+                saveCustomStores(custom);
+              }
             } else if (row?.name) {
+              unmarkStoreAsDeleted(row.name);
               const item = config ? config.map(row) : rowToStore(row);
               upsertLocalState('stores', item);
               const custom = getCustomStores();
-              if (!custom.includes(item.name) && !DEFAULT_STORES.includes(item.name)) {
+              if (!custom.includes(item.name)) {
                 custom.push(item.name);
                 saveCustomStores(custom);
               }
@@ -8255,6 +8318,10 @@ NOTIFY pgrst, 'reload schema';`;
           toast('Nama toko tersebut tidak dapat digunakan.');
           return false;
         }
+
+        // Jika sebelumnya pernah dihapus, batalkan tanda terhapus
+        unmarkStoreAsDeleted(name);
+
         refreshStoresList();
         if (STORES.some(s => s.toLowerCase() === name.toLowerCase())) {
           toast(`Toko "${name}" sudah terdaftar.`);
@@ -8302,40 +8369,66 @@ NOTIFY pgrst, 'reload schema';`;
       }
 
       async function deleteStore(storeName) {
-        if (!isAdmin() && !isOwner()) return;
-        if (DEFAULT_STORES.includes(storeName)) {
-          toast('Toko bawaan sistem tidak dapat dihapus.');
+        if (!isAdmin() && !isOwner()) {
+          toast('Akses ditolak: Hanya Admin atau Owner yang dapat menghapus toko.');
           return;
         }
-        const invCount = state.inventory.filter(i => i.store === storeName).length;
-        const profileCount = state.profiles.filter(p => p.branch === storeName || (Array.isArray(p.branches) && p.branches.includes(storeName))).length;
-        const hasData = (invCount + profileCount) > 0;
+        storeName = String(storeName || '').trim();
+        if (!storeName) return;
 
-        let confirmMsg = `Hapus toko "${storeName}" dari daftar toko?`;
+        const invCount = (state.inventory || []).filter(i => !i.eventId && i.store === storeName).length;
+        const profileCount = (state.profiles || []).filter(p => p.branch === storeName || (Array.isArray(p.branches) && p.branches.includes(storeName))).length;
+        const dailyCount = (state.inventoryDaily || []).filter(d => d.store === storeName).length;
+        const txCount = (state.transactions || []).filter(t => !t.eventId && t.store === storeName).length;
+        const hasData = (invCount + profileCount + dailyCount + txCount) > 0;
+
+        let confirmMsg = `Hapus toko "${storeName}" dari daftar toko aktif?`;
         if (hasData) {
-          confirmMsg = `Toko "${storeName}" memiliki riwayat data (${invCount} bahan, ${profileCount} hak akses). Data yang sudah tercatat tidak akan dihapus, namun toko ini tidak lagi muncul pada pilihan dropdown baru. Lanjutkan?`;
+          confirmMsg = `Toko "${storeName}" memiliki riwayat operasional (${invCount} bahan, ${dailyCount} rekapan harian, ${profileCount} hak akses akun). Toko ini akan dihapus dari pilihan dropdown dan daftar toko aktif. Lanjutkan?`;
         }
         if (!confirm(confirmMsg)) return;
 
-        // 1. Hapus dari custom stores lokal
+        // 1. Tandai sebagai deleted di lokal & snapshot
+        markStoreAsDeleted(storeName);
+
+        // 2. Hapus dari custom stores lokal
         const custom = getCustomStores().filter(s => s !== storeName);
         saveCustomStores(custom);
 
-        // 2. Hapus dari state.stores
+        // 3. Cari id toko jika ada di state.stores
+        const storeObj = (state.stores || []).find(s => (typeof s === 'string' ? s : s.name) === storeName);
+        const storeId = storeObj?.id;
+
+        // 4. Hapus dari state.stores
         if (state.stores) {
-          state.stores = state.stores.filter(s => (typeof s === 'string' ? s : s.name) !== storeName);
+          state.stores = state.stores.filter(s => (typeof s === 'string' ? s : s.name) !== storeName && (!storeId || s.id !== storeId));
         }
 
-        // 3. Refresh array STORES
+        // 5. Bersihkan penugasan cabang pada profil akun jika ada
+        if (Array.isArray(state.profiles)) {
+          state.profiles.forEach(p => {
+            let changed = false;
+            if (p.branch === storeName) { p.branch = ''; changed = true; }
+            if (Array.isArray(p.branches) && p.branches.includes(storeName)) {
+              p.branches = p.branches.filter(b => b !== storeName);
+              changed = true;
+            }
+            if (changed && isAdmin() && db && navigator.onLine) {
+              db.from('profiles').update({ branch: p.branch, branches: p.branches }).eq('user_id', p.user_id).then(() => {}).catch(() => {});
+            }
+          });
+        }
+
+        // 6. Refresh array STORES
         refreshStoresList();
 
-        // 4. Reset selectedGlobalStore jika toko yang dihapus sedang dipilih
+        // 7. Reset selectedGlobalStore jika toko yang dihapus sedang dipilih
         if (selectedGlobalStore === storeName) {
           selectedGlobalStore = 'all';
           if (el('globalStore')) el('globalStore').value = 'all';
         }
 
-        // 5. Perbarui tampilan
+        // 8. Perbarui tampilan
         applyRoleUI();
         renderProfiles();
         renderStoresTable();
@@ -8343,16 +8436,34 @@ NOTIFY pgrst, 'reload schema';`;
         renderAll();
         scheduleLocalSnapshotSave();
 
-        // 6. Hapus dari Supabase via durableWrite
+        // 9. Bersihkan antrean offline lama untuk toko ini
         try {
+          const pendingOps = await queuedOperationsForCurrentUser();
+          for (const op of pendingOps) {
+            if (op.table === 'stores') {
+              const match = (op.rows || []).some(r => r.name === storeName || (storeId && r.id === storeId)) ||
+                            (op.filters || []).some(f => (f.column === 'name' && f.value === storeName) || (storeId && f.column === 'id' && f.value === storeId));
+              if (match) await durableDelete(DURABLE_PENDING_STORE, op.id);
+            }
+          }
+          await updatePendingSyncUI();
+        } catch (_) {}
+
+        // 10. Hapus dari Supabase via durableWrite (kirim batch delete by name & id agar tuntas)
+        try {
+          const steps = [
+            { kind: 'delete', table: 'stores', filters: [{ type: 'eq', column: 'name', value: storeName }] }
+          ];
+          if (storeId) {
+            steps.push({ kind: 'delete', table: 'stores', filters: [{ type: 'eq', column: 'id', value: storeId }] });
+          }
           const result = await durableWrite({
-            kind: 'delete',
-            table: 'stores',
-            filters: [{ type: 'eq', column: 'name', value: storeName }],
-            label: 'Hapus Toko'
+            kind: 'batch',
+            steps,
+            label: `Hapus Toko ${storeName}`
           });
           if (!result.queued) await settleAfterWrite();
-          toast(result.queued ? `Penghapusan toko "${storeName}" akan disinkronkan saat online.` : `Toko "${storeName}" berhasil dihapus.`);
+          toast(result.queued ? `Penghapusan toko "${storeName}" disimpan dan akan disinkronkan ke Supabase.` : `Toko "${storeName}" berhasil dihapus.`);
         } catch (err) {
           showSyncError(err);
         }
@@ -8399,7 +8510,7 @@ NOTIFY pgrst, 'reload schema';`;
           el('storesTable').innerHTML = emptyState('Belum ada toko', 'Tambahkan toko pertama menggunakan tombol di atas.');
           return;
         }
-        const editable = isAdmin();
+        const editable = isAdmin() || isOwner();
         el('storesTable').innerHTML = `<table>
           <thead>
             <tr>
@@ -8414,9 +8525,9 @@ NOTIFY pgrst, 'reload schema';`;
           <tbody>
             ${STORES.map(store => {
               const isDefault = DEFAULT_STORES.includes(store);
-              const txCount = state.transactions.filter(t => !t.eventId && t.store === store).length;
-              const invCount = state.inventory.filter(i => !i.eventId && i.store === store).length;
-              const empCount = state.employees.filter(e => e.store === store && e.isActive).length;
+              const txCount = (state.transactions || []).filter(t => !t.eventId && t.store === store).length;
+              const invCount = (state.inventory || []).filter(i => !i.eventId && i.store === store).length;
+              const empCount = (state.employees || []).filter(e => e.store === store && e.isActive).length;
               const typeBadge = isDefault
                 ? '<span class="badge badge-ok">Bawaan</span>'
                 : '<span class="badge" style="background:rgba(2,132,199,0.12);color:var(--primary);font-weight:600">Kustom</span>';
@@ -8426,10 +8537,7 @@ NOTIFY pgrst, 'reload schema';`;
                 <td>${txCount} transaksi</td>
                 <td>${invCount} bahan</td>
                 <td>${empCount} karyawan</td>
-                ${editable ? `<td>${isDefault
-                  ? '<small class="muted">Toko Sistem</small>'
-                  : `<button class="btn btn-light btn-sm" type="button" data-delete-store="${escapeHtml(store)}" style="color:var(--red);border-color:rgba(239,68,68,0.3);padding:3px 8px;font-size:12px">Hapus</button>`
-                }</td>` : ''}
+                ${editable ? `<td><button class="btn btn-light btn-sm" type="button" data-delete-store="${escapeHtml(store)}" style="color:var(--red);border-color:rgba(239,68,68,0.3);padding:3px 8px;font-size:12px;cursor:pointer">Hapus</button></td>` : ''}
               </tr>`;
             }).join('')}
           </tbody>

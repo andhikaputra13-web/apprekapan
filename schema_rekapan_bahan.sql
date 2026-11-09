@@ -210,6 +210,7 @@ CREATE TABLE IF NOT EXISTS public.audit_logs (
 -- 10. Row Level Security & Policies Terbuka (authenticated & anon)
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.stores ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.stores REPLICA IDENTITY FULL;
 ALTER TABLE public.inventory ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.inventory_daily ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.audit_logs ENABLE ROW LEVEL SECURITY;

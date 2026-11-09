@@ -191,6 +191,7 @@ $$;
 
 -- 6. Row Level Security (RLS) Terbuka untuk seluruh akun terautentikasi (authenticated & anon)
 ALTER TABLE public.stores ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.stores REPLICA IDENTITY FULL;
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.inventory ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.inventory_daily ENABLE ROW LEVEL SECURITY;
