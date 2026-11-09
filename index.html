@@ -5158,6 +5158,112 @@
     .store-status-badges {
       flex-shrink: 0;
     }
+
+    /* ==========================================================================
+       Pull to Refresh UI
+       ========================================================================== */
+    .ptr-indicator {
+      position: fixed;
+      top: calc(env(safe-area-inset-top, 0px) + 12px);
+      left: 50%;
+      transform: translate(-50%, -150%);
+      z-index: 40;
+      pointer-events: none;
+      transition: transform .28s cubic-bezier(0.16, 1, 0.3, 1), opacity .2s ease;
+      opacity: 0;
+      will-change: transform, opacity;
+    }
+
+    @media (min-width: 781px) {
+      .ptr-indicator {
+        left: calc(50% + 134px);
+      }
+    }
+
+    .ptr-indicator.ptr-pulling {
+      transition: none;
+      opacity: 1;
+    }
+
+    .ptr-indicator.ptr-ready,
+    .ptr-indicator.ptr-refreshing {
+      opacity: 1;
+    }
+
+    .ptr-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+      padding: 8px 18px;
+      background: var(--surface);
+      color: var(--text);
+      border: 1px solid var(--line);
+      border-radius: 9999px;
+      box-shadow: 0 10px 28px rgba(15, 23, 42, 0.16), 0 2px 6px rgba(15, 23, 42, 0.08);
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      white-space: nowrap;
+      user-select: none;
+      -webkit-user-select: none;
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+    }
+
+    .ptr-icon-wrap {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 20px;
+      height: 20px;
+      color: var(--primary-dark, #c98900);
+      transition: transform .2s ease;
+    }
+
+    html[data-theme="dark"] .ptr-pill {
+      background: rgba(20, 34, 56, 0.96);
+      border-color: var(--line);
+      color: var(--text);
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+    }
+
+    html[data-theme="dark"] .ptr-icon-wrap {
+      color: var(--primary, #f3b61f);
+    }
+
+    .ptr-arrow-icon {
+      display: block;
+      transition: transform .2s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    .ptr-indicator.ptr-ready .ptr-arrow-icon {
+      transform: rotate(180deg) !important;
+    }
+
+    .ptr-spinner {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      animation: ptr-spin .75s linear infinite;
+    }
+
+    @keyframes ptr-spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+
+    .ptr-success-icon {
+      color: var(--green, #16a34a);
+    }
+
+    .content {
+      will-change: transform;
+      transition: transform .25s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .content.ptr-pulling {
+      transition: none;
+    }
   </style>
 </head>
 
@@ -5285,6 +5391,26 @@
     <div class="overlay" id="overlay"></div>
 
     <main class="main">
+      <!-- Pull to Refresh Indicator -->
+      <div class="ptr-indicator" id="ptrIndicator" aria-hidden="true">
+        <div class="ptr-pill">
+          <div class="ptr-icon-wrap" id="ptrIconWrap">
+            <svg class="ptr-arrow-icon" id="ptrArrowIcon" viewBox="0 0 24 24" width="17" height="17">
+              <path d="M12 4v12m0 0l-4-4m4 4l4-4" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <div class="ptr-spinner" id="ptrSpinner" hidden>
+              <svg viewBox="0 0 24 24" width="17" height="17">
+                <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2.5" stroke-dasharray="42" stroke-dashoffset="14" stroke-linecap="round"/>
+              </svg>
+            </div>
+            <svg class="ptr-success-icon" id="ptrSuccessIcon" viewBox="0 0 24 24" width="17" height="17" hidden>
+              <path d="M5 13l4 4L19 7" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <span class="ptr-label" id="ptrLabel">Tarik untuk memuat ulang</span>
+        </div>
+      </div>
+
       <header class="topbar">
         <div class="topbar-left">
           <button class="menu-btn" id="menuBtn" aria-label="Buka menu">☰</button>
@@ -6733,7 +6859,175 @@ NOTIFY pgrst, 'reload schema';`;
         }
       }
 
+      // ==========================================================================
+      // Pull to Refresh Implementation
+      // ==========================================================================
+      function initPullToRefresh() {
+        const indicator = el('ptrIndicator');
+        const arrow = el('ptrArrowIcon');
+        const spinner = el('ptrSpinner');
+        const success = el('ptrSuccessIcon');
+        const label = el('ptrLabel');
+        const content = document.querySelector('.content');
+
+        if (!indicator || !content) return;
+
+        let startY = 0;
+        let startX = 0;
+        let isTouching = false;
+        let isPulling = false;
+        let isRefreshing = false;
+        const threshold = 65;
+        const maxPull = 120;
+
+        function getScrollTop() {
+          return window.scrollY || window.pageYOffset || document.documentElement.scrollTop || document.body.scrollTop || 0;
+        }
+
+        function isModalOpen() {
+          return !!document.querySelector('.modal.open') || document.body.classList.contains('modal-scroll-locked');
+        }
+
+        function isSidebarOpen() {
+          return !!el('sidebar')?.classList.contains('open');
+        }
+
+        function onTouchStart(e) {
+          if (isRefreshing) return;
+          const touch = e.touches ? e.touches[0] : e;
+          if (e.touches && e.touches.length > 1) return;
+          if (isModalOpen() || isSidebarOpen()) return;
+          if (e.target && e.target.closest && e.target.closest('button, input, select, textarea, a, .modal, .sidebar, .store-select')) return;
+          if (getScrollTop() > 3) return;
+
+          startY = touch.clientY;
+          startX = touch.clientX;
+          isTouching = true;
+          isPulling = false;
+        }
+
+        function onTouchMove(e) {
+          if (!isTouching || isRefreshing) return;
+          if (getScrollTop() > 3) {
+            if (isPulling) resetPtr();
+            isTouching = false;
+            return;
+          }
+
+          const touch = e.touches ? e.touches[0] : e;
+          const currentY = touch.clientY;
+          const currentX = touch.clientX;
+          const deltaY = currentY - startY;
+          const deltaX = currentX - startX;
+
+          // Batalkan bila swipe horizontal mendominasi (scroll tabel/slicer)
+          if (!isPulling && Math.abs(deltaX) > Math.abs(deltaY)) {
+            isTouching = false;
+            return;
+          }
+
+          if (deltaY > 6) {
+            isPulling = true;
+            if (e.cancelable && e.preventDefault) e.preventDefault();
+
+            const pullDistance = Math.min(maxPull, Math.pow(deltaY, 0.85) * 1.6);
+            const progress = Math.min(1, pullDistance / threshold);
+
+            indicator.classList.add('ptr-pulling');
+            content.classList.add('ptr-pulling');
+
+            const indicatorY = Math.min(20, -75 + (pullDistance * 1.15));
+            indicator.style.transform = `translate(-50%, ${indicatorY}px)`;
+            content.style.transform = `translateY(${pullDistance * 0.32}px)`;
+
+            arrow.hidden = false;
+            spinner.hidden = true;
+            success.hidden = true;
+
+            if (pullDistance >= threshold) {
+              if (!indicator.classList.contains('ptr-ready')) {
+                indicator.classList.add('ptr-ready');
+                try { if (navigator.vibrate) navigator.vibrate(12); } catch (_) {}
+              }
+              label.textContent = 'Lepaskan untuk memuat ulang';
+            } else {
+              indicator.classList.remove('ptr-ready');
+              arrow.style.transform = `rotate(${progress * 180}deg)`;
+              label.textContent = 'Tarik untuk memuat ulang';
+            }
+          } else if (deltaY < 0 && isPulling) {
+            resetPtr();
+          }
+        }
+
+        async function onTouchEnd() {
+          if (!isTouching) return;
+          isTouching = false;
+
+          if (!isPulling) {
+            resetPtr();
+            return;
+          }
+
+          const wasReady = indicator.classList.contains('ptr-ready');
+          isPulling = false;
+          indicator.classList.remove('ptr-pulling');
+          content.classList.remove('ptr-pulling');
+
+          if (wasReady && !isRefreshing) {
+            isRefreshing = true;
+            indicator.classList.remove('ptr-ready');
+            indicator.classList.add('ptr-refreshing');
+
+            indicator.style.transform = 'translate(-50%, 16px)';
+            content.style.transform = 'translateY(0)';
+
+            arrow.hidden = true;
+            spinner.hidden = false;
+            success.hidden = true;
+            label.textContent = 'Memperbarui data...';
+
+            try {
+              await manualRefreshData({ silent: true });
+              spinner.hidden = true;
+              success.hidden = false;
+              label.textContent = 'Data berhasil diperbarui';
+              try { if (navigator.vibrate) navigator.vibrate(15); } catch (_) {}
+              await new Promise(r => setTimeout(r, 450));
+            } catch (err) {
+              spinner.hidden = true;
+              arrow.hidden = false;
+              label.textContent = 'Gagal memuat ulang';
+              await new Promise(r => setTimeout(r, 550));
+            } finally {
+              isRefreshing = false;
+              resetPtr();
+            }
+          } else {
+            resetPtr();
+          }
+        }
+
+        function resetPtr() {
+          indicator.classList.remove('ptr-pulling', 'ptr-ready', 'ptr-refreshing');
+          indicator.style.transform = '';
+          content.classList.remove('ptr-pulling');
+          content.style.transform = '';
+          arrow.style.transform = '';
+          arrow.hidden = false;
+          spinner.hidden = true;
+          success.hidden = true;
+          label.textContent = 'Tarik untuk memuat ulang';
+        }
+
+        window.addEventListener('touchstart', onTouchStart, { passive: true });
+        window.addEventListener('touchmove', onTouchMove, { passive: false });
+        window.addEventListener('touchend', onTouchEnd, { passive: true });
+        window.addEventListener('touchcancel', resetPtr, { passive: true });
+      }
+
       function bindEvents() {
+        initPullToRefresh();
         el('setupForm').addEventListener('submit', handleSetupSubmit);
         el('copySqlBtn').addEventListener('click', copyDatabaseSql);
         el('loginForm').addEventListener('submit', handleLogin);
@@ -7276,19 +7570,24 @@ NOTIFY pgrst, 'reload schema';`;
         const success = await loadCloudData(false);
         if (success) toast('Data cloud dan data tertunda sudah disinkronkan.');
       }
-      async function manualRefreshData() {
-        if (dataLoading) { toast('Sinkronisasi data sedang berjalan.'); return; }
+      async function manualRefreshData({ silent = false } = {}) {
+        if (dataLoading) { if (!silent) toast('Sinkronisasi data sedang berjalan.'); return false; }
         const button = el('manualRefreshBtn');
-        button.disabled = true;
-        button.setAttribute('aria-busy', 'true');
+        if (button) {
+          button.disabled = true;
+          button.setAttribute('aria-busy', 'true');
+        }
         try {
           if (navigator.onLine) await flushPendingOperations();
           const success = await loadCloudData(false);
-          if (success) toast('Data berhasil diperbarui.');
-          else if (!navigator.onLine) toast('Offline. Data lokal terakhir tetap tersedia.');
+          if (success && !silent) toast('Data berhasil diperbarui.');
+          else if (!navigator.onLine && !silent) toast('Offline. Data lokal terakhir tetap tersedia.');
+          return success;
         } finally {
-          button.disabled = false;
-          button.removeAttribute('aria-busy');
+          if (button) {
+            button.disabled = false;
+            button.removeAttribute('aria-busy');
+          }
         }
       }
 
@@ -8449,7 +8748,7 @@ NOTIFY pgrst, 'reload schema';`;
   <script>
     if ('serviceWorker' in navigator && location.protocol !== 'file:') {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js?v=rekapan-bahan-v7').then((registration) => {
+        navigator.serviceWorker.register('./sw.js?v=rekapan-bahan-v8').then((registration) => {
           registration.update().catch(() => { });
         }).catch((error) => {
           console.warn('Service worker tidak dapat didaftarkan:', error);
