@@ -5377,7 +5377,8 @@
 
       <nav class="nav" id="nav">
         <button class="active" data-full-view data-view="dashboard"><span class="icon">▦</span> Dashboard</button>
-        <button data-view="inventory"><span class="icon">▤</span> Rekapan Bahan</button>
+        <button data-view="inventory"><span class="icon">🏪</span> Rekapan Bahan Toko</button>
+        <button data-view="warehouse"><span class="icon">🏬</span> Rekapan Bahan Gudang</button>
         <button data-full-view data-view="materials"><span class="icon">＋</span> Daftar Bahan</button>
         <button data-full-view data-view="settings"><span class="icon">⚙</span> Data & Pengaturan</button>
       </nav>
@@ -5538,7 +5539,10 @@
                   <h3>🏪 Status Bahan per Cabang Toko</h3>
                   <p id="dashStoresSubtitle">Ringkasan status closing dan ketersediaan tiap cabang</p>
                 </div>
-                <button class="btn btn-light btn-sm" data-go="inventory" type="button">Buka Rekapan</button>
+                <div style="display:inline-flex;gap:6px;">
+                  <button class="btn btn-light btn-sm" data-go="inventory" type="button">Rekapan Toko</button>
+                  <button class="btn btn-light btn-sm" data-go="warehouse" type="button">Rekapan Gudang</button>
+                </div>
               </div>
               <div class="card-body">
                 <div id="dashStoreStatusList" class="store-materials-list"></div>
@@ -5626,11 +5630,68 @@
           <article class="card table-card closing-card" id="inventoryClosingCard">
             <div class="card-head">
               <div>
-                <h3>Detail Bahan Terpakai</h3>
-                <p>Ringkasan bahan yang terpakai berdasarkan hasil closing pada tanggal pilihan.</p>
+                <h3>Detail Bahan Terpakai Toko</h3>
+                <p>Ringkasan bahan yang terpakai di toko berdasarkan hasil closing pada tanggal pilihan.</p>
               </div>
             </div>
             <div class="table-wrap" id="inventoryClosingDetails"></div>
+          </article>
+        </section>
+
+        <section class="view" id="view-warehouse">
+          <div class="toolbar">
+            <div>
+              <h3>Closing Bahan Gudang Harian</h3>
+              <p id="warehouseAccessText">Daftar bahan gudang tampil pada setiap tanggal. Admin dan Karyawan dapat membuka
+                serta melakukan closing stok gudang untuk hari ini maupun hari sebelumnya.</p>
+            </div>
+            <div class="toolbar-actions">
+              <button class="btn btn-light" id="exportWarehouseBtn">⇩ Ekspor CSV</button>
+              <button class="btn btn-dark" id="closeWarehouseDailyRecapBtn">✓ Closing Tanggal Ini</button>
+            </div>
+          </div>
+          <div class="branch-notice" id="warehouseBranchNotice" hidden></div>
+          <div class="inventory-workflow-note">
+            <strong>Alur gudang:</strong> daftar bahan otomatis mengikuti master <strong>Daftar Bahan Toko</strong>. Admin dan Karyawan dapat memilih tanggal, mencatat stok masuk ke gudang, stok akhir gudang, serta memantau pengeluaran / pemakaian bahan dari gudang.
+          </div>
+          <div class="card filters">
+            <div class="date-slicer" aria-label="Pilih tanggal rekapan gudang">
+              <button class="btn btn-light date-nav-btn" id="warehousePrevDateBtn" type="button"
+                title="Hari sebelumnya">‹</button>
+              <input class="input" type="date" id="warehouseDateFilter" aria-label="Tanggal rekapan bahan gudang" />
+              <button class="btn btn-light date-nav-btn" id="warehouseNextDateBtn" type="button"
+                title="Hari berikutnya">›</button>
+            </div>
+            <input class="input" id="warehouseSearch" placeholder="Cari nama bahan di gudang..." />
+            <select class="select" id="warehouseStatusFilter">
+              <option value="all">Semua Status</option>
+              <option value="open">Belum Closing</option>
+              <option value="closed">Sudah Closing</option>
+              <option value="used">Ada Pemakaian</option>
+            </select>
+            <button class="btn btn-light" id="warehouseTodayBtn" type="button">Hari Ini</button>
+          </div>
+
+          <div class="daily-recap-summary" id="warehouseDailyRecapSummary"></div>
+
+          <article class="card table-card">
+            <div class="card-head">
+              <div>
+                <h3 id="warehouseDailyTableTitle">Daftar Bahan Gudang — Harian</h3>
+                <p id="warehouseDailyTableSubtitle">Pilih tanggal untuk melihat hasil closing gudang.</p>
+              </div>
+            </div>
+            <div class="table-wrap" id="warehouseTable"></div>
+          </article>
+
+          <article class="card table-card closing-card" id="warehouseClosingCard">
+            <div class="card-head">
+              <div>
+                <h3>Detail Pengeluaran Bahan Gudang</h3>
+                <p>Ringkasan bahan yang keluar / terpakai dari gudang berdasarkan hasil closing pada tanggal pilihan.</p>
+              </div>
+            </div>
+            <div class="table-wrap" id="warehouseClosingDetails"></div>
           </article>
         </section>
 
@@ -6352,7 +6413,7 @@ NOTIFY pgrst, 'reload schema';`;
       const assignedBranch = () => employeeBranch();
       const canAccessStore = store => isAdmin() || accessibleStores().includes(store);
       const canAccessEvent = eventId => isAdmin() || isOwner() || (isEventEmployee() && !!eventEmployeeId() && eventEmployeeId() === eventId);
-      const canAccessInventoryRecord = item => item?.eventId ? canAccessEvent(item.eventId) : canAccessStore(item?.store);
+      const canAccessInventoryRecord = item => (item?.eventId && item.eventId !== 'gudang') ? canAccessEvent(item.eventId) : canAccessStore(item?.store);
       const canEditInventory = () => isAdmin() || (isEmployee() && !!employeeBranch());
       const canEditEventInventory = () => isAdmin() || (isEventEmployee() && !!eventEmployeeId());
       const canManageMaterials = () => isAdmin();
@@ -6443,6 +6504,15 @@ NOTIFY pgrst, 'reload schema';`;
             if (op.table === 'inventory_daily' && /inventory_daily_scope_check|scope_check/i.test(`${error.message || ''} ${error.details || ''}`)) {
               const rowsWithScope = (op.rows || []).map(r => ({ ...r, scope: 'store' }));
               const retry = await db.from(op.table).upsert(rowsWithScope, op.options || undefined);
+              if (!retry.error) return true;
+            }
+            if (op.table === 'inventory_daily' && /event_id/i.test(`${error.message || ''} ${error.details || ''}`)) {
+              const rowsWithoutEventId = (op.rows || []).map(r => {
+                const copy = { ...r };
+                delete copy.event_id;
+                return copy;
+              });
+              const retry = await db.from(op.table).upsert(rowsWithoutEventId, op.options || undefined);
               if (!retry.error) return true;
             }
             throw error;
@@ -6624,6 +6694,7 @@ NOTIFY pgrst, 'reload schema';`;
         [el('globalStore'), el('inventoryStoreFilter'), el('materialsStoreFilter')].filter(Boolean).forEach(s => populateStoreSelect(s, true));
         [el('inventoryStore')].filter(Boolean).forEach(s => populateStoreSelect(s, false));
         if (el('inventoryDateFilter')) el('inventoryDateFilter').value = todayISO();
+        if (el('warehouseDateFilter')) el('warehouseDateFilter').value = todayISO();
         if (el('dashboardDateFilter')) el('dashboardDateFilter').value = todayISO();
         if (el('todayText')) el('todayText').textContent = new Intl.DateTimeFormat('id-ID', { timeZone: 'Asia/Jakarta', weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(new Date());
         if (el('setupSql')) el('setupSql').value = DATABASE_SQL;
@@ -6739,10 +6810,14 @@ NOTIFY pgrst, 'reload schema';`;
           if (el('inventoryStore')) { el('inventoryStore').disabled = false; populateStoreSelect(el('inventoryStore'), false); }
           if (el('addInventoryBtn')) { el('addInventoryBtn').hidden = false; el('addInventoryBtn').disabled = false; }
           if (el('closeDailyRecapBtn')) el('closeDailyRecapBtn').hidden = false;
+          if (el('closeWarehouseDailyRecapBtn')) el('closeWarehouseDailyRecapBtn').hidden = false;
           if (el('exportInventoryBtn')) el('exportInventoryBtn').disabled = false;
+          if (el('exportWarehouseBtn')) el('exportWarehouseBtn').disabled = false;
           if (el('branchNotice')) el('branchNotice').hidden = true;
+          if (el('warehouseBranchNotice')) el('warehouseBranchNotice').hidden = true;
           if (el('materialsBranchNotice')) el('materialsBranchNotice').hidden = true;
           if (el('inventoryAccessText')) el('inventoryAccessText').textContent = 'Admin memiliki akses penuh ke seluruh cabang toko.';
+          if (el('warehouseAccessText')) el('warehouseAccessText').textContent = 'Admin memiliki akses penuh ke rekapan bahan gudang seluruh cabang toko.';
           if (el('materialsAccessText')) el('materialsAccessText').textContent = 'Pilih cabang melalui slicer untuk mengelola bahan dan stok minimum.';
           return;
         }
@@ -6756,11 +6831,18 @@ NOTIFY pgrst, 'reload schema';`;
           }
           if (el('addInventoryBtn')) { el('addInventoryBtn').hidden = true; el('addInventoryBtn').disabled = true; }
           if (el('closeDailyRecapBtn')) el('closeDailyRecapBtn').hidden = true;
+          if (el('closeWarehouseDailyRecapBtn')) el('closeWarehouseDailyRecapBtn').hidden = true;
           if (el('exportInventoryBtn')) el('exportInventoryBtn').disabled = !stores.length;
+          if (el('exportWarehouseBtn')) el('exportWarehouseBtn').disabled = !stores.length;
           if (el('branchNotice')) {
             el('branchNotice').hidden = false;
             el('branchNotice').className = `branch-notice${stores.length ? '' : ' warning'}`;
             el('branchNotice').textContent = stores.length ? `Mode Owner: Melihat rekapan bahan untuk ${stores.length} toko: ${stores.join(', ')}.` : 'Toko belum ditetapkan oleh Admin.';
+          }
+          if (el('warehouseBranchNotice')) {
+            el('warehouseBranchNotice').hidden = false;
+            el('warehouseBranchNotice').className = `branch-notice${stores.length ? '' : ' warning'}`;
+            el('warehouseBranchNotice').textContent = stores.length ? `Mode Owner: Melihat rekapan bahan gudang untuk ${stores.length} toko: ${stores.join(', ')}.` : 'Toko belum ditetapkan oleh Admin.';
           }
           if (el('materialsBranchNotice')) {
             el('materialsBranchNotice').hidden = false;
@@ -6786,11 +6868,18 @@ NOTIFY pgrst, 'reload schema';`;
         }
         if (el('addInventoryBtn')) { el('addInventoryBtn').hidden = true; el('addInventoryBtn').disabled = true; }
         if (el('closeDailyRecapBtn')) { el('closeDailyRecapBtn').hidden = !branch; el('closeDailyRecapBtn').disabled = !branch; }
+        if (el('closeWarehouseDailyRecapBtn')) { el('closeWarehouseDailyRecapBtn').hidden = !branch; el('closeWarehouseDailyRecapBtn').disabled = !branch; }
         if (el('exportInventoryBtn')) el('exportInventoryBtn').disabled = !branch;
+        if (el('exportWarehouseBtn')) el('exportWarehouseBtn').disabled = !branch;
         if (el('branchNotice')) {
           el('branchNotice').hidden = false;
           el('branchNotice').className = `branch-notice${branch ? '' : ' warning'}`;
           el('branchNotice').textContent = branch ? `Cabang akun: ${branch}. Anda dapat melakukan closing bahan harian untuk cabang ini.` : 'Cabang akun belum ditetapkan. Hubungi Admin.';
+        }
+        if (el('warehouseBranchNotice')) {
+          el('warehouseBranchNotice').hidden = false;
+          el('warehouseBranchNotice').className = `branch-notice${branch ? '' : ' warning'}`;
+          el('warehouseBranchNotice').textContent = branch ? `Cabang akun: ${branch}. Anda dapat melakukan closing bahan gudang untuk cabang ini.` : 'Cabang akun belum ditetapkan. Hubungi Admin.';
         }
         if (el('materialsBranchNotice')) {
           el('materialsBranchNotice').hidden = false;
@@ -6865,6 +6954,7 @@ NOTIFY pgrst, 'reload schema';`;
       async function handleSignup() { setGateMessage(el('authMessage'), '', 'error'); const validation = validateFormFields(el('loginForm'), { notify: false }); if (!validation.valid) return setGateMessage(el('authMessage'), `Lengkapi ${validation.labels.join(', ')} terlebih dahulu.`, 'error'); const email = el('authEmail').value.trim(); const password = el('authPassword').value; const button = el('signupBtn'); setButtonBusy(button, true, 'Membuat akun…'); try { const { data, error } = await db.auth.signUp({ email, password }); if (error) throw error; setGateMessage(el('authMessage'), data.session ? 'Akun berhasil dibuat dan Anda sudah masuk.' : 'Akun berhasil dibuat. Periksa email untuk konfirmasi.', 'success'); } catch (error) { setGateMessage(el('authMessage'), friendlyError(error), 'error'); } finally { setButtonBusy(button, false); } }
 
       function populateStoreSelect(select, includeAll = false, stores = STORES) {
+        if (!select) return;
         const old = select.value;
         const placeholder = select.dataset.placeholder ? `<option value="" disabled>${escapeHtml(select.dataset.placeholder)}</option>` : '';
         select.innerHTML = placeholder + `${includeAll ? '<option value="all">Semua Toko</option>' : ''}` + stores.map(store => `<option value="${escapeHtml(store)}">${escapeHtml(store)}</option>`).join('');
@@ -6873,6 +6963,7 @@ NOTIFY pgrst, 'reload schema';`;
         else if (select.options.length) select.selectedIndex = 0;
       }
       function populateEventSelect(select, { includeAll = false, includeNone = true, includeArchived = false } = {}) {
+        if (!select) return;
         const old = select.value;
         const placeholder = select.dataset.placeholder ? `<option value="" disabled>${escapeHtml(select.dataset.placeholder)}</option>` : '';
         const active = activeEvents().slice().sort((a, b) => b.eventDate.localeCompare(a.eventDate));
@@ -6884,22 +6975,24 @@ NOTIFY pgrst, 'reload schema';`;
         if ([...select.options].some(o => o.value === old)) select.value = old; else if (placeholder) select.value = ''; else if (select.options.length) select.selectedIndex = 0;
       }
       function refreshEventSelects() {
-        populateEventSelect(el('transactionEventFilter'), { includeAll: false, includeNone: true });
+        if (el('transactionEventFilter')) populateEventSelect(el('transactionEventFilter'), { includeAll: false, includeNone: true });
         document.querySelectorAll('#transactionRows .transaction-row-event').forEach(select => populateEventSelect(select, { includeNone: true }));
-        populateEventSelect(el('inventoryEvent'), { includeNone: true });
+        if (el('inventoryEvent')) populateEventSelect(el('inventoryEvent'), { includeNone: true });
         const workspace = el('eventWorkspaceSelect');
-        const previous = workspace.value;
-        populateEventSelect(workspace, { includeAll: isAdmin(), includeNone: false, includeArchived: true });
-        if (isEventEmployee()) {
-          const assigned = eventEmployeeId();
-          if (assigned && [...workspace.options].some(option => option.value === assigned)) workspace.value = assigned;
-          else workspace.innerHTML = '<option value="">Event belum ditetapkan oleh Admin</option>';
-          workspace.disabled = true;
-        } else {
-          workspace.disabled = false;
-          if (previous && [...workspace.options].some(option => option.value === previous)) workspace.value = previous;
-          else if ([...workspace.options].some(option => option.value === 'all')) workspace.value = 'all';
-          else if (workspace.options.length) workspace.selectedIndex = 0;
+        if (workspace) {
+          const previous = workspace.value;
+          populateEventSelect(workspace, { includeAll: isAdmin(), includeNone: false, includeArchived: true });
+          if (isEventEmployee()) {
+            const assigned = eventEmployeeId();
+            if (assigned && [...workspace.options].some(option => option.value === assigned)) workspace.value = assigned;
+            else workspace.innerHTML = '<option value="">Event belum ditetapkan oleh Admin</option>';
+            workspace.disabled = true;
+          } else {
+            workspace.disabled = false;
+            if (previous && [...workspace.options].some(option => option.value === previous)) workspace.value = previous;
+            else if ([...workspace.options].some(option => option.value === 'all')) workspace.value = 'all';
+            else if (workspace.options.length) workspace.selectedIndex = 0;
+          }
         }
       }
 
@@ -7137,6 +7230,16 @@ NOTIFY pgrst, 'reload schema';`;
         if (el('inventoryNextDateBtn')) el('inventoryNextDateBtn').addEventListener('click', () => shiftInventoryDate(1));
         if (el('inventoryStoreFilter')) el('inventoryStoreFilter').addEventListener('change', renderInventory);
 
+        if (el('closeWarehouseDailyRecapBtn')) el('closeWarehouseDailyRecapBtn').addEventListener('click', () => openDailyClosingModal('warehouse'));
+        ['warehouseSearch', 'warehouseStatusFilter'].forEach(id => {
+          if (el(id)) el(id).addEventListener('input', renderWarehouse);
+        });
+        if (el('warehouseDateFilter')) el('warehouseDateFilter').addEventListener('change', renderWarehouse);
+        if (el('warehouseTodayBtn')) el('warehouseTodayBtn').addEventListener('click', () => changeWarehouseDate(todayISO()));
+        if (el('warehousePrevDateBtn')) el('warehousePrevDateBtn').addEventListener('click', () => shiftWarehouseDate(-1));
+        if (el('warehouseNextDateBtn')) el('warehouseNextDateBtn').addEventListener('click', () => shiftWarehouseDate(1));
+        if (el('exportWarehouseBtn')) el('exportWarehouseBtn').addEventListener('click', exportWarehouseCSV);
+
         if (el('inventoryTable')) el('inventoryTable').addEventListener('click', handleInventoryTableClick);
         if (el('materialsTable')) el('materialsTable').addEventListener('click', handleInventoryTableClick);
         if (el('exportInventoryBtn')) el('exportInventoryBtn').addEventListener('click', exportInventoryCSV);
@@ -7168,19 +7271,20 @@ NOTIFY pgrst, 'reload schema';`;
       async function changeConnection() { if (!confirm('Ubah koneksi Supabase? Anda akan keluar dari sesi saat ini.')) return; forceSetupScreen = true; stopCloudRefresh(); if (db) await db.auth.signOut(); else showSetup(); }
       function switchView(view) {
         repairScrollState();
-        if (isEmployee()) view = 'inventory';
-        const VALID_VIEWS = ['dashboard', 'inventory', 'materials', 'settings'];
-        if (!VALID_VIEWS.includes(view)) view = 'dashboard';
+        if (isEmployee() && view !== 'inventory' && view !== 'warehouse') view = 'inventory';
+        const VALID_VIEWS = ['dashboard', 'inventory', 'warehouse', 'materials', 'settings'];
+        if (!VALID_VIEWS.includes(view)) view = isEmployee() ? 'inventory' : 'dashboard';
         activeView = view;
         document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === `view-${view}`));
         document.querySelectorAll('#nav button').forEach(b => b.classList.toggle('active', b.dataset.view === view));
-        const headings = { dashboard: 'Dashboard', inventory: 'Rekapan Bahan Toko', materials: 'Daftar Bahan Toko', settings: 'Cloud & Pengaturan' };
+        const headings = { dashboard: 'Dashboard', inventory: 'Rekapan Bahan Toko', warehouse: 'Rekapan Bahan Gudang', materials: 'Daftar Bahan Toko', settings: 'Cloud & Pengaturan' };
         if (el('pageHeading')) el('pageHeading').textContent = headings[view] || 'Dashboard';
         if (el('globalStore')) el('globalStore').hidden = !canViewAll() || view === 'settings';
         if (el('headerAddStoreBtn')) el('headerAddStoreBtn').hidden = !canViewAll() || view === 'settings';
         if (window.innerWidth <= 780) closeSidebar();
         if (view === 'dashboard') renderDashboard();
         if (view === 'inventory') renderInventory();
+        if (view === 'warehouse') renderWarehouse();
         if (view === 'materials') renderMaterials();
         if (view === 'settings') { renderProfiles(); renderSafetyPanels(); renderStoresTable(); }
         requestAnimationFrame(repairScrollState);
@@ -7306,33 +7410,104 @@ NOTIFY pgrst, 'reload schema';`;
       function shiftInventoryDate(days) { const current = new Date(`${selectedInventoryDate()}T12:00:00+07:00`); current.setDate(current.getDate() + days); changeInventoryDate(jakartaDate(current)); }
       function changeInventoryDate(date) { el('inventoryDateFilter').value = date; renderInventory(); }
       function dailyRowsForSelection() { const date = selectedInventoryDate(); const store = selectedInventoryStore(); return state.inventoryDaily.filter(row => row.date === date && (!store || row.store === store)); }
-      function dailyRecordToRow(item) { return { id: item.id, inventory_id: item.inventoryId || null, store: item.store, event_id: item.eventId || null, record_date: item.date, name: item.name, unit: item.unit, opening_stock: item.openingStock, stock_in: item.stockIn || 0, closing_stock: item.closingStock == null ? null : item.closingStock, used_stock: item.usedStock || 0, note: item.note || '', is_closed: !!item.isClosed, closed_at: item.closedAt || null, closed_by: item.closedBy || null, created_by: item.createdBy || currentSession?.user?.id || null, updated_at: item.updatedAt || new Date().toISOString() }; }
-      function rowToDailyRecord(row) { return { id: row.id, inventoryId: row.inventory_id || null, store: row.store, eventId: row.event_id || null, date: row.record_date, name: row.name, unit: row.unit, openingStock: Number(row.opening_stock || 0), stockIn: Number(row.stock_in || 0), closingStock: row.closing_stock == null ? null : Number(row.closing_stock), usedStock: Number(row.used_stock || 0), note: row.note || '', isClosed: !!row.is_closed, closedAt: row.closed_at || null, closedBy: row.closed_by || null, createdBy: row.created_by || null, updatedAt: row.updated_at }; }
+
+      function selectedWarehouseDate() { return el('warehouseDateFilter')?.value || todayISO(); }
+      function selectedWarehouseStore() { if (isEmployee()) return employeeBranch(); const value = el('globalStore')?.value; return value && value !== 'all' ? value : ''; }
+      function shiftWarehouseDate(days) { const current = new Date(`${selectedWarehouseDate()}T12:00:00+07:00`); current.setDate(current.getDate() + days); changeWarehouseDate(jakartaDate(current)); }
+      function changeWarehouseDate(date) { if (el('warehouseDateFilter')) el('warehouseDateFilter').value = date; renderWarehouse(); }
+
+      function dailyRecordToRow(item) {
+        return {
+          id: item.id,
+          inventory_id: item.inventoryId || null,
+          store: item.store,
+          event_id: item.eventId || null,
+          record_date: item.date,
+          name: item.name,
+          unit: item.unit,
+          opening_stock: item.openingStock,
+          stock_in: item.stockIn || 0,
+          closing_stock: item.closingStock == null ? null : item.closingStock,
+          used_stock: item.usedStock || 0,
+          note: item.note || '',
+          is_closed: !!item.isClosed,
+          closed_at: item.closedAt || null,
+          closed_by: item.closedBy || null,
+          created_by: item.createdBy || currentSession?.user?.id || null,
+          updated_at: item.updatedAt || new Date().toISOString()
+        };
+      }
+      function rowToDailyRecord(row) {
+        let eventId = row.event_id || null;
+        if (!eventId && (row.id?.includes('-gudang') || row.note?.includes('[GUDANG]'))) {
+          eventId = 'gudang';
+        }
+        return {
+          id: row.id,
+          inventoryId: row.inventory_id || null,
+          store: row.store,
+          eventId: eventId,
+          date: row.record_date,
+          name: row.name,
+          unit: row.unit,
+          openingStock: Number(row.opening_stock || 0),
+          stockIn: Number(row.stock_in || 0),
+          closingStock: row.closing_stock == null ? null : Number(row.closing_stock),
+          usedStock: Number(row.used_stock || 0),
+          note: row.note || '',
+          isClosed: !!row.is_closed,
+          closedAt: row.closed_at || null,
+          closedBy: row.closed_by || null,
+          createdBy: row.created_by || null,
+          updatedAt: row.updated_at
+        };
+      }
       function dailyRecordWithCurrentMaster(item) {
         const master = item?.inventoryId ? state.inventory.find(material => material.id === item.inventoryId) : null;
         if (!master) return { ...item, unit: item?.unit || 'unit' };
-        return { ...item, name: master.name || item.name, unit: master.unit || item.unit || 'unit', store: master.store || item.store, eventId: master.eventId || item.eventId || null };
+        return { ...item, name: master.name || item.name, unit: master.unit || item.unit || 'unit', store: master.store || item.store, eventId: item.eventId || master.eventId || null };
       }
 
-      function openingStockForDate(master, date) {
+      function openingStockForDate(master, date, eventId = null) {
+        const inScope = row => eventId ? row.eventId === eventId : (!row.eventId || row.eventId === 'store');
         const previous = state.inventoryDaily
-          .filter(row => row.inventoryId === master.id && row.isClosed && row.closingStock != null && row.date < date)
+          .filter(row => row.inventoryId === master.id && inScope(row) && row.isClosed && row.closingStock != null && row.date < date)
           .sort((a, b) => b.date.localeCompare(a.date) || String(b.closedAt || '').localeCompare(String(a.closedAt || '')))[0];
         return previous ? Number(previous.closingStock || 0) : Number(master.stock || 0);
       }
 
-      function createVirtualDailyRecord(master, date) {
-        return { id: `draft-${master.id}-${date}`, inventoryId: master.id, store: master.store, eventId: master.eventId || null, date, name: master.name, unit: master.unit || 'unit', openingStock: openingStockForDate(master, date), stockIn: 0, closingStock: null, usedStock: 0, note: '', isClosed: false, closedAt: null, closedBy: null, createdBy: currentSession?.user?.id || null, updatedAt: new Date().toISOString(), isDraft: true };
+      function createVirtualDailyRecord(master, date, eventId = null) {
+        const prefix = eventId ? `draft-${eventId}-${master.id}-${date}` : `draft-${master.id}-${date}`;
+        return {
+          id: prefix,
+          inventoryId: master.id,
+          store: master.store,
+          eventId: eventId || null,
+          date,
+          name: master.name,
+          unit: master.unit || 'unit',
+          openingStock: openingStockForDate(master, date, eventId),
+          stockIn: 0,
+          closingStock: null,
+          usedStock: 0,
+          note: '',
+          isClosed: false,
+          closedAt: null,
+          closedBy: null,
+          createdBy: currentSession?.user?.id || null,
+          updatedAt: new Date().toISOString(),
+          isDraft: true
+        };
       }
 
       function dailyRowsForDisplay(date, store, eventId = null) {
         const exactStore = store && store !== 'all' ? store : '';
-        const inScope = item => eventId ? item.eventId === eventId : !item.eventId;
+        const inScope = item => eventId ? item.eventId === eventId : (!item.eventId || item.eventId === 'store');
         const saved = state.inventoryDaily.filter(row => row.date === date && canAccessInventoryRecord(row) && inScope(row) && (!exactStore || row.store === exactStore)).map(dailyRecordWithCurrentMaster);
-        const masters = state.inventory.filter(item => canAccessInventoryRecord(item) && inScope(item) && (!exactStore || item.store === exactStore));
+        const masters = state.inventory.filter(item => canAccessInventoryRecord(item) && (!item.eventId || item.eventId === 'store') && (!exactStore || item.store === exactStore));
         const savedByInventory = new Map(saved.filter(row => row.inventoryId).map(row => [row.inventoryId, row]));
         const masterIds = new Set(masters.map(item => item.id));
-        const automatic = masters.map(master => savedByInventory.get(master.id) || createVirtualDailyRecord(master, date));
+        const automatic = masters.map(master => savedByInventory.get(master.id) || createVirtualDailyRecord(master, date, eventId));
         const archived = saved.filter(row => !row.inventoryId || !masterIds.has(row.inventoryId));
         return [...automatic, ...archived];
       }
@@ -7348,24 +7523,22 @@ NOTIFY pgrst, 'reload schema';`;
       }
 
       function openDailyClosingModal(context = 'store') {
-        const eventMode = context === 'event';
-        if (eventMode ? !canEditEventInventory() : !canEditInventory()) return toast('Akun ini tidak memiliki izin melakukan closing.');
-        const eventId = eventMode ? selectedEventWorkspaceId() : null;
-        const store = eventMode ? EVENT_STORE : selectedInventoryStore();
-        const date = eventMode ? selectedEventInventoryDate() : selectedInventoryDate();
-        if (eventMode && !eventId) return toast('Pilih event terlebih dahulu sebelum closing.');
-        if (eventMode && isArchivedEvent(eventId)) return toast('Event ini sudah diarsipkan. Pulihkan event terlebih dahulu untuk melakukan closing.');
+        const warehouseMode = context === 'warehouse';
+        if (!canEditInventory()) return toast('Akun ini tidak memiliki izin melakukan closing.');
+        const store = warehouseMode ? selectedWarehouseStore() : selectedInventoryStore();
+        const date = warehouseMode ? selectedWarehouseDate() : selectedInventoryDate();
         if (!store) return toast('Pilih satu toko terlebih dahulu sebelum closing.');
         if (date > todayISO()) return toast('Closing belum dapat dilakukan untuk tanggal yang akan datang.');
-        const rows = dailyRowsForDisplay(date, store, eventId).sort((a, b) => a.name.localeCompare(b.name));
-        if (!rows.length) return toast(eventMode ? 'Belum ada nama bahan pada event ini. Tambahkan bahan event terlebih dahulu.' : 'Belum ada nama bahan pada toko ini. Tambahkan nama bahan terlebih dahulu.');
-        activeClosingRows = rows.map(row => row.isDraft ? { ...row, id: uid() } : row);
+        const targetScope = warehouseMode ? 'gudang' : null;
+        const rows = dailyRowsForDisplay(date, store, targetScope).sort((a, b) => a.name.localeCompare(b.name));
+        if (!rows.length) return toast(warehouseMode ? 'Belum ada nama bahan pada gudang toko ini. Tambahkan nama bahan melalui menu Daftar Bahan terlebih dahulu.' : 'Belum ada nama bahan pada toko ini. Tambahkan nama bahan terlebih dahulu.');
+        activeClosingRows = rows.map(row => row.isDraft ? { ...row, id: uid() + (warehouseMode ? '-gudang' : '') } : row);
         clearFormWarnings(el('dailyClosingForm'));
         el('dailyClosingStore').value = store;
         el('dailyClosingDate').value = date;
-        el('dailyClosingContext').value = eventMode ? 'event' : 'store';
-        el('dailyClosingEventId').value = eventId || '';
-        el('dailyClosingModalTitle').textContent = eventMode ? `Closing Event ${eventName(eventId)} — ${formatDate(date)}` : `Closing ${store} — ${formatDate(date)}`;
+        el('dailyClosingContext').value = context;
+        el('dailyClosingEventId').value = warehouseMode ? 'gudang' : '';
+        el('dailyClosingModalTitle').textContent = warehouseMode ? `Closing Bahan Gudang — ${store} — ${formatDate(date)}` : `Closing Bahan Toko — ${store} — ${formatDate(date)}`;
         el('dailyClosingRows').innerHTML = `<table><thead><tr><th>No.</th><th>Nama Bahan</th><th>Satuan</th><th>Stok Awal</th><th>Stok Masuk</th><th>Stok Akhir</th><th>Terpakai</th><th>Keterangan</th></tr></thead><tbody>${activeClosingRows.map((row, index) => `<tr data-daily-closing-row="${index}"><td>${index + 1}</td><td><strong>${escapeHtml(row.name)}</strong></td><td>${escapeHtml(row.unit || 'unit')}</td><td><input class="input closing-table-input" type="number" min="0" step="0.01" data-closing-open data-label="Stok Awal ${escapeHtml(row.name)}" value="${row.openingStock}" required></td><td><input class="input closing-table-input" type="number" min="0" step="0.01" data-closing-in data-label="Stok Masuk ${escapeHtml(row.name)}" value="${row.isClosed ? row.stockIn : ''}" placeholder="0"></td><td><input class="input closing-table-input" type="number" min="0" step="0.01" data-closing-end data-label="Stok Akhir ${escapeHtml(row.name)}" value="${row.closingStock == null ? '' : row.closingStock}" placeholder="Wajib diisi" required></td><td><strong class="used-value" data-closing-used>0</strong> ${escapeHtml(row.unit || 'unit')}</td><td><input class="input closing-note-input" data-closing-note value="${escapeHtml(row.note || '')}" placeholder="Opsional"></td></tr>`).join('')}</tbody></table>`;
         updateClosingUsagePreview(); openModal('dailyClosingModal');
       }
@@ -7376,12 +7549,13 @@ NOTIFY pgrst, 'reload schema';`;
 
       async function saveDailyClosing(event) {
         event.preventDefault();
-        const eventMode = el('dailyClosingContext').value === 'event';
-        if (eventMode ? !canEditEventInventory() : !canEditInventory()) return;
+        const context = el('dailyClosingContext').value || 'store';
+        const warehouseMode = context === 'warehouse';
+        if (!canEditInventory()) return;
         const store = el('dailyClosingStore').value;
         const date = el('dailyClosingDate').value;
-        const eventId = el('dailyClosingEventId').value || null;
-        if (!store || date > todayISO() || (eventMode && !eventId)) return toast('Pilih ruang data dan tanggal hari ini atau tanggal sebelumnya untuk menyimpan closing.');
+        const eventId = warehouseMode ? 'gudang' : (el('dailyClosingEventId').value || null);
+        if (!store || date > todayISO()) return toast('Pilih cabang dan tanggal hari ini atau tanggal sebelumnya untuk menyimpan closing.');
         const validation = validateFormFields(el('dailyClosingForm'), { message: 'Lengkapi stok akhir seluruh bahan sebelum menyimpan closing.' });
         if (!validation.valid) return;
         const now = new Date().toISOString(); const updates = []; const stockUpdates = [];
@@ -7391,19 +7565,38 @@ NOTIFY pgrst, 'reload schema';`;
           if (!Number.isFinite(openingStock) || openingStock < 0 || !Number.isFinite(stockIn) || stockIn < 0 || !Number.isFinite(closingStock) || closingStock < 0) return toast(`Periksa angka pada bahan ${record.name}.`);
           if (closingStock > available) { const closingInput = rowEl.querySelector('[data-closing-end]'); markFieldWarning(closingInput, `Stok akhir tidak boleh melebihi stok tersedia ${number(available)}.`); closingInput.focus(); return toast(`Stok akhir ${record.name} melebihi stok tersedia. Tambahkan jumlah pada Stok Masuk.`); }
           const usedStock = Math.max(0, available - closingStock);
-          updates.push(dailyRecordToRow({ ...record, store, eventId: eventMode ? eventId : null, openingStock, stockIn, closingStock, usedStock, note: rowEl.querySelector('[data-closing-note]').value.trim(), isClosed: true, isDraft: false, closedAt: now, closedBy: currentSession?.user?.id, updatedAt: now }));
-          if (record.inventoryId) {
-            const hasLaterClosing = state.inventoryDaily.some(item => item.inventoryId === record.inventoryId && item.isClosed && item.date > date);
+          const userNote = rowEl.querySelector('[data-closing-note]').value.trim();
+          updates.push(dailyRecordToRow({
+            ...record,
+            store,
+            eventId: warehouseMode ? 'gudang' : null,
+            openingStock,
+            stockIn,
+            closingStock,
+            usedStock,
+            note: userNote,
+            isClosed: true,
+            isDraft: false,
+            closedAt: now,
+            closedBy: currentSession?.user?.id,
+            updatedAt: now
+          }));
+          if (!warehouseMode && record.inventoryId) {
+            const hasLaterClosing = state.inventoryDaily.some(item => item.inventoryId === record.inventoryId && !item.eventId && item.isClosed && item.date > date);
             if (!hasLaterClosing) stockUpdates.push({ id: record.inventoryId, stock: closingStock });
           }
         }
         const button = event.submitter; setButtonBusy(button, true, 'Menyimpan…');
         try {
-          const steps = [{ kind: 'upsert', table: 'inventory_daily', rows: updates, label: 'Closing bahan' }, ...stockUpdates.map(item => ({ kind: 'rpc', fn: 'update_inventory_stock_after_closing', args: { target_inventory_id: item.id, new_stock: item.stock, target_updated_at: now } }))];
-          const result = await durableWrite({ kind: 'batch', steps, label: eventMode ? 'Closing bahan event' : 'Closing bahan toko' });
+          const steps = [
+            { kind: 'upsert', table: 'inventory_daily', rows: updates, label: warehouseMode ? 'Closing bahan gudang' : 'Closing bahan toko' },
+            ...stockUpdates.map(item => ({ kind: 'rpc', fn: 'update_inventory_stock_after_closing', args: { target_inventory_id: item.id, new_stock: item.stock, target_updated_at: now } }))
+          ];
+          const result = await durableWrite({ kind: 'batch', steps, label: warehouseMode ? 'Closing bahan gudang' : 'Closing bahan toko' });
           activeClosingRows = []; closeModal('dailyClosingModal');
           if (!result.queued) await settleAfterWrite();
-          toast(result.queued ? 'Closing tersimpan aman di perangkat dan akan disinkronkan otomatis saat koneksi pulih.' : (eventMode ? 'Closing bahan event berhasil disimpan.' : 'Closing berhasil disimpan. Pemakaian bahan sudah dihitung otomatis.'));
+          toast(result.queued ? 'Closing tersimpan aman di perangkat dan akan disinkronkan otomatis saat koneksi pulih.' : (warehouseMode ? 'Closing bahan gudang berhasil disimpan. Pemakaian bahan gudang sudah dihitung otomatis.' : 'Closing bahan toko berhasil disimpan. Pemakaian bahan sudah dihitung otomatis.'));
+          if (warehouseMode) renderWarehouse(); else renderInventory();
         } catch (error) { showSyncError(error); } finally { setButtonBusy(button, false); }
       }
 
@@ -7533,10 +7726,10 @@ NOTIFY pgrst, 'reload schema';`;
         };
       }
       function canRestoreView(view) {
-        const valid = ['dashboard', 'transactions', 'inventory', 'materials', 'events', 'payroll', 'settings'];
+        const valid = ['dashboard', 'transactions', 'inventory', 'warehouse', 'materials', 'events', 'payroll', 'settings'];
         if (!valid.includes(view)) return false;
         if (isEventEmployee()) return view === 'events';
-        if (isEmployee()) return view === 'inventory';
+        if (isEmployee()) return view === 'inventory' || view === 'warehouse';
         if (!canViewAll() && (view === 'materials' || view === 'events' || view === 'payroll' || view === 'settings')) return false;
         return true;
       }
@@ -7555,7 +7748,7 @@ NOTIFY pgrst, 'reload schema';`;
         if (typeof renderFn !== "function") return snapshot || null;
         const desired = snapshot || captureSyncUiState();
         if (shouldLockBackground()) {
-          renderFn();
+          try { renderFn(); } catch (e) { console.warn('renderFn error:', e); }
           return desired;
         }
         const x = Math.max(0, Number(desired.scrollX) || 0);
@@ -7577,6 +7770,8 @@ NOTIFY pgrst, 'reload schema';`;
         body.style.overflowY = 'scroll';
         try {
           renderFn();
+        } catch (e) {
+          console.warn('renderFn error:', e);
         } finally {
           body.style.position = previous.position;
           body.style.top = previous.top;
@@ -7640,7 +7835,7 @@ NOTIFY pgrst, 'reload schema';`;
       const CLOUD_SELECT = {
         stores: 'id,name,created_at',
         inventory: 'id,store,name,unit,stock,min_stock,price,note,updated_at',
-        inventory_daily: 'id,inventory_id,store,record_date,name,unit,opening_stock,stock_in,closing_stock,used_stock,note,is_closed,closed_at,closed_by,created_by,updated_at',
+        inventory_daily: 'id,inventory_id,store,record_date,name,unit,opening_stock,stock_in,closing_stock,used_stock,note,is_closed,closed_at,closed_by,created_by,updated_at,event_id',
         profiles: 'user_id,email,role,branch,branches,created_at'
       };
 
@@ -7701,16 +7896,26 @@ NOTIFY pgrst, 'reload schema';`;
 
           const [inventoryResult, dailyResult, profilesResult, deletedItemsResult, auditLogsResult, storesResult] = await Promise.all([inventoryPromise, dailyPromise, profilesPromise, deletedItemsPromise, auditLogsPromise, storesPromise]);
           
+          let effectiveDailyResult = dailyResult;
+          if (dailyResult.error && /event_id/i.test(`${dailyResult.error.message || ''} ${dailyResult.error.details || ''}`)) {
+            const fallbackSelect = 'id,inventory_id,store,record_date,name,unit,opening_stock,stock_in,closing_stock,used_stock,note,is_closed,closed_at,closed_by,created_by,updated_at';
+            effectiveDailyResult = await fetchAllCloudRows(() => {
+              let q = db.from('inventory_daily').select(fallbackSelect).is('deleted_at', null).order('record_date', { ascending: false }).order('store', { ascending: true }).order('name', { ascending: true }).order('id', { ascending: true });
+              if (!isAdmin() && !isOwner() && stores.length) q = q.in('store', stores);
+              return q;
+            });
+          }
+
           if (inventoryResult.error) {
             console.warn('Inventory sync notice:', inventoryResult.error);
             if (!hasLocalOperationalData() && !/row-level security|permission denied|policy/i.test(inventoryResult.error.message || '')) {
               throw inventoryResult.error;
             }
           }
-          if (dailyResult.error) {
-            console.warn('Daily inventory sync notice:', dailyResult.error);
-            if (!hasLocalOperationalData() && !/row-level security|permission denied|policy/i.test(dailyResult.error.message || '')) {
-              throw dailyResult.error;
+          if (effectiveDailyResult.error) {
+            console.warn('Daily inventory sync notice:', effectiveDailyResult.error);
+            if (!hasLocalOperationalData() && !/row-level security|permission denied|policy/i.test(effectiveDailyResult.error.message || '')) {
+              throw effectiveDailyResult.error;
             }
           }
           if (profilesResult.error) {
@@ -7721,7 +7926,7 @@ NOTIFY pgrst, 'reload schema';`;
           }
 
           if (Array.isArray(inventoryResult.data)) state.inventory = inventoryResult.data.map(rowToInventory);
-          if (Array.isArray(dailyResult.data)) state.inventoryDaily = dailyResult.data.map(rowToDailyRecord);
+          if (Array.isArray(effectiveDailyResult.data)) state.inventoryDaily = effectiveDailyResult.data.map(rowToDailyRecord);
           if (Array.isArray(profilesResult.data)) state.profiles = profilesResult.data;
           if (Array.isArray(deletedItemsResult.data)) state.deletedItems = deletedItemsResult.data;
           if (Array.isArray(auditLogsResult.data)) state.auditLogs = auditLogsResult.data;
@@ -7992,7 +8197,7 @@ NOTIFY pgrst, 'reload schema';`;
         }
       });
 
-      function renderAll() { renderDashboard(); renderInventory(); renderMaterials(); renderProfiles(); renderSafetyPanels(); renderStoresTable(); }
+      function renderAll() { renderDashboard(); renderInventory(); renderWarehouse(); renderMaterials(); renderProfiles(); renderSafetyPanels(); renderStoresTable(); }
       function filteredByGlobal(items) { const storeItems = items.filter(item => !item.eventId && canAccessStore(item.store)); const activeStore = isEmployee() ? employeeBranch() : selectedGlobalStore; return activeStore === 'all' || !activeStore ? storeItems : storeItems.filter(item => item.store === activeStore); }
       function sumByType(rows, type) { return rows.filter(t => t.type === type).reduce((sum, t) => sum + t.amount, 0); }
       function normalizePaymentMethod(value) { return value === 'cash' ? 'cash' : 'qris'; }
@@ -8229,15 +8434,15 @@ NOTIFY pgrst, 'reload schema';`;
       function renderInventory() {
         const branch = employeeBranch();
         if (isEmployee() && !branch) {
-          el('dailyRecapSummary').innerHTML = '';
-          el('inventoryTable').innerHTML = emptyState('Cabang belum ditetapkan', 'Admin harus memilih satu cabang untuk akun ini sebelum closing bahan dapat digunakan.');
-          el('inventoryClosingDetails').innerHTML = emptyState('Belum dapat menampilkan closing', 'Cabang akun belum ditetapkan.');
+          if (el('dailyRecapSummary')) el('dailyRecapSummary').innerHTML = '';
+          if (el('inventoryTable')) el('inventoryTable').innerHTML = emptyState('Cabang belum ditetapkan', 'Admin harus memilih satu cabang untuk akun ini sebelum closing bahan dapat digunakan.');
+          if (el('inventoryClosingDetails')) el('inventoryClosingDetails').innerHTML = emptyState('Belum dapat menampilkan closing', 'Cabang akun belum ditetapkan.');
           return;
         }
         const date = selectedInventoryDate();
-        const query = el('inventorySearch').value.toLowerCase().trim();
-        const statusFilter = el('inventoryStatusFilter').value;
-        const store = canViewAll() ? el('globalStore').value : branch;
+        const query = el('inventorySearch')?.value?.toLowerCase()?.trim() || '';
+        const statusFilter = el('inventoryStatusFilter')?.value || 'all';
+        const store = canViewAll() ? (el('globalStore')?.value || '') : branch;
         const rows = dailyRowsForDisplay(date, store, null).filter(item => {
           const matchesQuery = !query || item.name.toLowerCase().includes(query);
           const matchesStatus = statusFilter === 'all' || (statusFilter === 'open' && !item.isClosed) || (statusFilter === 'closed' && item.isClosed) || (statusFilter === 'used' && item.usedStock > 0);
@@ -8246,19 +8451,60 @@ NOTIFY pgrst, 'reload schema';`;
 
         renderDailyRecapSummary(date, store, rows);
         renderInventoryClosingDetails(date, store);
-        el('dailyTableTitle').textContent = `Daftar Bahan Toko — ${formatDate(date)}`;
-        el('dailyTableSubtitle').textContent = store === 'all' ? 'Seluruh cabang' : (store || 'Pilih satu cabang');
+        if (el('dailyTableTitle')) el('dailyTableTitle').textContent = `Daftar Bahan Toko — ${formatDate(date)}`;
+        if (el('dailyTableSubtitle')) el('dailyTableSubtitle').textContent = store === 'all' ? 'Seluruh cabang' : (store || 'Pilih satu cabang');
         applyDailyActionState(date, store, rows);
 
-        if (!rows.length) { el('inventoryTable').innerHTML = emptyState('Belum ada nama bahan toko', 'Tambahkan nama bahan toko terlebih dahulu melalui menu Daftar Bahan.'); return; }
+        if (!rows.length) { if (el('inventoryTable')) el('inventoryTable').innerHTML = emptyState('Belum ada nama bahan toko', 'Tambahkan nama bahan toko terlebih dahulu melalui menu Daftar Bahan.'); return; }
         const showStore = store === 'all' || !store;
-        el('inventoryTable').innerHTML = `<table><thead><tr>${showStore ? '<th>Toko</th>' : ''}<th>Nama Bahan</th><th>Satuan</th><th>Stok Awal</th><th>Stok Masuk</th><th>Stok Akhir</th><th>Terpakai</th><th>Status Bahan</th><th>Status Closing</th></tr></thead><tbody>${rows.map(item => { const savedAt = item.closedAt || item.updatedAt; const closeBadge = item.isClosed ? `<span class="badge badge-closed">Sudah Closing</span><small class="status-detail">Disimpan ${escapeHtml(formatSavedDateTime(savedAt))}</small>` : '<span class="badge badge-open">Belum Closing</span><small class="status-detail">Belum pernah disimpan</small>'; const materialStatus = getDailyMaterialStatus(item); return `<tr class="material-status-row material-status-${materialStatus.key}">${showStore ? `<td><strong>${escapeHtml(item.store)}</strong></td>` : ''}<td><strong>${escapeHtml(item.name)}</strong></td><td>${escapeHtml(item.unit || 'unit')}</td><td>${number(item.openingStock)}</td><td>${item.isClosed ? number(item.stockIn) : '<span class="muted">—</span>'}</td><td>${item.closingStock == null ? '<span class="muted">Belum diisi</span>' : number(item.closingStock)}</td><td><strong class="${item.usedStock > 0 ? 'used-value' : 'muted'}">${item.isClosed ? number(item.usedStock) : '—'}</strong></td><td><span class="badge ${materialStatus.className}">${materialStatus.label}</span><small class="status-detail">Stok acuan ${number(materialStatus.stock)} · Minimum ${number(materialStatus.min)} ${escapeHtml(item.unit || 'unit')}</small></td><td>${closeBadge}</td></tr>`; }).join('')}</tbody></table>`;
+        if (el('inventoryTable')) el('inventoryTable').innerHTML = `<table><thead><tr>${showStore ? '<th>Toko</th>' : ''}<th>Nama Bahan</th><th>Satuan</th><th>Stok Awal</th><th>Stok Masuk</th><th>Stok Akhir</th><th>Terpakai</th><th>Status Bahan</th><th>Status Closing</th></tr></thead><tbody>${rows.map(item => { const savedAt = item.closedAt || item.updatedAt; const closeBadge = item.isClosed ? `<span class="badge badge-closed">Sudah Closing</span><small class="status-detail">Disimpan ${escapeHtml(formatSavedDateTime(savedAt))}</small>` : '<span class="badge badge-open">Belum Closing</span><small class="status-detail">Belum pernah disimpan</small>'; const materialStatus = getDailyMaterialStatus(item); return `<tr class="material-status-row material-status-${materialStatus.key}">${showStore ? `<td><strong>${escapeHtml(item.store)}</strong></td>` : ''}<td><strong>${escapeHtml(item.name)}</strong></td><td>${escapeHtml(item.unit || 'unit')}</td><td>${number(item.openingStock)}</td><td>${item.isClosed ? number(item.stockIn) : '<span class="muted">—</span>'}</td><td>${item.closingStock == null ? '<span class="muted">Belum diisi</span>' : number(item.closingStock)}</td><td><strong class="${item.usedStock > 0 ? 'used-value' : 'muted'}">${item.isClosed ? number(item.usedStock) : '—'}</strong></td><td><span class="badge ${materialStatus.className}">${materialStatus.label}</span><small class="status-detail">Stok acuan ${number(materialStatus.stock)} · Minimum ${number(materialStatus.min)} ${escapeHtml(item.unit || 'unit')}</small></td><td>${closeBadge}</td></tr>`; }).join('')}</tbody></table>`;
+      }
+
+      function renderWarehouse() {
+        const branch = employeeBranch();
+        if (isEmployee() && !branch) {
+          if (el('warehouseDailyRecapSummary')) el('warehouseDailyRecapSummary').innerHTML = '';
+          if (el('warehouseTable')) el('warehouseTable').innerHTML = emptyState('Cabang belum ditetapkan', 'Admin harus memilih satu cabang untuk akun ini sebelum closing bahan gudang dapat digunakan.');
+          if (el('warehouseClosingDetails')) el('warehouseClosingDetails').innerHTML = emptyState('Belum dapat menampilkan closing gudang', 'Cabang akun belum ditetapkan.');
+          return;
+        }
+        const date = selectedWarehouseDate();
+        const query = el('warehouseSearch')?.value?.toLowerCase()?.trim() || '';
+        const statusFilter = el('warehouseStatusFilter')?.value || 'all';
+        const store = canViewAll() ? (el('globalStore')?.value || '') : branch;
+        const rows = dailyRowsForDisplay(date, store, 'gudang').filter(item => {
+          const matchesQuery = !query || item.name.toLowerCase().includes(query);
+          const matchesStatus = statusFilter === 'all' || (statusFilter === 'open' && !item.isClosed) || (statusFilter === 'closed' && item.isClosed) || (statusFilter === 'used' && item.usedStock > 0);
+          return matchesQuery && matchesStatus;
+        }).sort((a, b) => a.store.localeCompare(b.store) || a.name.localeCompare(b.name));
+
+        renderWarehouseDailyRecapSummary(date, store, rows);
+        renderWarehouseClosingDetails(date, store);
+        if (el('warehouseDailyTableTitle')) el('warehouseDailyTableTitle').textContent = `Daftar Bahan Gudang — ${formatDate(date)}`;
+        if (el('warehouseDailyTableSubtitle')) el('warehouseDailyTableSubtitle').textContent = store === 'all' ? 'Seluruh cabang' : (store || 'Pilih satu cabang');
+        applyWarehouseDailyActionState(date, store, rows);
+
+        if (!rows.length) {
+          if (el('warehouseTable')) el('warehouseTable').innerHTML = emptyState('Belum ada nama bahan gudang', 'Daftar bahan gudang mengikuti master Daftar Bahan Toko. Tambahkan bahan melalui menu Daftar Bahan Toko terlebih dahulu.');
+          return;
+        }
+        const showStore = store === 'all' || !store;
+        if (el('warehouseTable')) {
+          el('warehouseTable').innerHTML = `<table><thead><tr>${showStore ? '<th>Toko</th>' : ''}<th>Nama Bahan</th><th>Satuan</th><th>Stok Awal Gudang</th><th>Stok Masuk</th><th>Stok Akhir Gudang</th><th>Terpakai / Keluar</th><th>Status Bahan</th><th>Status Closing</th></tr></thead><tbody>${rows.map(item => {
+            const savedAt = item.closedAt || item.updatedAt;
+            const closeBadge = item.isClosed
+              ? `<span class="badge badge-closed">Sudah Closing</span><small class="status-detail">Disimpan ${escapeHtml(formatSavedDateTime(savedAt))}</small>`
+              : '<span class="badge badge-open">Belum Closing</span><small class="status-detail">Belum pernah disimpan</small>';
+            const materialStatus = getDailyMaterialStatus(item);
+            return `<tr class="material-status-row material-status-${materialStatus.key}">${showStore ? `<td><strong>${escapeHtml(item.store)}</strong></td>` : ''}<td><strong>${escapeHtml(item.name)}</strong></td><td>${escapeHtml(item.unit || 'unit')}</td><td>${number(item.openingStock)}</td><td>${item.isClosed ? number(item.stockIn) : '<span class="muted">—</span>'}</td><td>${item.closingStock == null ? '<span class="muted">Belum diisi</span>' : number(item.closingStock)}</td><td><strong class="${item.usedStock > 0 ? 'used-value' : 'muted'}">${item.isClosed ? number(item.usedStock) : '—'}</strong></td><td><span class="badge ${materialStatus.className}">${materialStatus.label}</span><small class="status-detail">Stok acuan ${number(materialStatus.stock)} · Minimum ${number(materialStatus.min)} ${escapeHtml(item.unit || 'unit')}</small></td><td>${closeBadge}</td></tr>`;
+          }).join('')}</tbody></table>`;
+        }
       }
 
       function renderMaterials() {
         if (!canViewAll()) return;
-        const query = el('materialsSearch').value.toLowerCase().trim();
-        const store = isEmployee() ? employeeBranch() : el('globalStore').value;
+        const query = el('materialsSearch')?.value?.toLowerCase()?.trim() || '';
+        const store = isEmployee() ? employeeBranch() : (el('globalStore')?.value || '');
         const editable = isAdmin();
         const exactStore = store && store !== 'all';
         const rows = state.inventory.filter(item => {
@@ -8268,35 +8514,81 @@ NOTIFY pgrst, 'reload schema';`;
           return matchesStore && matchesQuery;
         }).sort((a, b) => a.store.localeCompare(b.store) || a.name.localeCompare(b.name));
 
-        el('addInventoryBtn').hidden = !editable;
-        el('addInventoryBtn').disabled = !editable || !exactStore;
-        el('addInventoryBtn').title = !editable ? 'Akun ini hanya dapat melihat daftar bahan' : !exactStore ? 'Pilih satu toko terlebih dahulu' : 'Tambahkan nama bahan untuk toko ini';
+        if (el('addInventoryBtn')) {
+          el('addInventoryBtn').hidden = !editable;
+          el('addInventoryBtn').disabled = !editable || !exactStore;
+          el('addInventoryBtn').title = !editable ? 'Akun ini hanya dapat melihat daftar bahan' : !exactStore ? 'Pilih satu toko terlebih dahulu' : 'Tambahkan nama bahan untuk toko ini';
+        }
 
-        if (!rows.length) { el('materialsTable').innerHTML = emptyState('Belum ada nama bahan toko', editable ? (exactStore ? 'Tekan Tambah Nama Bahan untuk membuat daftar.' : 'Pilih satu toko terlebih dahulu.') : 'Belum ada nama bahan pada pilihan ini.'); return; }
+        if (!rows.length) { if (el('materialsTable')) el('materialsTable').innerHTML = emptyState('Belum ada nama bahan toko', editable ? (exactStore ? 'Tekan Tambah Nama Bahan untuk membuat daftar.' : 'Pilih satu toko terlebih dahulu.') : 'Belum ada nama bahan pada pilihan ini.'); return; }
         const showStore = store === 'all' || !store;
-        el('materialsTable').innerHTML = `<table><thead><tr>${showStore ? '<th>Toko</th>' : ''}<th>Nama Bahan</th><th>Stok Saat Ini</th><th>Stok Minimum</th><th>Status Bahan</th><th>Terakhir Diperbarui</th>${editable ? '<th>Aksi</th>' : ''}</tr></thead><tbody>${rows.map(item => { const status = getStockStatus(item); return `<tr class="material-status-row material-status-${status.key}">${showStore ? `<td><strong>${escapeHtml(item.store)}</strong></td>` : ''}<td><strong>${escapeHtml(item.name)}</strong><br><small class="muted">Khusus operasional toko</small></td><td><div class="material-stock-value"><strong>${number(item.stock)}</strong><small>${escapeHtml(item.unit || 'unit')}</small></div></td><td><div class="material-stock-value"><strong>${number(item.min)}</strong><small>${escapeHtml(item.unit || 'unit')}</small></div></td><td><span class="badge ${status.className}">${status.label}</span>${status.key === 'low' ? `<small class="status-detail">Kurang ${number(Math.max(0, item.min - item.stock))} ${escapeHtml(item.unit || 'unit')} menuju batas minimum</small>` : status.key === 'empty' ? '<small class="status-detail">Stok sudah habis</small>' : '<small class="status-detail">Stok masih di atas batas minimum</small>'}</td><td>${item.updatedAt ? new Intl.DateTimeFormat('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date(item.updatedAt)) : '-'}</td>${editable ? `<td><div class="actions"><button class="icon-btn" data-edit-inventory="${item.id}" title="Ubah bahan dan stok minimum">✎</button><button class="icon-btn danger" data-delete-inventory="${item.id}" title="Hapus dari daftar bahan">🗑</button></div></td>` : ''}</tr>`; }).join('')}</tbody></table>`;
+        if (el('materialsTable')) el('materialsTable').innerHTML = `<table><thead><tr>${showStore ? '<th>Toko</th>' : ''}<th>Nama Bahan</th><th>Stok Saat Ini</th><th>Stok Minimum</th><th>Status Bahan</th><th>Terakhir Diperbarui</th>${editable ? '<th>Aksi</th>' : ''}</tr></thead><tbody>${rows.map(item => { const status = getStockStatus(item); return `<tr class="material-status-row material-status-${status.key}">${showStore ? `<td><strong>${escapeHtml(item.store)}</strong></td>` : ''}<td><strong>${escapeHtml(item.name)}</strong><br><small class="muted">Khusus operasional toko</small></td><td><div class="material-stock-value"><strong>${number(item.stock)}</strong><small>${escapeHtml(item.unit || 'unit')}</small></div></td><td><div class="material-stock-value"><strong>${number(item.min)}</strong><small>${escapeHtml(item.unit || 'unit')}</small></div></td><td><span class="badge ${status.className}">${status.label}</span>${status.key === 'low' ? `<small class="status-detail">Kurang ${number(Math.max(0, item.min - item.stock))} ${escapeHtml(item.unit || 'unit')} menuju batas minimum</small>` : status.key === 'empty' ? '<small class="status-detail">Stok sudah habis</small>' : '<small class="status-detail">Stok masih di atas batas minimum</small>'}</td><td>${item.updatedAt ? new Intl.DateTimeFormat('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date(item.updatedAt)) : '-'}</td>${editable ? `<td><div class="actions"><button class="icon-btn" data-edit-inventory="${item.id}" title="Ubah bahan dan stok minimum">✎</button><button class="icon-btn danger" data-delete-inventory="${item.id}" title="Hapus dari daftar bahan">🗑</button></div></td>` : ''}</tr>`; }).join('')}</tbody></table>`;
       }
 
       function applyDailyActionState(date, store, rows = []) {
         const exactStore = store && store !== 'all'; const allowedDate = date <= todayISO(); const masterCount = exactStore ? state.inventory.filter(item => !item.eventId && item.store === store).length : 0;
         const writeAllowed = canEditInventory() && exactStore && allowedDate;
-        el('closeDailyRecapBtn').disabled = !writeAllowed || !masterCount;
-        el('closeDailyRecapBtn').textContent = date === todayISO() ? '✓ Closing Hari Ini' : '✓ Closing Tanggal Ini';
-        el('closeDailyRecapBtn').title = !exactStore ? 'Pilih satu toko terlebih dahulu' : !allowedDate ? 'Closing belum tersedia untuk tanggal mendatang' : !masterCount ? 'Tambahkan nama bahan melalui menu Daftar Bahan terlebih dahulu' : 'Isi atau perbarui closing pada tanggal yang dipilih';
+        const btn = el('closeDailyRecapBtn');
+        if (btn) {
+          btn.disabled = !writeAllowed || !masterCount;
+          btn.textContent = date === todayISO() ? '✓ Closing Hari Ini' : '✓ Closing Tanggal Ini';
+          btn.title = !exactStore ? 'Pilih satu toko terlebih dahulu' : !allowedDate ? 'Closing belum tersedia untuk tanggal mendatang' : !masterCount ? 'Tambahkan nama bahan melalui menu Daftar Bahan terlebih dahulu' : 'Isi atau perbarui closing pada tanggal yang dipilih';
+        }
+      }
+
+      function applyWarehouseDailyActionState(date, store, rows = []) {
+        const exactStore = store && store !== 'all';
+        const allowedDate = date <= todayISO();
+        const masterCount = exactStore ? state.inventory.filter(item => (!item.eventId || item.eventId === 'store') && item.store === store).length : 0;
+        const writeAllowed = canEditInventory() && exactStore && allowedDate;
+        const btn = el('closeWarehouseDailyRecapBtn');
+        if (btn) {
+          btn.disabled = !writeAllowed || !masterCount;
+          btn.textContent = date === todayISO() ? '✓ Closing Gudang Hari Ini' : '✓ Closing Gudang Tanggal Ini';
+          btn.title = !exactStore ? 'Pilih satu toko terlebih dahulu' : !allowedDate ? 'Closing gudang belum tersedia untuk tanggal mendatang' : !masterCount ? 'Tambahkan nama bahan melalui menu Daftar Bahan Toko terlebih dahulu' : 'Isi atau perbarui closing bahan gudang pada tanggal yang dipilih';
+        }
       }
 
       function renderDailyRecapSummary(date, store, displayRows = dailyRowsForDisplay(date, store)) {
         const rows = displayRows; const closed = rows.filter(row => row.isClosed); const used = closed.filter(row => row.usedStock > 0); const allClosed = rows.length > 0 && closed.length === rows.length; const latestClose = closed.map(row => row.closedAt).filter(Boolean).sort().at(-1);
         const statusClass = !rows.length ? 'status-empty' : allClosed ? 'status-closed' : 'status-open'; const statusText = !rows.length ? 'Belum Ada Bahan' : allClosed ? 'Sudah Closing' : closed.length ? 'Closing Sebagian' : 'Menunggu Closing';
         const totalUsed = used.reduce((sum, row) => sum + Number(row.usedStock || 0), 0);
-        el('dailyRecapSummary').innerHTML = `<div class="daily-summary-item"><span>Tanggal</span><strong>${formatDate(date)}</strong><small>${date === todayISO() ? 'Rekapan hari ini' : 'Riwayat closing'}</small></div><div class="daily-summary-item"><span>Cabang</span><strong>${escapeHtml(store === 'all' || !store ? 'Semua Cabang' : store)}</strong><small>${rows.length} nama bahan</small></div><div class="daily-summary-item ${statusClass}"><span>Status</span><strong>${statusText}</strong><small>${latestClose ? `Disimpan ${formatSavedDateTime(latestClose)}` : 'Belum ada closing'}</small></div><div class="daily-summary-item"><span>Pemakaian</span><strong>${used.length} jenis bahan</strong><small>Total angka terpakai ${number(totalUsed)}</small></div>`;
+        if (el('dailyRecapSummary')) el('dailyRecapSummary').innerHTML = `<div class="daily-summary-item"><span>Tanggal</span><strong>${formatDate(date)}</strong><small>${date === todayISO() ? 'Rekapan hari ini' : 'Riwayat closing'}</small></div><div class="daily-summary-item"><span>Cabang</span><strong>${escapeHtml(store === 'all' || !store ? 'Semua Cabang' : store)}</strong><small>${rows.length} nama bahan</small></div><div class="daily-summary-item ${statusClass}"><span>Status</span><strong>${statusText}</strong><small>${latestClose ? `Disimpan ${formatSavedDateTime(latestClose)}` : 'Belum ada closing'}</small></div><div class="daily-summary-item"><span>Pemakaian</span><strong>${used.length} jenis bahan</strong><small>Total angka terpakai ${number(totalUsed)}</small></div>`;
+      }
+
+      function renderWarehouseDailyRecapSummary(date, store, displayRows = dailyRowsForDisplay(date, store, 'gudang')) {
+        const rows = displayRows;
+        const closed = rows.filter(row => row.isClosed);
+        const used = closed.filter(row => row.usedStock > 0);
+        const allClosed = rows.length > 0 && closed.length === rows.length;
+        const latestClose = closed.map(row => row.closedAt).filter(Boolean).sort().at(-1);
+        const statusClass = !rows.length ? 'status-empty' : allClosed ? 'status-closed' : 'status-open';
+        const statusText = !rows.length ? 'Belum Ada Bahan' : allClosed ? 'Sudah Closing' : closed.length ? 'Closing Sebagian' : 'Menunggu Closing';
+        const totalUsed = used.reduce((sum, row) => sum + Number(row.usedStock || 0), 0);
+        if (el('warehouseDailyRecapSummary')) {
+          el('warehouseDailyRecapSummary').innerHTML = `<div class="daily-summary-item"><span>Tanggal</span><strong>${formatDate(date)}</strong><small>${date === todayISO() ? 'Rekapan gudang hari ini' : 'Riwayat closing gudang'}</small></div><div class="daily-summary-item"><span>Cabang</span><strong>${escapeHtml(store === 'all' || !store ? 'Semua Cabang' : store)}</strong><small>${rows.length} nama bahan</small></div><div class="daily-summary-item ${statusClass}"><span>Status Gudang</span><strong>${statusText}</strong><small>${latestClose ? `Disimpan ${formatSavedDateTime(latestClose)}` : 'Belum ada closing'}</small></div><div class="daily-summary-item"><span>Keluar / Terpakai</span><strong>${used.length} jenis bahan</strong><small>Total angka keluar ${number(totalUsed)}</small></div>`;
+        }
       }
 
       function renderInventoryClosingDetails(date, store) {
         const rows = state.inventoryDaily.filter(row => !row.eventId && row.date === date && (store === 'all' || !store || row.store === store) && row.isClosed && row.usedStock > 0).map(dailyRecordWithCurrentMaster).sort((a, b) => a.store.localeCompare(b.store) || a.name.localeCompare(b.name));
         const closedAny = state.inventoryDaily.some(row => !row.eventId && row.date === date && (store === 'all' || !store || row.store === store) && row.isClosed);
-        if (!rows.length) { el('inventoryClosingDetails').innerHTML = emptyState(closedAny ? 'Tidak ada bahan yang terpakai' : 'Closing belum dilakukan', closedAny ? 'Semua bahan tercatat tanpa pemakaian pada tanggal ini.' : 'Lakukan closing untuk menghasilkan detail bahan yang dipakai.'); return; }
-        el('inventoryClosingDetails').innerHTML = `<table><thead><tr><th>Toko</th><th>Nama Bahan</th><th>Satuan</th><th>Stok Awal</th><th>Stok Masuk</th><th>Stok Akhir</th><th>Jumlah Terpakai</th><th>Keterangan</th></tr></thead><tbody>${rows.map(row => `<tr><td><strong>${escapeHtml(row.store)}</strong></td><td><strong>${escapeHtml(row.name)}</strong></td><td>${escapeHtml(row.unit || 'unit')}</td><td>${number(row.openingStock)}</td><td>${number(row.stockIn)}</td><td>${number(row.closingStock)}</td><td><strong class="used-value">${number(row.usedStock)} ${escapeHtml(row.unit || 'unit')}</strong></td><td class="muted">${escapeHtml(row.note || '-')}</td></tr>`).join('')}</tbody></table>`;
+        if (el('inventoryClosingDetails')) {
+          if (!rows.length) { el('inventoryClosingDetails').innerHTML = emptyState(closedAny ? 'Tidak ada bahan yang terpakai' : 'Closing belum dilakukan', closedAny ? 'Semua bahan tercatat tanpa pemakaian pada tanggal ini.' : 'Lakukan closing untuk menghasilkan detail bahan yang dipakai.'); return; }
+          el('inventoryClosingDetails').innerHTML = `<table><thead><tr><th>Toko</th><th>Nama Bahan</th><th>Satuan</th><th>Stok Awal</th><th>Stok Masuk</th><th>Stok Akhir</th><th>Jumlah Terpakai</th><th>Keterangan</th></tr></thead><tbody>${rows.map(row => `<tr><td><strong>${escapeHtml(row.store)}</strong></td><td><strong>${escapeHtml(row.name)}</strong></td><td>${escapeHtml(row.unit || 'unit')}</td><td>${number(row.openingStock)}</td><td>${number(row.stockIn)}</td><td>${number(row.closingStock)}</td><td><strong class="used-value">${number(row.usedStock)} ${escapeHtml(row.unit || 'unit')}</strong></td><td class="muted">${escapeHtml(row.note || '-')}</td></tr>`).join('')}</tbody></table>`;
+        }
+      }
+
+      function renderWarehouseClosingDetails(date, store) {
+        const rows = state.inventoryDaily.filter(row => row.eventId === 'gudang' && row.date === date && (store === 'all' || !store || row.store === store) && row.isClosed && row.usedStock > 0).map(dailyRecordWithCurrentMaster).sort((a, b) => a.store.localeCompare(b.store) || a.name.localeCompare(b.name));
+        const closedAny = state.inventoryDaily.some(row => row.eventId === 'gudang' && row.date === date && (store === 'all' || !store || row.store === store) && row.isClosed);
+        if (el('warehouseClosingDetails')) {
+          if (!rows.length) {
+            el('warehouseClosingDetails').innerHTML = emptyState(closedAny ? 'Tidak ada bahan gudang yang keluar' : 'Closing gudang belum dilakukan', closedAny ? 'Semua bahan gudang tercatat tanpa pengeluaran pada tanggal ini.' : 'Lakukan closing gudang untuk menghasilkan detail bahan yang keluar.');
+            return;
+          }
+          el('warehouseClosingDetails').innerHTML = `<table><thead><tr><th>Toko</th><th>Nama Bahan</th><th>Satuan</th><th>Stok Awal Gudang</th><th>Stok Masuk</th><th>Stok Akhir Gudang</th><th>Jumlah Keluar / Terpakai</th><th>Keterangan</th></tr></thead><tbody>${rows.map(row => `<tr><td><strong>${escapeHtml(row.store)}</strong></td><td><strong>${escapeHtml(row.name)}</strong></td><td>${escapeHtml(row.unit || 'unit')}</td><td>${number(row.openingStock)}</td><td>${number(row.stockIn)}</td><td>${number(row.closingStock)}</td><td><strong class="used-value">${number(row.usedStock)} ${escapeHtml(row.unit || 'unit')}</strong></td><td class="muted">${escapeHtml(row.note || '-')}</td></tr>`).join('')}</tbody></table>`;
+        }
       }
 
       function getStockStatus(item) { if (item.stock <= 0) return { key: 'empty', label: 'Habis', className: 'badge-empty' }; if (item.stock <= item.min) return { key: 'low', label: 'Perlu Restok', className: 'badge-low' }; return { key: 'ok', label: 'Aman', className: 'badge-ok' }; }
@@ -8749,6 +9041,19 @@ NOTIFY pgrst, 'reload schema';`;
         accessibleRows.forEach(i => { const materialStatus = getDailyMaterialStatus(i); rows.push([i.date, i.store, i.name, i.unit || 'unit', i.openingStock, i.stockIn, i.closingStock == null ? '' : i.closingStock, i.usedStock, materialStatus.min, materialStatus.label, i.isClosed ? 'Sudah Closing' : 'Belum Closing', i.isClosed ? formatSavedDateTime(i.closedAt || i.updatedAt) : '', i.note || '']); });
         downloadFile(`rekap-bahan-harian-${date}.csv`, '\ufeff' + toCSV(rows), 'text/csv;charset=utf-8'); toast('Rekapan bahan harian berhasil diekspor.');
       }
+      function exportWarehouseCSV() {
+        if (!canViewAll() && !employeeBranch()) return toast('Cabang akun belum ditetapkan.');
+        const date = selectedWarehouseDate();
+        const store = canViewAll() ? (el('globalStore')?.value || '') : employeeBranch();
+        const accessibleRows = dailyRowsForDisplay(date, store, 'gudang').filter(item => canAccessStore(item.store));
+        const rows = [['Tanggal', 'Toko', 'Nama Bahan', 'Satuan', 'Stok Awal Gudang', 'Stok Masuk Gudang', 'Stok Akhir Gudang', 'Jumlah Keluar / Terpakai', 'Stok Minimum', 'Status Bahan', 'Status Closing', 'Disimpan Pada', 'Keterangan']];
+        accessibleRows.forEach(i => {
+          const materialStatus = getDailyMaterialStatus(i);
+          rows.push([i.date, i.store, i.name, i.unit || 'unit', i.openingStock, i.stockIn, i.closingStock == null ? '' : i.closingStock, i.usedStock, materialStatus.min, materialStatus.label, i.isClosed ? 'Sudah Closing' : 'Belum Closing', i.isClosed ? formatSavedDateTime(i.closedAt || i.updatedAt) : '', i.note || '']);
+        });
+        downloadFile(`rekap-bahan-gudang-${date}.csv`, '\ufeff' + toCSV(rows), 'text/csv;charset=utf-8');
+        toast('Rekapan bahan gudang berhasil diekspor.');
+      }
       function exportEventTransactionsCSV() {
         if (!canViewAll()) return;
         const eventId = selectedEventWorkspaceId();
@@ -8856,7 +9161,7 @@ NOTIFY pgrst, 'reload schema';`;
   <script>
     if ('serviceWorker' in navigator && location.protocol !== 'file:') {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js?v=rekapan-bahan-v8').then((registration) => {
+        navigator.serviceWorker.register('./sw.js?v=rekapan-bahan-v9').then((registration) => {
           registration.update().catch(() => { });
         }).catch((error) => {
           console.warn('Service worker tidak dapat didaftarkan:', error);
