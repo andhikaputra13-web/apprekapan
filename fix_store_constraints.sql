@@ -57,6 +57,11 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS event_id text;
+ALTER TABLE public.profiles DROP CONSTRAINT IF EXISTS profiles_role_check CASCADE;
+ALTER TABLE public.profiles ADD CONSTRAINT profiles_role_check
+  CHECK (role IN ('admin','owner','employee','event_employee'));
+
 CREATE TABLE IF NOT EXISTS public.inventory (
   id text PRIMARY KEY,
   store text NOT NULL,
@@ -115,6 +120,18 @@ INSERT INTO public.stores (id, name) VALUES
 ON CONFLICT (name) DO NOTHING;
 
 -- 4. View soft-delete untuk panel Sampah
+DO $$
+BEGIN
+  BEGIN
+    ALTER VIEW public.deleted_items RENAME COLUMN label TO title;
+  EXCEPTION WHEN OTHERS THEN
+    NULL;
+  END;
+  DROP VIEW IF EXISTS public.deleted_items CASCADE;
+EXCEPTION WHEN OTHERS THEN
+  NULL;
+END $$;
+
 DROP VIEW IF EXISTS public.deleted_items CASCADE;
 CREATE VIEW public.deleted_items AS
 SELECT 'inventory' AS table_name, id, deleted_at, deleted_by, coalesce(store,'') AS store, coalesce(name,'Bahan') AS label, coalesce(name,'Bahan') AS title, coalesce(note,'') AS detail FROM public.inventory WHERE deleted_at IS NOT NULL

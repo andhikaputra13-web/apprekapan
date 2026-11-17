@@ -6084,9 +6084,10 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
-ALTER TABLE public.profiles DROP CONSTRAINT IF EXISTS profiles_role_check;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS event_id text;
+ALTER TABLE public.profiles DROP CONSTRAINT IF EXISTS profiles_role_check CASCADE;
 ALTER TABLE public.profiles ADD CONSTRAINT profiles_role_check
-  CHECK (role IN ('admin','owner','employee'));
+  CHECK (role IN ('admin','owner','employee','event_employee'));
 ALTER TABLE public.profiles DROP CONSTRAINT IF EXISTS profiles_branch_check;
 ALTER TABLE public.profiles DROP CONSTRAINT IF EXISTS profiles_branches_check;
 ALTER TABLE public.profiles DROP CONSTRAINT IF EXISTS profiles_scope_check;
@@ -6280,6 +6281,18 @@ ALTER TABLE public.inventory ADD COLUMN IF NOT EXISTS deleted_by uuid REFERENCES
 ALTER TABLE public.inventory_daily ADD COLUMN IF NOT EXISTS deleted_at timestamptz;
 ALTER TABLE public.inventory_daily ADD COLUMN IF NOT EXISTS deleted_by uuid REFERENCES auth.users(id) ON DELETE SET NULL;
 
+DO $$
+BEGIN
+  BEGIN
+    ALTER VIEW public.deleted_items RENAME COLUMN label TO title;
+  EXCEPTION WHEN OTHERS THEN
+    NULL;
+  END;
+  DROP VIEW IF EXISTS public.deleted_items CASCADE;
+EXCEPTION WHEN OTHERS THEN
+  NULL;
+END $$;
+
 DROP VIEW IF EXISTS public.deleted_items CASCADE;
 CREATE VIEW public.deleted_items AS
 SELECT 'inventory' AS table_name, id, deleted_at, deleted_by, coalesce(store,'') AS store, coalesce(name,'Bahan') AS label, coalesce(name,'Bahan') AS title, coalesce(note,'') AS detail FROM public.inventory WHERE deleted_at IS NOT NULL
@@ -6404,7 +6417,8 @@ NOTIFY pgrst, 'reload schema';`;
       const profileBranches = profile => {
         const saved = Array.isArray(profile?.branches) ? profile.branches : [];
         const legacy = profile?.role === 'owner' && profile?.branch ? [profile.branch] : [];
-        return [...new Set([...saved, ...legacy].filter(store => STORES.includes(store)))];
+        const deleted = getDeletedStores();
+        return [...new Set([...saved, ...legacy].filter(store => store && typeof store === 'string' && !deleted.includes(store)))];
       };
       const ownerBranches = () => isOwner() ? profileBranches(state.profile) : [];
       const employeeBranch = () => isEmployee() ? (state.profile?.branch || '') : '';
@@ -6526,7 +6540,23 @@ NOTIFY pgrst, 'reload schema';`;
             else if (filter.type === 'is') query = query.is(filter.column, filter.value);
             else if (filter.type === 'in') query = query.in(filter.column, filter.value);
           }
-          const { error } = await query; if (error) throw error; return true;
+          const { error } = await query;
+          if (error) {
+            if (op.table === 'profiles' && /event_id/i.test(`${error.message || ''} ${error.details || ''}`)) {
+              const payloadCopy = { ...op.payload };
+              delete payloadCopy.event_id;
+              let retryQuery = db.from(op.table).update(payloadCopy);
+              for (const filter of op.filters || []) {
+                if (filter.type === 'eq') retryQuery = retryQuery.eq(filter.column, filter.value);
+                else if (filter.type === 'is') retryQuery = retryQuery.is(filter.column, filter.value);
+                else if (filter.type === 'in') retryQuery = retryQuery.in(filter.column, filter.value);
+              }
+              const retry = await retryQuery;
+              if (!retry.error) return true;
+            }
+            throw error;
+          }
+          return true;
         }
         if (op.kind === 'delete') {
           let query = db.from(op.table).delete();
@@ -6581,6 +6611,20 @@ NOTIFY pgrst, 'reload schema';`;
           }
           refreshStoresList();
           applyRoleUI();
+          return;
+        }
+        if (op.kind === 'update' && op.table === 'profiles') {
+          const userId = (op.filters || []).find(f => f.column === 'user_id')?.value;
+          if (userId && op.payload) {
+            const existing = (state.profiles || []).find(p => p.user_id === userId);
+            const updated = { ...(existing || {}), ...op.payload, user_id: userId };
+            upsertLocalState('profiles', updated, 'user_id');
+            if (state.profile?.user_id === userId) {
+              state.profile = { ...state.profile, ...op.payload };
+              applyRoleUI();
+            }
+            scheduleLocalSnapshotSave(0);
+          }
           return;
         }
         if (op.kind === 'rpc' && op.fn === 'update_inventory_stock_after_closing') {
@@ -6730,16 +6774,18 @@ NOTIFY pgrst, 'reload schema';`;
         try {
           forceResetScrollState({ closeModals: true, closeSidebarToo: true, restore: true });
           currentSession = session;
+          await restoreLocalSnapshot({ render: false, force: true });
           try { await loadCurrentProfile(session.user); }
           catch (error) {
-            const restored = await restoreLocalSnapshot({ render: false, force: true });
-            if (!restored || !state.profile) throw error;
+            if (!state.profile) throw error;
           }
           applyRoleUI();
-          el('setupScreen').hidden = true; el('authScreen').hidden = true; el('appShell').hidden = false;
-          el('userEmail').textContent = session.user?.email || 'Pengguna';
-          el('sidebarUserEmail').textContent = session.user?.email || 'Pengguna';
-          el('settingsUserEmail').textContent = session.user?.email || '-';
+          if (el('setupScreen')) el('setupScreen').hidden = true;
+          if (el('authScreen')) el('authScreen').hidden = true;
+          if (el('appShell')) el('appShell').hidden = false;
+          if (el('userEmail')) el('userEmail').textContent = session.user?.email || 'Pengguna';
+          if (el('sidebarUserEmail')) el('sidebarUserEmail').textContent = session.user?.email || 'Pengguna';
+          if (el('settingsUserEmail')) el('settingsUserEmail').textContent = session.user?.email || '-';
           updateProjectLabels();
           await updatePendingSyncUI();
           await loadCloudData(true);
@@ -6749,27 +6795,46 @@ NOTIFY pgrst, 'reload schema';`;
       }
 
       async function loadCurrentProfile(user) {
+        if (!user?.id) return;
         try {
-          let { data, error } = await db.from('profiles').select('user_id,email,role,branch,branches,event_id,created_at').eq('user_id', user.id).maybeSingle();
+          let { data, error } = await db.from('profiles').select('user_id,email,role,branch,branches,created_at').eq('user_id', user.id).maybeSingle();
           if (!error && data) {
             state.profile = data;
+            scheduleLocalSnapshotSave(0);
             return;
+          }
+          if (error) {
+            console.warn('Gagal membaca profil akun dari Supabase:', error);
+            if (state.profile?.user_id === user.id && state.profile?.role) {
+              return;
+            }
+            const restored = await restoreLocalSnapshot({ render: false, force: true });
+            if (state.profile?.user_id === user.id) return;
+            throw error;
           }
           if (!data) {
             try {
-              const { count } = await db.from('profiles').select('*', { count: 'exact', head: true });
-              const role = (count === 0) ? 'admin' : 'employee';
+              const { count, error: countErr } = await db.from('profiles').select('*', { count: 'exact', head: true });
+              const role = (!countErr && count === 0) ? 'admin' : 'employee';
               const newProfile = { user_id: user.id, email: user.email || '', role, branch: null, branches: [] };
-              const insertRes = await db.from('profiles').upsert([newProfile]).select().maybeSingle();
-              data = insertRes.data || newProfile;
+              const { data: inserted, error: insertErr } = await db.from('profiles').insert([newProfile]).select('user_id,email,role,branch,branches,created_at').maybeSingle();
+              if (!insertErr && inserted) {
+                data = inserted;
+              } else {
+                const refetch = await db.from('profiles').select('user_id,email,role,branch,branches,created_at').eq('user_id', user.id).maybeSingle();
+                data = refetch.data || (state.profile?.user_id === user.id ? state.profile : newProfile);
+              }
             } catch (_) {
-              data = { user_id: user.id, email: user.email || '', role: 'admin', branch: null, branches: [] };
+              data = state.profile?.user_id === user.id ? state.profile : { user_id: user.id, email: user.email || '', role: 'employee', branch: null, branches: [] };
             }
           }
           state.profile = data;
+          scheduleLocalSnapshotSave(0);
         } catch (err) {
-          console.warn('Gagal membaca profil akun, menggunakan default Admin:', err);
-          state.profile = { user_id: user.id, email: user.email || '', role: 'admin', branch: null, branches: [] };
+          console.warn('Gagal membaca profil akun, mempertahankan profil tersimpan:', err);
+          if (!state.profile || state.profile.user_id !== user.id) {
+            state.profile = state.profile || { user_id: user.id, email: user.email || '', role: 'employee', branch: null, branches: [] };
+          }
         }
       }
 
@@ -6888,7 +6953,7 @@ NOTIFY pgrst, 'reload schema';`;
         }
       }
 
-      function setGateMessage(node, message, type) { node.hidden = !message; node.textContent = message || ''; node.className = type === 'success' ? 'gate-success' : 'gate-error'; }
+      function setGateMessage(node, message, type) { if (!node) return; node.hidden = !message; node.textContent = message || ''; node.className = type === 'success' ? 'gate-success' : 'gate-error'; }
       function fieldLabel(control) {
         if (control.dataset.label) return control.dataset.label;
         const field = control.closest('.field');
@@ -7007,7 +7072,7 @@ NOTIFY pgrst, 'reload schema';`;
         const label = el('ptrLabel');
         const content = document.querySelector('.content');
 
-        if (!indicator || !content) return;
+        if (!indicator || !content || !label || !arrow || !spinner || !success) return;
 
         let startY = 0;
         let startX = 0;
@@ -7086,11 +7151,11 @@ NOTIFY pgrst, 'reload schema';`;
                 indicator.classList.add('ptr-ready');
                 try { if (navigator.vibrate) navigator.vibrate(12); } catch (_) {}
               }
-              label.textContent = 'Lepaskan untuk memuat ulang';
+              if (label) label.textContent = 'Lepaskan untuk memuat ulang';
             } else {
               indicator.classList.remove('ptr-ready');
               arrow.style.transform = `rotate(${progress * 180}deg)`;
-              label.textContent = 'Tarik untuk memuat ulang';
+              if (label) label.textContent = 'Tarik untuk memuat ulang';
             }
           } else if (deltaY < 0 && isPulling) {
             resetPtr();
@@ -7122,19 +7187,19 @@ NOTIFY pgrst, 'reload schema';`;
             arrow.hidden = true;
             spinner.hidden = false;
             success.hidden = true;
-            label.textContent = 'Memperbarui data...';
+            if (label) label.textContent = 'Memperbarui data...';
 
             try {
               await manualRefreshData({ silent: true });
               spinner.hidden = true;
               success.hidden = false;
-              label.textContent = 'Data berhasil diperbarui';
+              if (label) label.textContent = 'Data berhasil diperbarui';
               try { if (navigator.vibrate) navigator.vibrate(15); } catch (_) {}
               await new Promise(r => setTimeout(r, 450));
             } catch (err) {
               spinner.hidden = true;
               arrow.hidden = false;
-              label.textContent = 'Gagal memuat ulang';
+              if (label) label.textContent = 'Gagal memuat ulang';
               await new Promise(r => setTimeout(r, 550));
             } finally {
               isRefreshing = false;
@@ -7150,11 +7215,13 @@ NOTIFY pgrst, 'reload schema';`;
           indicator.style.transform = '';
           content.classList.remove('ptr-pulling');
           content.style.transform = '';
-          arrow.style.transform = '';
-          arrow.hidden = false;
-          spinner.hidden = true;
-          success.hidden = true;
-          label.textContent = 'Tarik untuk memuat ulang';
+          if (arrow) {
+            arrow.style.transform = '';
+            arrow.hidden = false;
+          }
+          if (spinner) spinner.hidden = true;
+          if (success) success.hidden = true;
+          if (label) label.textContent = 'Tarik untuk memuat ulang';
         }
 
         window.addEventListener('touchstart', onTouchStart, { passive: true });
@@ -7538,13 +7605,30 @@ NOTIFY pgrst, 'reload schema';`;
         el('dailyClosingDate').value = date;
         el('dailyClosingContext').value = context;
         el('dailyClosingEventId').value = warehouseMode ? 'gudang' : '';
-        el('dailyClosingModalTitle').textContent = warehouseMode ? `Closing Bahan Gudang — ${store} — ${formatDate(date)}` : `Closing Bahan Toko — ${store} — ${formatDate(date)}`;
+        if (el('dailyClosingModalTitle')) el('dailyClosingModalTitle').textContent = warehouseMode ? `Closing Bahan Gudang — ${store} — ${formatDate(date)}` : `Closing Bahan Toko — ${store} — ${formatDate(date)}`;
         el('dailyClosingRows').innerHTML = `<table><thead><tr><th>No.</th><th>Nama Bahan</th><th>Satuan</th><th>Stok Awal</th><th>Stok Masuk</th><th>Stok Akhir</th><th>Terpakai</th><th>Keterangan</th></tr></thead><tbody>${activeClosingRows.map((row, index) => `<tr data-daily-closing-row="${index}"><td>${index + 1}</td><td><strong>${escapeHtml(row.name)}</strong></td><td>${escapeHtml(row.unit || 'unit')}</td><td><input class="input closing-table-input" type="number" min="0" step="0.01" data-closing-open data-label="Stok Awal ${escapeHtml(row.name)}" value="${row.openingStock}" required></td><td><input class="input closing-table-input" type="number" min="0" step="0.01" data-closing-in data-label="Stok Masuk ${escapeHtml(row.name)}" value="${row.isClosed ? row.stockIn : ''}" placeholder="0"></td><td><input class="input closing-table-input" type="number" min="0" step="0.01" data-closing-end data-label="Stok Akhir ${escapeHtml(row.name)}" value="${row.closingStock == null ? '' : row.closingStock}" placeholder="Wajib diisi" required></td><td><strong class="used-value" data-closing-used>0</strong> ${escapeHtml(row.unit || 'unit')}</td><td><input class="input closing-note-input" data-closing-note value="${escapeHtml(row.note || '')}" placeholder="Opsional"></td></tr>`).join('')}</tbody></table>`;
         updateClosingUsagePreview(); openModal('dailyClosingModal');
       }
 
       function updateClosingUsagePreview() {
-        el('dailyClosingRows').querySelectorAll('[data-daily-closing-row]').forEach(row => { const record = activeClosingRows[Number(row.dataset.dailyClosingRow)]; if (!record) return; const opening = Number(row.querySelector('[data-closing-open]').value || 0); const stockIn = Number(row.querySelector('[data-closing-in]').value || 0); const closing = Number(row.querySelector('[data-closing-end]').value || 0); const used = Math.max(0, opening + stockIn - closing); const target = row.querySelector('[data-closing-used]'); target.textContent = number(used); target.classList.toggle('zero', used === 0); });
+        const container = el('dailyClosingRows');
+        if (!container) return;
+        container.querySelectorAll('[data-daily-closing-row]').forEach(row => {
+          const record = activeClosingRows[Number(row.dataset.dailyClosingRow)];
+          if (!record) return;
+          const openInput = row.querySelector('[data-closing-open]');
+          const inInput = row.querySelector('[data-closing-in]');
+          const endInput = row.querySelector('[data-closing-end]');
+          const opening = Number(openInput?.value || 0);
+          const stockIn = Number(inInput?.value || 0);
+          const closing = Number(endInput?.value || 0);
+          const used = Math.max(0, opening + stockIn - closing);
+          const target = row.querySelector('[data-closing-used]');
+          if (target) {
+            target.textContent = number(used);
+            target.classList.toggle('zero', used === 0);
+          }
+        });
       }
 
       async function saveDailyClosing(event) {
@@ -7653,9 +7737,9 @@ NOTIFY pgrst, 'reload schema';`;
         el('inventoryNote').value = existing?.note || '';
         el('inventoryName').value = existing?.name || '';
         const linkedEventStore = eventMode ? eventMaterialSourceStore(eventId) : '';
-        el('inventoryModalScopeLabel').textContent = eventMode ? 'Bahan dipilih dari daftar toko' : 'Bahan akan digunakan untuk cabang';
-        el('inventoryModalStoreText').textContent = eventMode ? `${linkedEventStore || 'Toko belum ditentukan'} • ${eventName(eventId)}` : assignedStore;
-        el('inventoryModalTitle').textContent = existing ? (eventMode ? 'Ubah Stok Minimum Bahan Event' : 'Ubah Bahan & Stok Minimum') : (eventMode ? 'Tambah Bahan Event' : 'Tambah Bahan Toko');
+        if (el('inventoryModalScopeLabel')) el('inventoryModalScopeLabel').textContent = eventMode ? 'Bahan dipilih dari daftar toko' : 'Bahan akan digunakan untuk cabang';
+        if (el('inventoryModalStoreText')) el('inventoryModalStoreText').textContent = eventMode ? `${linkedEventStore || 'Toko belum ditentukan'} • ${eventName(eventId)}` : assignedStore;
+        if (el('inventoryModalTitle')) el('inventoryModalTitle').textContent = existing ? (eventMode ? 'Ubah Stok Minimum Bahan Event' : 'Ubah Bahan & Stok Minimum') : (eventMode ? 'Tambah Bahan Event' : 'Tambah Bahan Toko');
         openModal('inventoryModal');
         focusFieldIfDesktop(el('inventoryName'));
       }
@@ -7858,10 +7942,13 @@ NOTIFY pgrst, 'reload schema';`;
         dataLoading = true; setCloudStatus('syncing', 'Menyinkronkan');
         try {
           if (currentSession?.user) {
-            const { data: profileData, error: profileError } = await db.from('profiles').select('user_id,email,role,branch,branches,created_at').eq('user_id', currentSession.user.id).single();
-            if (profileError) throw profileError;
-            state.profile = profileData;
-            applyRoleUI();
+            const { data: profileData, error: profileError } = await db.from('profiles').select(CLOUD_SELECT.profiles).eq('user_id', currentSession.user.id).maybeSingle();
+            if (profileError) {
+              console.warn('Profile sync notice:', profileError);
+            } else if (profileData) {
+              state.profile = profileData;
+              applyRoleUI();
+            }
           }
           const stores = accessibleStores();
 
@@ -8088,10 +8175,14 @@ NOTIFY pgrst, 'reload schema';`;
             if (currentSession?.user?.id === userId) {
               const before = JSON.stringify([state.profile?.role, state.profile?.branch, state.profile?.branches, state.profile?.event_id]);
               state.profile = row;
+              scheduleLocalSnapshotSave(0);
               const after = JSON.stringify([row.role, row.branch, row.branches, row.event_id]);
               applyRoleUI();
               if (before !== after) scheduleProfileScopeReload(); else scheduleRealtimeRender();
-            } else scheduleRealtimeRender();
+            } else {
+              scheduleLocalSnapshotSave(0);
+              scheduleRealtimeRender();
+            }
             return;
           }
           if (table === 'stores') {
@@ -8859,8 +8950,10 @@ NOTIFY pgrst, 'reload schema';`;
           const roleLabel = isProfileAdmin ? 'Admin' : isProfileOwner ? 'Owner' : isProfileEventEmployee ? 'Karyawan Event' : 'Karyawan';
           const profileStores = profileBranches(profile);
           const accessLabel = isProfileAdmin ? 'Semua toko dan event' : isProfileOwner ? (profileStores.length ? profileStores.join(', ') : 'Toko belum ditetapkan') : isProfileEventEmployee ? (assignedEvent?.name || 'Event belum ditetapkan') : (profile.branch || 'Toko belum ditetapkan');
-          const branchOptions = `<option value="">Pilih satu toko</option>` + STORES.map(store => `<option value="${escapeHtml(store)}" ${profile.branch === store ? 'selected' : ''}>${escapeHtml(store)}</option>`).join('');
-          const ownerOptions = STORES.map(store => `<label class="owner-store-option"><input type="checkbox" data-owner-branch-user="${profile.user_id}" value="${escapeHtml(store)}" ${profileStores.includes(store) ? 'checked' : ''}><span>${escapeHtml(store)}</span></label>`).join('');
+          const availableStores = [...new Set([...STORES, profile.branch].filter(Boolean))];
+          const branchOptions = `<option value="">Pilih satu toko</option>` + availableStores.map(store => `<option value="${escapeHtml(store)}" ${profile.branch === store ? 'selected' : ''}>${escapeHtml(store)}</option>`).join('');
+          const availableOwnerStores = [...new Set([...STORES, ...profileStores].filter(Boolean))];
+          const ownerOptions = availableOwnerStores.map(store => `<label class="owner-store-option"><input type="checkbox" data-owner-branch-user="${profile.user_id}" value="${escapeHtml(store)}" ${profileStores.includes(store) ? 'checked' : ''}><span>${escapeHtml(store)}</span></label>`).join('');
           const assignedArchived = assignedEvent?.archivedAt ? `<option value="${assignedEvent.id}" selected>${escapeHtml(assignedEvent.name)} — Diarsipkan</option>` : '';
           const eventOptions = `<option value="">Pilih satu event</option>` + assignedArchived + sortedEvents.map(item => `<option value="${item.id}" ${profile.event_id === item.id ? 'selected' : ''}>${escapeHtml(item.name)}${item.store ? ` — ${escapeHtml(item.store)}` : ''} — ${formatDate(item.eventDate)}</option>`).join('');
           const helpText = isProfileAdmin ? 'Admin dapat membuka dan mengubah semua data.' : isProfileOwner ? (profileStores.length ? `Owner dapat melihat ${profileStores.length} toko dan seluruh data event tanpa mengubah data.` : 'Owner dapat melihat seluruh data event. Pilih minimal satu toko untuk akses data toko.') : isProfileEventEmployee ? (assignedEvent ? `Karyawan Event hanya dapat membuka dan closing Rekapan Bahan event ${escapeHtml(assignedEvent.name)}.` : 'Pilih tepat satu event untuk akun Karyawan Event.') : profile.branch ? `Karyawan hanya dapat membuka Rekapan Bahan cabang ${escapeHtml(profile.branch)}.` : 'Pilih tepat satu toko untuk akun Karyawan.';
@@ -8900,7 +8993,7 @@ NOTIFY pgrst, 'reload schema';`;
         if (!el('trashTable') || !el('auditLogTable')) return;
         if (!canViewAll()) { el('trashTable').innerHTML = ''; el('auditLogTable').innerHTML = ''; return; }
         const trash = state.deletedItems || [];
-        el('trashCountBadge').textContent = `${number(trash.length)} item`;
+        if (el('trashCountBadge')) el('trashCountBadge').textContent = `${number(trash.length)} item`;
         el('trashTable').innerHTML = trash.length ? `<table><thead><tr><th>Dihapus</th><th>Jenis</th><th>Toko</th><th>Data</th><th>Detail</th><th>Aksi</th></tr></thead><tbody>${trash.map(item => `<tr><td>${escapeHtml(formatSavedDateTime(item.deleted_at))}</td><td><span class="badge badge-low">${escapeHtml(SAFETY_TABLE_LABELS[item.table_name] || item.table_name)}</span></td><td>${escapeHtml(item.store || '-')}</td><td><strong>${escapeHtml(item.label || item.id)}</strong><br><small class="muted">ID ${escapeHtml(item.id)}</small></td><td>${escapeHtml(item.detail || '-')}</td><td><button class="btn btn-light btn-sm" data-restore-soft-delete="${escapeHtml(item.id)}" data-restore-table="${escapeHtml(item.table_name)}">Pulihkan</button></td></tr>`).join('')}</tbody></table>` : emptyState('Sampah kosong', 'Belum ada data yang dihapus sejak proteksi soft-delete diaktifkan.');
         const logs = state.auditLogs || [];
         el('auditLogTable').innerHTML = logs.length ? `<table><thead><tr><th>Waktu</th><th>User</th><th>Aktivitas</th><th>Tabel</th><th>ID Data</th></tr></thead><tbody>${logs.map(item => `<tr><td>${escapeHtml(formatSavedDateTime(item.occurred_at))}</td><td>${escapeHtml(item.actor_email || item.actor_user_id || 'Sistem')}</td><td><span class="badge ${auditActionLabel(item.action, item) === 'Hard Delete' ? 'badge-expense' : auditActionLabel(item.action, item) === 'Masuk Sampah' ? 'badge-low' : 'badge-ok'}">${escapeHtml(auditActionLabel(item.action, item))}</span></td><td>${escapeHtml(SAFETY_TABLE_LABELS[item.table_name] || item.table_name)}</td><td><small>${escapeHtml(item.row_id || '-')}</small></td></tr>`).join('')}</tbody></table>` : emptyState('Audit log masih kosong', 'Aktivitas baru akan tercatat otomatis ketika data ditambah, diedit, dihapus, atau dipulihkan.');
@@ -8946,19 +9039,17 @@ NOTIFY pgrst, 'reload schema';`;
         eventSelect.hidden = role !== 'event_employee';
         eventSelect.disabled = role !== 'event_employee';
         if (role === 'admin') {
-          branchSelect.value = ''; eventSelect.value = '';
           if (help) { help.className = 'muted owner-store-summary'; help.textContent = 'Admin dapat membuka dan mengubah semua data.'; }
         } else if (role === 'owner') {
-          branchSelect.value = ''; eventSelect.value = '';
           if (help) { help.className = `${ownerStores.length ? 'muted' : 'danger-text'} owner-store-summary`; help.textContent = ownerStores.length ? `Owner dapat melihat ${ownerStores.length} toko (${ownerStores.join(', ')}) dan seluruh data event.` : 'Owner tetap dapat melihat seluruh data event. Pilih minimal satu toko untuk akses data toko.'; }
         } else if (role === 'event_employee') {
-          branchSelect.value = '';
           const selectedEvent = eventById(eventSelect.value);
           if (help) { help.className = `${selectedEvent ? 'muted' : 'danger-text'} owner-store-summary`; help.textContent = selectedEvent ? `Karyawan Event hanya dapat membuka dan closing Rekapan Bahan event ${selectedEvent.name}.` : 'Pilih tepat satu event untuk akun Karyawan Event.'; }
-        } else if (help) {
-          eventSelect.value = '';
-          help.className = `${branchSelect.value ? 'muted' : 'danger-text'} owner-store-summary`;
-          help.textContent = branchSelect.value ? `Karyawan hanya dapat mengelola bahan ${branchSelect.value}.` : 'Pilih tepat satu toko untuk akun Karyawan.';
+        } else {
+          if (help) {
+            help.className = `${branchSelect.value ? 'muted' : 'danger-text'} owner-store-summary`;
+            help.textContent = branchSelect.value ? `Karyawan hanya dapat mengelola bahan ${branchSelect.value}.` : 'Pilih tepat satu toko untuk akun Karyawan.';
+          }
         }
       }
 
@@ -8994,39 +9085,58 @@ NOTIFY pgrst, 'reload schema';`;
         const accessLabel = newRole === 'admin' ? 'semua toko dan event dengan akses penuh' : newRole === 'owner' ? `${newBranches.length} toko (${newBranches.join(', ')}) dan seluruh data event dalam mode hanya lihat` : newRole === 'event_employee' ? `Rekapan Bahan event ${selectedEvent?.name || newEventId}` : `toko ${newBranch}`;
         if (!confirm(`Simpan akses akun ${profile.email || ''} sebagai ${roleName} dengan akses ${accessLabel}?`)) return;
         setButtonBusy(button, true, 'Menyimpan…');
+        const payload = { role: newRole, branch: newBranch, branches: newBranches };
+        if (newEventId || newRole === 'event_employee') payload.event_id = newEventId;
+
+        // Segera perbarui state lokal dan persist ke snapshot agar UI tidak revert jika offline atau realtime lambat
+        const existing = state.profiles.find(p => p.user_id === userId);
+        const updated = { ...(existing || {}), ...payload, user_id: userId };
+        upsertLocalState('profiles', updated, 'user_id');
+        if (userId === state.profile?.user_id) {
+          state.profile = { ...state.profile, ...payload };
+          applyRoleUI();
+        }
+        scheduleLocalSnapshotSave(0);
+        renderProfiles();
+
         try {
-          const { error } = await db.from('profiles').update({ role: newRole, branch: newBranch, branches: newBranches, event_id: newEventId }).eq('user_id', userId);
-          if (error) throw error;
-          if (userId === state.profile.user_id) {
+          const result = await durableWrite({
+            kind: 'update',
+            table: 'profiles',
+            payload,
+            filters: [{ type: 'eq', column: 'user_id', value: userId }],
+            label: 'Hak Akses Akun'
+          });
+          if (userId === state.profile?.user_id) {
             await loadCurrentProfile(currentSession.user);
             applyRoleUI();
-            await loadCloudData(true);
-          } else {
-            applyRoleUI();
-            await settleAfterWrite();
           }
+          if (!result.queued) await settleAfterWrite();
           toast(newRole === 'admin' ? 'Akun sekarang memiliki akses penuh semua toko dan event.' : newRole === 'owner' ? `Akun Owner dapat melihat ${newBranches.length} toko dan seluruh data event.` : newRole === 'event_employee' ? `Akun hanya dapat mengelola Rekapan Bahan event ${selectedEvent?.name || ''}.` : `Akun hanya dapat mengelola bahan toko ${newBranch}.`);
         } catch (error) {
-          renderProfiles();
           showSyncError(error);
-        } finally { setButtonBusy(button, false); }
+        } finally {
+          const freshBtn = document.querySelector(`[data-save-access="${userId}"]`);
+          if (freshBtn) setButtonBusy(freshBtn, false);
+          else setButtonBusy(button, false);
+        }
       }
 
       function renderChart() { const canvas = el('cashChart'); if (!canvas || activeView !== 'dashboard' || el('appShell').hidden || !canViewAll()) return; const rect = canvas.getBoundingClientRect(); if (!rect.width) return; const dpr = window.devicePixelRatio || 1; canvas.width = Math.max(320, rect.width) * dpr; canvas.height = Math.max(220, rect.height) * dpr; const ctx = canvas.getContext('2d'); ctx.scale(dpr, dpr); const width = canvas.width / dpr, height = canvas.height / dpr; ctx.clearRect(0, 0, width, height); const themeStyles = getComputedStyle(document.documentElement), chartLine = themeStyles.getPropertyValue('--line').trim() || '#e5e7eb', chartMuted = themeStyles.getPropertyValue('--muted').trim() || '#64748b', chartText = themeStyles.getPropertyValue('--text').trim() || '#475569', chartGreen = themeStyles.getPropertyValue('--green').trim() || '#16a34a', chartRed = themeStyles.getPropertyValue('--red').trim() || '#dc2626'; if (balanceHidden) { ctx.fillStyle = chartMuted; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.font = '700 14px system-ui'; ctx.fillText('Nominal saldo sedang disembunyikan', width / 2, height / 2); return; } const months = []; const anchor = dashboardSelectedDate(); const now = new Date(`${anchor}T12:00:00+07:00`); for (let i = 5; i >= 0; i--) { const d = new Date(now.getFullYear(), now.getMonth() - i, 1); months.push({ key: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`, label: new Intl.DateTimeFormat('id-ID', { month: 'short' }).format(d) }); } const tx = filteredByGlobal(state.transactions); const data = months.map(m => ({ ...m, income: sumByType(tx.filter(t => t.date.startsWith(m.key)), 'income'), expense: sumByType(tx.filter(t => t.date.startsWith(m.key)), 'expense') })); const maxValue = Math.max(1, ...data.flatMap(d => [d.income, d.expense])); const pad = { left: 56, right: 14, top: 22, bottom: 40 }; const chartW = width - pad.left - pad.right, chartH = height - pad.top - pad.bottom; ctx.font = '11px system-ui'; ctx.strokeStyle = chartLine; ctx.fillStyle = chartMuted; ctx.textAlign = 'right'; ctx.textBaseline = 'middle'; for (let i = 0; i <= 4; i++) { const y = pad.top + chartH * i / 4, val = maxValue * (1 - i / 4); ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(width - pad.right, y); ctx.stroke(); ctx.fillText(shortMoney(val), pad.left - 8, y); } const groupW = chartW / data.length, barW = Math.min(24, groupW * .25); data.forEach((d, i) => { const center = pad.left + groupW * i + groupW / 2, incomeH = d.income / maxValue * chartH, expenseH = d.expense / maxValue * chartH; ctx.fillStyle = chartGreen; roundedRect(ctx, center - barW - 2, pad.top + chartH - incomeH, barW, incomeH, 5); ctx.fill(); ctx.fillStyle = chartRed; roundedRect(ctx, center + 2, pad.top + chartH - expenseH, barW, expenseH, 5); ctx.fill(); ctx.fillStyle = '#64748b'; ctx.textAlign = 'center'; ctx.textBaseline = 'top'; ctx.fillText(d.label, center, height - pad.bottom + 12); }); ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillStyle = chartGreen; ctx.fillRect(pad.left, 4, 10, 10); ctx.fillStyle = chartText; ctx.fillText('Pemasukan', pad.left + 16, 9); ctx.fillStyle = chartRed; ctx.fillRect(pad.left + 94, 4, 10, 10); ctx.fillStyle = chartText; ctx.fillText('Pengeluaran', pad.left + 110, 9); }
       function roundedRect(ctx, x, y, w, h, r) { const radius = Math.min(r, Math.abs(w) / 2, Math.abs(h) / 2); ctx.beginPath(); ctx.moveTo(x + radius, y); ctx.arcTo(x + w, y, x + w, y + h, radius); ctx.arcTo(x + w, y + h, x, y + h, radius); ctx.arcTo(x, y + h, x, y, radius); ctx.arcTo(x, y, x + w, y, radius); ctx.closePath(); }
       function shortMoney(value) { if (balanceHidden) return '••••'; if (value >= 1_000_000_000) return `${(value / 1_000_000_000).toFixed(1)}M`; if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}jt`; if (value >= 1_000) return `${(value / 1_000).toFixed(0)}rb`; return String(Math.round(value)); }
-      function updateBalanceToggle() { const button = el('balanceToggleBtn'); if (!button) return; const icon = el('balanceToggleIcon'); icon.innerHTML = balanceHidden ? '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"></path><path d="M6.61 6.61C3.91 8.38 2 12 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"></path><path d="M14.12 14.12a3 3 0 0 1-4.24-4.24"></path><path d="M2 2l20 20"></path></svg>' : '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"></path><circle cx="12" cy="12" r="3"></circle></svg>'; el('balanceToggleText').textContent = balanceHidden ? 'Tampilkan Saldo' : 'Sembunyikan Saldo'; button.setAttribute('aria-pressed', String(balanceHidden)); button.setAttribute('aria-label', balanceHidden ? 'Tampilkan kembali nominal saldo' : 'Sembunyikan nominal saldo'); button.title = balanceHidden ? 'Tampilkan kembali nominal saldo' : 'Sembunyikan nominal saldo'; }
+      function updateBalanceToggle() { const button = el('balanceToggleBtn'); if (!button) return; const icon = el('balanceToggleIcon'); if (icon) icon.innerHTML = balanceHidden ? '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"></path><path d="M6.61 6.61C3.91 8.38 2 12 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"></path><path d="M14.12 14.12a3 3 0 0 1-4.24-4.24"></path><path d="M2 2l20 20"></path></svg>' : '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"></path><circle cx="12" cy="12" r="3"></circle></svg>'; if (el('balanceToggleText')) el('balanceToggleText').textContent = balanceHidden ? 'Tampilkan Saldo' : 'Sembunyikan Saldo'; button.setAttribute('aria-pressed', String(balanceHidden)); button.setAttribute('aria-label', balanceHidden ? 'Tampilkan kembali nominal saldo' : 'Sembunyikan nominal saldo'); button.title = balanceHidden ? 'Tampilkan kembali nominal saldo' : 'Sembunyikan nominal saldo'; }
       function toggleBalanceVisibility() { balanceHidden = !balanceHidden; localStorage.setItem(BALANCE_VISIBILITY_KEY, balanceHidden ? '1' : '0'); updateBalanceToggle(); renderAll(); toast(balanceHidden ? 'Nominal saldo disembunyikan.' : 'Nominal saldo ditampilkan kembali.'); }
       function formatLongDate(date) { if (!date) return '-'; return new Intl.DateTimeFormat('id-ID', { timeZone: 'Asia/Jakarta', weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(`${date}T12:00:00+07:00`)); }
       function formatMonthYear(month) { if (!month) return '-'; return new Intl.DateTimeFormat('id-ID', { timeZone: 'Asia/Jakarta', month: 'long', year: 'numeric' }).format(new Date(`${month}-01T12:00:00+07:00`)); }
       function formatDate(date) { if (!date) return '-'; return new Intl.DateTimeFormat('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date(`${date}T00:00:00`)); }
       function formatSavedDateTime(value) { if (!value) return '-'; const date = new Date(value); if (Number.isNaN(date.getTime())) return '-'; const savedDate = new Intl.DateTimeFormat('id-ID', { timeZone: 'Asia/Jakarta', day: '2-digit', month: 'short', year: 'numeric' }).format(date); const savedTime = new Intl.DateTimeFormat('id-ID', { timeZone: 'Asia/Jakarta', hour: '2-digit', minute: '2-digit', hour12: false }).format(date).replace('.', ':'); return `${savedDate} · ${savedTime} WIB`; }
       function emptyState(title, text) { return `<div class="empty-state"><span class="emoji">📋</span><strong>${escapeHtml(title)}</strong><span>${escapeHtml(text)}</span></div>`; }
-      function toast(message) { el('toast').textContent = message; el('toast').classList.add('show'); clearTimeout(toast.timer); toast.timer = setTimeout(() => el('toast').classList.remove('show'), 3000); }
+      function toast(message) { if (el('toast')) { el('toast').textContent = message; el('toast').classList.add('show'); clearTimeout(toast.timer); toast.timer = setTimeout(() => el('toast')?.classList.remove('show'), 3000); } }
       function setButtonBusy(button, busy, busyText = 'Memproses…') { if (!button) return; if (busy) { button.dataset.originalText = button.textContent; button.textContent = busyText; button.disabled = true; } else { button.textContent = button.dataset.originalText || button.textContent; button.disabled = false; } }
-      function setCloudStatus(status, text) { el('cloudPill').className = `cloud-pill ${status}`; el('cloudStatusText').textContent = text; }
-      function showSyncError(error) { const message = friendlyError(error); setCloudStatus('error', 'Gagal sinkron'); el('syncBanner').textContent = message; el('syncBanner').hidden = false; toast(message); }
-      function hideSyncError() { el('syncBanner').hidden = true; el('syncBanner').textContent = ''; }
+      function setCloudStatus(status, text) { if (el('cloudPill')) el('cloudPill').className = `cloud-pill ${status}`; if (el('cloudStatusText')) el('cloudStatusText').textContent = text; }
+      function showSyncError(error) { const message = friendlyError(error); setCloudStatus('error', 'Gagal sinkron'); if (el('syncBanner')) { el('syncBanner').textContent = message; el('syncBanner').hidden = false; } toast(message); }
+      function hideSyncError() { if (el('syncBanner')) { el('syncBanner').hidden = true; el('syncBanner').textContent = ''; } }
       function friendlyError(error) { const message = String(error?.message || error || 'Terjadi kesalahan.'); if (/exceed(?:ed)?[_\s-]*egress|egress quota|service for this project is restricted/i.test(message)) return 'Kuota egress Supabase sudah terlampaui sehingga API proyek sedang dibatasi. Data tidak hilang. Pulihkan layanan dari Billing Supabase (upgrade paket / matikan Spend Cap jika tersedia) atau tunggu reset billing cycle. Versi web terbaru sudah dioptimalkan agar tidak mengunduh ulang seluruh database setiap 30 detik.'; if (/store_check|scope_check|inventory_scope_check|profiles_branch_check|profiles_branches_check|store.*check constraint|scope.*check constraint/i.test(message)) return 'Database Supabase masih membatasi nama toko/bahan lama (constraint). Jalankan SQL perbaikan pada menu Cloud & Pengaturan / Supabase SQL Editor agar toko baru dapat digunakan.';
         if (/payment_method.*schema cache|schema cache.*payment_method|Could not find the ['"]payment_method['"] column/i.test(message)) return 'Kolom metode pembayaran belum aktif di Supabase. Jalankan file fix_payment_method.sql, tunggu beberapa detik, lalu muat ulang halaman.'; if (/Invalid login credentials/i.test(message)) return 'Email atau password salah.'; if (/Email not confirmed/i.test(message)) return 'Email belum dikonfirmasi.'; if (/Failed to fetch|NetworkError|fetch/i.test(message)) return 'Tidak dapat terhubung ke Supabase. Periksa internet, Project URL, dan publishable key.'; if (/payroll_advances.*schema cache|Could not find the table ['"]?public\.payroll_advances|relation .*payroll_advances.* does not exist/i.test(message)) return 'Tabel Kasbon Karyawan belum aktif di Supabase. Jalankan file update_gaji_kasbon.sql, tunggu beberapa detik, lalu refresh data.'; if (/Gaji bersih terakhir belum tersedia/i.test(message)) return 'Kasbon belum dapat disimpan karena gaji bersih terakhir karyawan belum tersedia.'; if (/Total kasbon melebihi gaji bersih terakhir/i.test(message)) return 'Total kasbon melebihi batas gaji bersih terakhir karyawan.'; if (/payroll_monthly_payments.*schema cache|Could not find the table ['"]?public\.payroll_monthly_payments|relation .*payroll_monthly_payments.* does not exist/i.test(message)) return 'Tabel Rekapan Gaji Bulanan belum aktif di Supabase. Jalankan file update_gaji_karyawan_lengkap.sql, tunggu beberapa detik, lalu refresh data.'; if (/extra_wage|extra_wage_note/i.test(message)) return 'Kolom Tambahan Gaji belum aktif di Supabase. Jalankan SQL pembaruan tambahan gaji yang disertakan, tunggu beberapa detik, lalu refresh data.'; if (/attribute_status|late_deduction|attribute_deduction|net_wage/i.test(message)) return 'Kolom potongan otomatis gaji harian belum aktif. Jalankan SQL terbaru pada halaman pengaturan koneksi, tunggu beberapa detik, lalu refresh data.'; if (/employees.*schema cache|payroll_daily.*schema cache|Could not find the table ['"]?public\.(employees|payroll_daily)|relation .*(employees|payroll_daily).* does not exist/i.test(message)) return 'Tabel Gaji Harian belum aktif di Supabase. Jalankan file update_gaji_karyawan_lengkap.sql, tunggu beberapa detik, lalu refresh data.'; if (/relation .* does not exist|Could not find the table|column .* does not exist/i.test(message)) return 'Struktur Supabase belum diperbarui. Jalankan SQL terbaru yang tersedia pada halaman pengaturan koneksi.'; if (/row-level security|permission denied|policy/i.test(message)) return 'Akses database ditolak. Jalankan SQL terbaru agar aturan Admin, Owner, Karyawan, dan Karyawan Event aktif dengan benar.'; if (/JWT|apikey|API key|Unauthorized/i.test(message)) return 'Publishable key tidak valid atau sudah berubah.'; return message; }
 
@@ -9161,7 +9271,7 @@ NOTIFY pgrst, 'reload schema';`;
   <script>
     if ('serviceWorker' in navigator && location.protocol !== 'file:') {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js?v=rekapan-bahan-v9').then((registration) => {
+        navigator.serviceWorker.register('./sw.js?v=rekapan-bahan-v10').then((registration) => {
           registration.update().catch(() => { });
         }).catch((error) => {
           console.warn('Service worker tidak dapat didaftarkan:', error);
